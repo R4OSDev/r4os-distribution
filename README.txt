@@ -33,6 +33,10 @@ Unter Windows:
     Build.bat verify Full
     Build.bat qemu Full
 
+Ein uebergeordneter Workspace-Build darf diese Aktionen aufrufen, erzeugt
+Images oder QEMU-Aufrufe aber nicht selbst. Damit bleibt dieses `Build.bat`
+die einzige Implementierung fuer Planmontage, Image, Verifikation und QEMU.
+
 `Build.bat test` baut alle sieben Hosttools und prueft die Slim-, Full- und
 Test-Imageplaene bytegenau sowie mit einem negativen Kollisionstest. Unter
 Linux und macOS stehen Hosttool-Build, Tests und Plangenerierung ueber
