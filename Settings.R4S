@@ -1,0 +1,26 @@
+﻿# R4OS Distribution path mappings
+# WORKSPACE_ROOT and REPOSITORIES_ROOT are relative to this repository.
+# Component roots are relative to REPOSITORIES_ROOT. DEVKIT_ROOT and
+# ARTIFACTS_ROOT are relative to WORKSPACE_ROOT. Tool roots are relative to
+# DEVKIT_ROOT; distribution input/output roots are relative to ARTIFACTS_ROOT.
+# Every value may instead be absolute. Do not wrap values in quotes.
+
+WORKSPACE_ROOT=../..
+REPOSITORIES_ROOT=..
+
+CONTRACT_ROOT=Contract
+SDK_ROOT=SDK
+KERNEL_ROOT=Kernel
+LIBRARIES_ROOT=Libraries
+MODULES_ROOT=Modules
+
+DEVKIT_ROOT=DevKit
+ARTIFACTS_ROOT=Artifacts
+ZIG_ROOT=Toolchains/Zig
+LIMINE_ROOT=Boot/Limine
+QEMU_ROOT=Emulation/QEMU
+DEVKIT_HOSTTOOLS_ROOT=HostTools/bin
+
+DISTRIBUTION_OUTPUT_ROOT=Distribution
+INPUT_ROOT=Distribution/Inputs
+PRIVATE_INJECTION_ROOT=Distribution/PrivateInjection

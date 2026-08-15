@@ -1,0 +1,1 @@
+﻿Desktop folder smoke file.

@@ -1,0 +1,38 @@
+﻿# Desktop start menu defaults for R4OS.
+#
+# Format:
+# ITEM;title=<label>;path=<r4x path>;args=<optional args>;class=<console|gui>;policy=<console|gui|auto>
+# ACTION;title=<label>;action=<terminal_mode|run|tasks|restart|poweroff|halt>
+# SUBMENU;title=<label>;id=<programs|settings>
+# CHILDMENU;menu=<parent id>;title=<label>;id=<child id>
+# SUBACTION;menu=<submenu id>;title=<label>;action=<desktop>
+# SUBITEM;menu=<submenu id>;title=<label>;path=<r4x path>;args=<optional args>;class=<console|gui>;policy=<console|gui|auto>
+#
+# R4DESK.R4X loads this file at startup. If it is missing or contains no known
+# entries, Desktop falls back to its built-in defaults.
+
+ITEM;title=R4OS Update;path=/R4OS/SOFTWARE/DESKTOP/UPDATE.R4X;class=gui;policy=gui
+SUBMENU;title=Programs;id=programs
+SUBITEM;menu=programs;title=Terminal;path=/R4OS/SOFTWARE/TERMINAL/TERMINAL.R4X;class=console;policy=console
+SUBITEM;menu=programs;title=Notepad;path=/R4OS/SOFTWARE/DESKTOP/NOTEPAD.R4X;class=gui;policy=gui
+SUBITEM;menu=programs;title=Paint;path=/R4OS/SOFTWARE/DESKTOP/PAINT.R4X;class=gui;policy=gui
+SUBITEM;menu=programs;title=Calculator;path=/R4OS/SOFTWARE/DESKTOP/CALC.R4X;class=gui;policy=gui
+SUBITEM;menu=programs;title=R4Synth;path=/R4OS/SOFTWARE/TERMINAL/SYNTH.R4X;args=C:\TEMP\TADA.WAV;class=console;policy=console
+SUBITEM;menu=programs;title=Device Manager;path=/R4OS/SOFTWARE/DESKTOP/DEVMGR.R4X;class=gui;policy=gui
+SUBITEM;menu=programs;title=R4Code;path=/SOFTWARE/R4CODE/R4CODE.R4X;class=gui;policy=gui
+CHILDMENU;menu=programs;title=Internet;id=internet
+SUBITEM;menu=internet;title=Klickifax;path=/R4OS/SOFTWARE/INTERNET/KLICKIFAX.R4X;class=gui;policy=gui
+ACTION;title=Terminal Mode;action=terminal_mode
+ACTION;title=Run...;action=run
+SUBMENU;title=Settings;id=settings
+SUBITEM;menu=settings;title=Appearance;path=/R4OS/SOFTWARE/DESKTOP/APPEARANCE.R4X;class=gui;policy=gui
+SUBITEM;menu=settings;title=Default Apps;path=/R4OS/SOFTWARE/DESKTOP/APPDEF.R4X;class=gui;policy=gui
+SUBITEM;menu=settings;title=Registry Editor;path=/R4OS/SOFTWARE/DESKTOP/REGEDIT.R4X;class=gui;policy=gui
+SUBITEM;menu=settings;title=Network;path=/R4OS/SOFTWARE/DESKTOP/NETCFG.R4X;class=gui;policy=gui
+SUBITEM;menu=settings;title=Services;path=/R4OS/SOFTWARE/DESKTOP/SERVICES.R4X;class=gui;policy=gui
+SUBITEM;menu=settings;title=Log Center;path=/R4OS/SOFTWARE/DESKTOP/LOGCENTER.R4X;class=gui;policy=gui
+SUBITEM;menu=settings;title=Time Settings;path=/R4OS/SOFTWARE/DESKTOP/TIMESET.R4X;class=gui;policy=gui
+ACTION;title=Tasks;action=tasks
+ACTION;title=Restart;action=restart
+ACTION;title=Poweroff;action=poweroff
+ACTION;title=Halt;action=halt

@@ -1,0 +1,47 @@
+﻿R4OS Distribution - Herkunft
+=============================
+
+Kanonischer Quellstand der Uebernahme:
+
+    Repository: R4mbo/R4OS
+    Commit:     259cbfac272c47ac1a7828de973512d17b29ae10
+    Archivkopf: 2c0ca0473b5eeb5f3417db82fa666368ed67d5df
+
+Ausgangseinheiten:
+
+    Injection/
+    TestInjection/
+    Code/BuildTools/ImageCreator/
+    Code/BuildTools/NtfsVerify/
+    Code/BuildTools/R4UPack/
+    Code/BuildTools/SerialLinkHost/
+    DevTools/Scripts/CreateDefaultRegistry.zig
+    DevTools/Scripts/CreateImageAddList.zig
+    DevTools/Scripts/CreatePreloadImage.zig
+    DevTools/QEMU/Config/standard.conf
+
+Der alte private TLS-Schluessel `R4TLSDEV.KEY` und das generierte
+`MODULES.JSON` wurden bereits beim Archivexport ausgeschlossen und waren zu
+keinem Zeitpunkt Teil dieses oeffentlichen Repositorys. Private Dateien
+werden kuenftig ausschliesslich als ignoriertes lokales Overlay eingespeist;
+das Modulinventar ist ein explizites Buildartefakt.
+
+Repo-neutrale Grenzanpassungen:
+
+- Die sieben Hosttools besitzen einen gemeinsamen Build und beziehen die
+  reinen NTFS- und R4U-Formate explizit aus dem gepinnten SDK.
+- Der alte monorepo-feste Image-Listen-Generator wurde zum generischen
+  `image-plan`: Planfragmente, Baume und priorisierte Overlays sind explizite
+  Eingaben; Quellen und Zielkollisionen werden vor dem Schreiben geprueft.
+- Ausgabepfade liegen ausserhalb des Repositorys im gemappten Artefaktbereich.
+- Die QEMU-Standardkonfiguration bezieht `disk.img` und `data.img` relativ zum
+  gewaehlt gestarteten Profilordner.
+
+Explizite Buildbasis:
+
+    SDK       Commit 210372f305086b3528f6bd386e23e6901975c153
+    Contract  Commit 5521df06871b4cee158e44853db01380934d6c4c
+
+Der eingefrorene Altprojektbaum bleibt historische Referenz. Nach
+eigenstaendigem Build, Planabnahme und GitHub-Push ist dieses Repository die
+kanonische Quelle fuer Distribution und distributionsspezifische Hosttools.

@@ -1,0 +1,30 @@
+.{
+    .name = .r4os_distribution,
+    .version = "0.64.16",
+    .fingerprint = 0x2d91a527bbcca34b,
+    .minimum_zig_version = "0.16.0",
+    .dependencies = .{
+        // The identity is pinned here. Build.bat and Build.sh map the actual
+        // SDK and Contract checkouts from Settings.R4S as local Zig forks.
+        .r4os_sdk = .{
+            .url = "https://github.com/R4OSDev/r4os-sdk/archive/210372f305086b3528f6bd386e23e6901975c153.tar.gz",
+            .hash = "r4os_sdk-0.64.12-NnPzAp9j7gBN9NS8Eeh4pR0DuZ9HtOi9yBcyITywdVZx",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "Build.bat",
+        "Build.sh",
+        "Settings.R4S",
+        "Profiles",
+        "Injection",
+        "TestInjection",
+        "QEMU",
+        "Tools",
+        "Tests",
+        "README.txt",
+        "PROVENANCE.txt",
+        "INPUTS.txt",
+    },
+}

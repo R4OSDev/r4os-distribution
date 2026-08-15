@@ -1,0 +1,3 @@
+Tests/Fixtures/Artifacts/app.bin:/R4OS/SOFTWARE/APP.R4X
+Tests/Fixtures/Artifacts/driver.bin:/R4OS/DRIVERS/DRIVER.R4D
+Tests/Fixtures/Artifacts/protocol.bin:/R4OS/PROTOCOLS/PROTOCOL.R4P

@@ -1,0 +1,1 @@
+#define R4OS_FIXTURE_Z 1

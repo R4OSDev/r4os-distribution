@@ -1,0 +1,3 @@
+# Finished distribution prerequisites. No source build is permitted here.
+Tests/Fixtures/Artifacts/kernel.bin:/boot/r4os.elf
+Tests/Fixtures/Artifacts/boot.bin:/boot/limine-bios.sys

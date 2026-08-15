@@ -1,0 +1,16 @@
+﻿# R4OS SERVICES.R4S
+# Test services for 0.22.22
+SERVICE;name=CLIPSVC;path=C:\R4OS\SERVICES\CLIPSVC.R4X;args=/RUN;start=auto;enabled=yes;description=Clipboard service
+SERVICE;name=DNSSVC;path=C:\R4OS\SERVICES\DNSSVC.R4X;args=/RUN;start=auto;enabled=yes;description=DNS resolver service
+SERVICE;name=DHCPSVC;path=C:\R4OS\SERVICES\DHCPSVC.R4X;args=/RUN;start=auto;enabled=yes;description=DHCP lease service
+SERVICE;name=TIMESVC;path=C:\R4OS\SERVICES\TIMESVC.R4X;args=/RUN;start=auto;enabled=yes;description=Time configuration service
+SERVICE;name=LOGSVC;path=C:\R4OS\SERVICES\LOGSVC.R4X;args=/RUN;start=auto;enabled=yes;description=Log aggregation service
+SERVICE;name=AUDSVC;path=C:\R4OS\SERVICES\AUDSVC.R4X;args=/RUN;start=auto;enabled=yes;description=Audio and mixer service
+SERVICE;name=R4SLSVC;path=C:\R4OS\SERVICES\R4SLSVC.R4X;args=/RUN;start=auto;enabled=yes;description=Serial link service
+SERVICE;name=TCPSVC;path=C:\R4OS\SERVICES\TCPSVC.R4X;args=/RUN;start=auto;enabled=yes;description=TCP connection service
+SERVICE;name=FTPSVC;path=C:\R4OS\SERVICES\FTPSVC.R4X;args=/RUN;start=auto;enabled=yes;description=FTP server service
+SERVICE;name=UDPSVC;path=C:\R4OS\SERVICES\UDPSVC.R4X;args=/RUN;start=auto;enabled=yes;description=UDP socket broker service
+SERVICE;name=WINSVC;path=C:\R4OS\SERVICES\WINSVC.R4X;args=/RUN;start=auto;enabled=yes;description=Window and task state service
+SERVICE;name=EXSVC;path=C:\R4OS\SERVICES\EXSVC.R4X;args=/RUN;start=manual;enabled=yes;description=Example service
+SERVICE;name=SVCAPPD;path=C:\R4OS\SOFTWARE\TERMINAL\DIAG\SVCAPPD.R4X;args=/HOLD /ENDPOINT;start=auto;enabled=yes;description=SVCAPPD-Auto
+SERVICE;name=BADSTART;path=C:\R4OS\SOFTWARE\TERMINAL\DIAG\MISSING.R4X;start=manual;enabled=yes;description=Missing-start-test

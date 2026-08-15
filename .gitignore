@@ -1,0 +1,22 @@
+/.zig-cache/
+/zig-out/
+/zig-pkg/
+**/.zig-cache/
+**/zig-out/
+**/zig-pkg/
+
+# Private overlays and credentials never belong in the public repository.
+/PrivateInjection/
+*.KEY
+*.key
+
+*.exe
+*.obj
+*.o
+*.pdb
+*.pyc
+**/__pycache__/
+
+.DS_Store
+Thumbs.db
+desktop.ini
