@@ -13,6 +13,7 @@ if /i "%R4OS_ACTION%"=="plan" goto require_profile
 if /i "%R4OS_ACTION%"=="image" goto require_profile
 if /i "%R4OS_ACTION%"=="verify" goto require_profile
 if /i "%R4OS_ACTION%"=="qemu" goto require_profile
+if /i "%R4OS_ACTION%"=="headless" goto require_profile
 goto usage
 
 :require_profile
@@ -29,6 +30,7 @@ set "R4OS_WORKSPACE_SETTING="
 set "R4OS_REPOSITORIES_SETTING="
 set "R4OS_CONTRACT_SETTING="
 set "R4OS_SDK_SETTING="
+set "R4OS_LIBRARIES_SETTING="
 set "R4OS_DEVKIT_SETTING="
 set "R4OS_ARTIFACTS_SETTING="
 set "R4OS_ZIG_SETTING="
@@ -44,6 +46,7 @@ for /f "usebackq tokens=1,* delims==" %%A in ("%R4OS_SETTINGS%") do (
     if /i "%%A"=="REPOSITORIES_ROOT" set "R4OS_REPOSITORIES_SETTING=%%B"
     if /i "%%A"=="CONTRACT_ROOT" set "R4OS_CONTRACT_SETTING=%%B"
     if /i "%%A"=="SDK_ROOT" set "R4OS_SDK_SETTING=%%B"
+    if /i "%%A"=="LIBRARIES_ROOT" set "R4OS_LIBRARIES_SETTING=%%B"
     if /i "%%A"=="DEVKIT_ROOT" set "R4OS_DEVKIT_SETTING=%%B"
     if /i "%%A"=="ARTIFACTS_ROOT" set "R4OS_ARTIFACTS_SETTING=%%B"
     if /i "%%A"=="ZIG_ROOT" set "R4OS_ZIG_SETTING=%%B"
@@ -55,7 +58,7 @@ for /f "usebackq tokens=1,* delims==" %%A in ("%R4OS_SETTINGS%") do (
     if /i "%%A"=="PRIVATE_INJECTION_ROOT" set "R4OS_PRIVATE_INJECTION_SETTING=%%B"
 )
 
-for %%K in (WORKSPACE REPOSITORIES CONTRACT SDK DEVKIT ARTIFACTS ZIG LIMINE QEMU DEVKIT_HOSTTOOLS DISTRIBUTION_OUTPUT INPUT PRIVATE_INJECTION) do if not defined R4OS_%%K_SETTING (
+for %%K in (WORKSPACE REPOSITORIES CONTRACT SDK LIBRARIES DEVKIT ARTIFACTS ZIG LIMINE QEMU DEVKIT_HOSTTOOLS DISTRIBUTION_OUTPUT INPUT PRIVATE_INJECTION) do if not defined R4OS_%%K_SETTING (
     echo ERROR: %%K_ROOT mapping is missing in "%R4OS_SETTINGS%".
     exit /b 1
 )
@@ -71,6 +74,7 @@ pushd "%R4OS_REPOSITORIES_ROOT%" >nul || (
 )
 for %%I in ("%R4OS_CONTRACT_SETTING%") do set "R4OS_CONTRACT_ROOT=%%~fI"
 for %%I in ("%R4OS_SDK_SETTING%") do set "R4OS_SDK_ROOT=%%~fI"
+for %%I in ("%R4OS_LIBRARIES_SETTING%") do set "R4OS_LIBRARIES_ROOT=%%~fI"
 popd
 
 pushd "%R4OS_WORKSPACE_ROOT%" >nul || (
@@ -107,6 +111,10 @@ set "R4OS_GLOBAL_CACHE=%R4OS_OUTPUT_ROOT%\.Cache\global"
 set "R4OS_IMAGE_PLAN=%R4OS_BUILD_PREFIX%\bin\image-plan.exe"
 set "R4OS_IMAGE_CREATOR=%R4OS_BUILD_PREFIX%\bin\imagecreater.exe"
 set "R4OS_NTFS_VERIFY=%R4OS_BUILD_PREFIX%\bin\ntfsverify.exe"
+set "R4OS_QEMU_CONFIG=%R4OS_DISTRIBUTION_ROOT%\QEMU\standard.conf"
+set "R4OS_QEMU_TIMEOUT_HELPER=%R4OS_DISTRIBUTION_ROOT%\Tests\Invoke-QemuHeadless.ps1"
+set "R4OS_QEMU_MARKER_TEST=%R4OS_DISTRIBUTION_ROOT%\Tests\Test-QemuApiMarkers.ps1"
+set "R4OS_LOG_ROOT=%R4OS_OUTPUT_ROOT%\Logs"
 
 if not exist "%R4OS_CONTRACT_ROOT%\build.zig.zon" (
     echo ERROR: Contract repository not found: "%R4OS_CONTRACT_ROOT%"
@@ -114,6 +122,10 @@ if not exist "%R4OS_CONTRACT_ROOT%\build.zig.zon" (
 )
 if not exist "%R4OS_SDK_ROOT%\build.zig.zon" (
     echo ERROR: SDK repository not found: "%R4OS_SDK_ROOT%"
+    exit /b 1
+)
+if not exist "%R4OS_LIBRARIES_ROOT%\build.zig.zon" (
+    echo ERROR: Libraries repository not found: "%R4OS_LIBRARIES_ROOT%"
     exit /b 1
 )
 if not exist "%R4OS_ZIG_EXE%" (
@@ -127,6 +139,7 @@ if /i "%R4OS_ACTION%"=="plan" goto plan_action
 if /i "%R4OS_ACTION%"=="image" goto image_action
 if /i "%R4OS_ACTION%"=="verify" goto verify_action
 if /i "%R4OS_ACTION%"=="qemu" goto qemu_action
+if /i "%R4OS_ACTION%"=="headless" goto headless_action
 goto usage
 
 :build_tools_action
@@ -137,6 +150,8 @@ exit /b %ERRORLEVEL%
 call :build_tools test
 if errorlevel 1 exit /b %ERRORLEVEL%
 call :run_plan_acceptance
+if errorlevel 1 exit /b %ERRORLEVEL%
+call :run_marker_acceptance
 exit /b %ERRORLEVEL%
 
 :plan_action
@@ -195,10 +210,70 @@ if not exist "%R4OS_QEMU_EXE%" (
     exit /b 1
 )
 pushd "%R4OS_PROFILE_OUTPUT%" >nul || exit /b 1
-"%R4OS_QEMU_EXE%" -readconfig "%R4OS_DISTRIBUTION_ROOT%\QEMU\standard.conf" -m 1024 -smp 4 -cpu max -boot c
+"%R4OS_QEMU_EXE%" -readconfig "%R4OS_QEMU_CONFIG%" -m 1024 -smp 4 -cpu max -boot c
 set "R4OS_EXIT_CODE=%ERRORLEVEL%"
 popd
 exit /b %R4OS_EXIT_CODE%
+
+:headless_action
+call :load_profile "%R4OS_REQUESTED_PROFILE%"
+if errorlevel 1 exit /b %ERRORLEVEL%
+if /i not "%R4OS_PROFILE%"=="Test" (
+    echo ERROR: Headless acceptance requires the Test profile.
+    exit /b 1
+)
+if not "%R4OS_TEST_OVERLAY%"=="1" (
+    echo ERROR: Test profile has no test overlay.
+    exit /b 1
+)
+set "R4OS_PROFILE_OUTPUT=%R4OS_OUTPUT_ROOT%\Profiles\%R4OS_PROFILE%"
+if not exist "%R4OS_PROFILE_OUTPUT%\disk.img" (
+    echo ERROR: Image not found: "%R4OS_PROFILE_OUTPUT%\disk.img"
+    exit /b 1
+)
+if not exist "%R4OS_IMAGE_CREATOR%" call :build_tools
+if errorlevel 1 exit /b %ERRORLEVEL%
+if not exist "%R4OS_QEMU_EXE%" (
+    echo ERROR: QEMU executable not found: "%R4OS_QEMU_EXE%"
+    exit /b 1
+)
+if not exist "%R4OS_QEMU_CONFIG%" (
+    echo ERROR: QEMU config not found: "%R4OS_QEMU_CONFIG%"
+    exit /b 1
+)
+if not exist "%R4OS_QEMU_TIMEOUT_HELPER%" (
+    echo ERROR: QEMU timeout helper not found: "%R4OS_QEMU_TIMEOUT_HELPER%"
+    exit /b 1
+)
+if not exist "%R4OS_QEMU_MARKER_TEST%" (
+    echo ERROR: QEMU marker test not found: "%R4OS_QEMU_MARKER_TEST%"
+    exit /b 1
+)
+
+rem A headless run must never inherit a data disk damaged by an interrupted
+rem previous run. GUI sessions intentionally keep their persistent data disk.
+if exist "%R4OS_PROFILE_OUTPUT%\data.img" del /f /q "%R4OS_PROFILE_OUTPUT%\data.img" || exit /b 1
+echo === Recreate Test data image for headless acceptance: %R4OS_DATA_MB% MB ===
+"%R4OS_IMAGE_CREATOR%" --output "%R4OS_PROFILE_OUTPUT%\data.img" --size %R4OS_DATA_MB%
+if errorlevel 1 exit /b %ERRORLEVEL%
+
+if not exist "%R4OS_LOG_ROOT%" mkdir "%R4OS_LOG_ROOT%" || exit /b 1
+set "R4OS_QEMU_LOG=%R4OS_LOG_ROOT%\qemu-test-standard.log"
+set "R4OS_QEMU_ERROR_LOG=%R4OS_LOG_ROOT%\qemu-test-standard.err"
+set "R4OS_QEMU_WORKING_DIRECTORY=%R4OS_PROFILE_OUTPUT%"
+if exist "%R4OS_QEMU_LOG%" del /f /q "%R4OS_QEMU_LOG%" || exit /b 1
+if exist "%R4OS_QEMU_ERROR_LOG%" del /f /q "%R4OS_QEMU_ERROR_LOG%" || exit /b 1
+if not defined QEMU_TEST_TIMEOUT_SECONDS set "QEMU_TEST_TIMEOUT_SECONDS=240"
+
+echo === Start QEMU Test profile headless ===
+echo     Config:  %R4OS_QEMU_CONFIG%
+echo     Serial:  %R4OS_QEMU_LOG%
+echo     Timeout: %QEMU_TEST_TIMEOUT_SECONDS%s
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_TIMEOUT_HELPER%"
+set "R4OS_QEMU_EXIT=%ERRORLEVEL%"
+if "%R4OS_QEMU_EXIT%"=="124" echo QEMU: TIMEOUT after %QEMU_TEST_TIMEOUT_SECONDS%s; guest did not power off.
+call :evaluate_headless_logs "%R4OS_QEMU_EXIT%"
+exit /b %ERRORLEVEL%
 
 :build_tools
 if not exist "%R4OS_BUILD_PREFIX%" mkdir "%R4OS_BUILD_PREFIX%" || exit /b 1
@@ -207,9 +282,9 @@ if not exist "%R4OS_GLOBAL_CACHE%" mkdir "%R4OS_GLOBAL_CACHE%" || exit /b 1
 echo === Distribution HostTools ===
 pushd "%R4OS_DISTRIBUTION_ROOT%" >nul || exit /b 1
 if /i "%~1"=="test" (
-    "%R4OS_ZIG_EXE%" build test --cache-dir "%R4OS_BUILD_CACHE%" --global-cache-dir "%R4OS_GLOBAL_CACHE%" --prefix "%R4OS_BUILD_PREFIX%" -Doptimize=ReleaseSafe --fork="%R4OS_SDK_ROOT%" --fork="%R4OS_CONTRACT_ROOT%"
+    "%R4OS_ZIG_EXE%" build test --cache-dir "%R4OS_BUILD_CACHE%" --global-cache-dir "%R4OS_GLOBAL_CACHE%" --prefix "%R4OS_BUILD_PREFIX%" -Doptimize=ReleaseSafe --fork="%R4OS_SDK_ROOT%" --fork="%R4OS_CONTRACT_ROOT%" --fork="%R4OS_LIBRARIES_ROOT%"
 ) else (
-    "%R4OS_ZIG_EXE%" build --cache-dir "%R4OS_BUILD_CACHE%" --global-cache-dir "%R4OS_GLOBAL_CACHE%" --prefix "%R4OS_BUILD_PREFIX%" -Doptimize=ReleaseSafe --fork="%R4OS_SDK_ROOT%" --fork="%R4OS_CONTRACT_ROOT%"
+    "%R4OS_ZIG_EXE%" build --cache-dir "%R4OS_BUILD_CACHE%" --global-cache-dir "%R4OS_GLOBAL_CACHE%" --prefix "%R4OS_BUILD_PREFIX%" -Doptimize=ReleaseSafe --fork="%R4OS_SDK_ROOT%" --fork="%R4OS_CONTRACT_ROOT%" --fork="%R4OS_LIBRARIES_ROOT%"
 )
 set "R4OS_EXIT_CODE=%ERRORLEVEL%"
 popd
@@ -297,6 +372,31 @@ if "%R4OS_EXIT_CODE%"=="0" set "R4OS_EXIT_CODE=1"
 popd
 exit /b %R4OS_EXIT_CODE%
 
+:run_marker_acceptance
+echo === QEMU marker evaluator acceptance ===
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_MARKER_TEST%" -SelfTest
+exit /b %ERRORLEVEL%
+
+:evaluate_headless_logs
+set "R4OS_QEMU_EXIT=%~1"
+
+echo.
+echo === HEADLESS TEST EVALUATION ===
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_MARKER_TEST%" -LogPath "%R4OS_QEMU_LOG%" -ErrorPath "%R4OS_QEMU_ERROR_LOG%" -QemuExitCode %R4OS_QEMU_EXIT%
+if errorlevel 1 (
+    echo === HEADLESS TEST FAILED ===
+    echo Log:    %R4OS_QEMU_LOG%
+    echo Stderr: %R4OS_QEMU_ERROR_LOG%
+    exit /b 1
+)
+
+echo === HEADLESS TEST OK ===
+echo Boot: OK
+echo Poweroff: OK
+echo Errors: none
+echo Log: %R4OS_QEMU_LOG%
+exit /b 0
+
 :usage
 echo Usage:
 echo   Build.bat
@@ -306,4 +406,5 @@ echo   Build.bat plan Slim^|Full^|Test
 echo   Build.bat image Slim^|Full^|Test
 echo   Build.bat verify Slim^|Full^|Test
 echo   Build.bat qemu Slim^|Full^|Test
+echo   Build.bat headless Test
 exit /b 1

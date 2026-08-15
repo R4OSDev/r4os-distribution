@@ -9,6 +9,8 @@
 /PrivateInjection/
 *.KEY
 *.key
+# Public synthetic fixture, never used outside TestInjection.
+!/TestInjection/R4OS/CONFIG/TLS/R4TLSDEV.KEY
 
 *.exe
 *.obj

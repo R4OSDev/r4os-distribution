@@ -32,15 +32,34 @@ Unter Windows:
     Build.bat image Full
     Build.bat verify Full
     Build.bat qemu Full
+    Build.bat headless Test
 
 Ein uebergeordneter Workspace-Build darf diese Aktionen aufrufen, erzeugt
 Images oder QEMU-Aufrufe aber nicht selbst. Damit bleibt dieses `Build.bat`
 die einzige Implementierung fuer Planmontage, Image, Verifikation und QEMU.
 
+Die QEMU-Software selbst liegt ausschliesslich im DevKit unter dem durch
+`QEMU_ROOT` gemappten `Emulation/QEMU`. Dieses Repository enthaelt unter
+`QEMU/` nur R4OS-spezifische Konfiguration. `qemu` startet ein Profil mit
+GUI; `headless Test` erzeugt vor jedem Lauf ein frisches Datenimage, schreibt
+serielle Logs unter `Artifacts/Distribution/Logs`, wertet die verbindlichen
+Boot-/API-Marker aus und verlangt ein geordnetes Gast-Poweroff.
+
 `Build.bat test` baut alle sieben Hosttools und prueft die Slim-, Full- und
-Test-Imageplaene bytegenau sowie mit einem negativen Kollisionstest. Unter
-Linux und macOS stehen Hosttool-Build, Tests und Plangenerierung ueber
-`Build.sh` bereit; der 0.64-Umbau wird praktisch auf Windows abgenommen.
+Test-Imageplaene bytegenau, mit einem negativen Kollisionstest und mit dem
+Selbsttest der Headless-Markerauswertung. Der echte Gastlauf ist die getrennte
+Aktion `headless Test`. Unter Linux und macOS stehen Hosttool-Build, Tests und
+Plangenerierung ueber `Build.sh` bereit; der 0.64-Umbau wird praktisch auf
+Windows abgenommen.
+
+Die Quellen fuer die 14 installierten R4OS-Systemfonts liegen unter
+`Assets/SystemFonts`; der Distribution-Build erzeugt daraus Hostartefakte,
+der Workspace nimmt diese explizit in `Common.plan` auf. Der bekannte
+synthetische Schluessel-/Zertifikatpaar unter `TestInjection` ist eine
+oeffentliche, nicht vertrauenswuerdige Testfixture. Nur das Testprofil ordnet
+es als `R4TLSDEV.KEY`, `R4TLSDEV.CRT` und Test-Trust-Anchor zu. Es ist nicht
+bytegleich mit dem lokalen Entwicklungsschluessel; normale Images erhalten
+keinen privaten Schluessel aus dem Repository.
 
 Private Dateien
 ---------------

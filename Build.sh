@@ -15,6 +15,7 @@ workspace_setting=
 repositories_setting=
 contract_setting=
 sdk_setting=
+libraries_setting=
 devkit_setting=
 artifacts_setting=
 zig_setting=
@@ -28,6 +29,7 @@ while IFS='=' read -r key value; do
         REPOSITORIES_ROOT) repositories_setting=$value ;;
         CONTRACT_ROOT) contract_setting=$value ;;
         SDK_ROOT) sdk_setting=$value ;;
+        LIBRARIES_ROOT) libraries_setting=$value ;;
         DEVKIT_ROOT) devkit_setting=$value ;;
         ARTIFACTS_ROOT) artifacts_setting=$value ;;
         ZIG_ROOT) zig_setting=$value ;;
@@ -55,6 +57,7 @@ require_setting WORKSPACE_ROOT "$workspace_setting"
 require_setting REPOSITORIES_ROOT "$repositories_setting"
 require_setting CONTRACT_ROOT "$contract_setting"
 require_setting SDK_ROOT "$sdk_setting"
+require_setting LIBRARIES_ROOT "$libraries_setting"
 require_setting DEVKIT_ROOT "$devkit_setting"
 require_setting ARTIFACTS_ROOT "$artifacts_setting"
 require_setting ZIG_ROOT "$zig_setting"
@@ -66,6 +69,7 @@ workspace_root=$(resolve_path "$distribution_root" "$workspace_setting")
 repositories_root=$(resolve_path "$distribution_root" "$repositories_setting")
 contract_root=$(resolve_path "$repositories_root" "$contract_setting")
 sdk_root=$(resolve_path "$repositories_root" "$sdk_setting")
+libraries_root=$(resolve_path "$repositories_root" "$libraries_setting")
 devkit_root=$(resolve_path "$workspace_root" "$devkit_setting")
 artifacts_root=$(resolve_path "$workspace_root" "$artifacts_setting")
 zig_root=$(resolve_path "$devkit_root" "$zig_setting")
@@ -84,6 +88,10 @@ if [ ! -f "$contract_root/build.zig.zon" ]; then
 fi
 if [ ! -f "$sdk_root/build.zig.zon" ]; then
     echo "ERROR: SDK repository not found: $sdk_root" >&2
+    exit 1
+fi
+if [ ! -f "$libraries_root/build.zig.zon" ]; then
+    echo "ERROR: Libraries repository not found: $libraries_root" >&2
     exit 1
 fi
 if [ ! -x "$zig_exe" ]; then
@@ -105,7 +113,8 @@ build_tools() {
         "--prefix=$build_prefix" \
         -Doptimize=ReleaseSafe \
         "--fork=$sdk_root" \
-        "--fork=$contract_root"
+        "--fork=$contract_root" \
+        "--fork=$libraries_root"
 }
 
 run_plan_acceptance() {

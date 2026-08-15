@@ -5,10 +5,15 @@
     .minimum_zig_version = "0.16.0",
     .dependencies = .{
         // The identity is pinned here. Build.bat and Build.sh map the actual
-        // SDK and Contract checkouts from Settings.R4S as local Zig forks.
+        // SDK, Contract and Libraries checkouts from Settings.R4S as local
+        // Zig forks.
         .r4os_sdk = .{
             .url = "https://github.com/R4OSDev/r4os-sdk/archive/210372f305086b3528f6bd386e23e6901975c153.tar.gz",
             .hash = "r4os_sdk-0.64.12-NnPzAp9j7gBN9NS8Eeh4pR0DuZ9HtOi9yBcyITywdVZx",
+        },
+        .r4os_libraries = .{
+            .url = "https://github.com/R4OSDev/r4os-libraries/archive/9d93fb9d9a5321aa970b5086fba8700562736a9a.tar.gz",
+            .hash = "r4os_libraries-0.64.17-dH4fNQrwhgDeMaPv1MofO1GFcS87X_SrXaLw4JWBAd3O",
         },
     },
     .paths = .{
@@ -17,6 +22,7 @@
         "Build.bat",
         "Build.sh",
         "Settings.R4S",
+        "Assets",
         "Profiles",
         "Injection",
         "TestInjection",
