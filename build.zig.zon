@@ -17,6 +17,8 @@
         },
     },
     .paths = .{
+        "LICENSE",
+        "NOTICE",
         "build.zig",
         "build.zig.zon",
         "Build.bat",
