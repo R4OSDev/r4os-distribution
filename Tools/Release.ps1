@@ -287,12 +287,16 @@ function Get-WorkspaceRelativePath {
         [Parameter(Mandatory = $true)][string]$Path
     )
 
-    $root = [IO.Path]::GetFullPath($WorkspaceRoot).TrimEnd('\') + '\'
+    $root = [IO.Path]::GetFullPath($WorkspaceRoot).TrimEnd('\')
     $fullPath = [IO.Path]::GetFullPath($Path)
-    if (-not $fullPath.StartsWith($root, [StringComparison]::OrdinalIgnoreCase)) {
+    if ($fullPath.Equals($root, [StringComparison]::OrdinalIgnoreCase)) {
+        return '.'
+    }
+    $rootPrefix = $root + '\'
+    if (-not $fullPath.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
         throw "Path is outside the workspace: $fullPath"
     }
-    return $fullPath.Substring($root.Length).Replace('\', '/')
+    return $fullPath.Substring($rootPrefix.Length).Replace('\', '/')
 }
 
 function Get-RepositorySnapshots {
@@ -845,6 +849,9 @@ function Invoke-ReleaseSelfTest {
         }
         if (((Resolve-ProfileNames 'All') -join ',') -cne 'Slim,Full,Test') {
             throw 'All profile selection self-test failed.'
+        }
+        if ((Get-WorkspaceRelativePath -WorkspaceRoot $tempRoot -Path $tempRoot) -cne '.') {
+            throw 'Workspace-root path self-test failed.'
         }
 
         $packageRoot = Join-Path $tempRoot 'Package'
