@@ -766,9 +766,14 @@ function Find-GitHubRelease {
     while ($true) {
         $url = "https://api.github.com/repos/$($script:GitHubOrganization)/$($script:GitHubRepository)/releases?per_page=100&page=$page"
         $releases = @(Send-GitHubJson -Client $Client -Method GET -Url $url)
-        $matching = @($releases | Where-Object { $_.tag_name -eq $Tag })
-        if ($matching.Count -gt 0) {
-            return $matching[0]
+        foreach ($candidate in $releases) {
+            if ($null -eq $candidate) {
+                continue
+            }
+            $tagProperty = $candidate.PSObject.Properties['tag_name']
+            if ($null -ne $tagProperty -and [string]$tagProperty.Value -ceq $Tag) {
+                return $candidate
+            }
         }
         if ($releases.Count -lt 100) {
             return $null
@@ -852,6 +857,11 @@ function Invoke-ReleaseSelfTest {
         }
         if ((Get-WorkspaceRelativePath -WorkspaceRoot $tempRoot -Path $tempRoot) -cne '.') {
             throw 'Workspace-root path self-test failed.'
+        }
+        $emptyApiValue = [pscustomobject][ordered]@{ message = 'empty-list-placeholder' }
+        $emptyApiTag = $emptyApiValue.PSObject.Properties['tag_name']
+        if ($null -ne $emptyApiTag) {
+            throw 'Empty GitHub release-list self-test failed.'
         }
 
         $packageRoot = Join-Path $tempRoot 'Package'
