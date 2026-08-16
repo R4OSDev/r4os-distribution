@@ -8,7 +8,6 @@ const MAX_NAME: usize = 32;
 const MAX_ROLE: usize = 48;
 
 const Kind = enum(u16) {
-    r4l = 1,
     r4p = 2,
     r4d = 3,
 };
@@ -110,7 +109,6 @@ pub fn main(init: std.process.Init) !void {
 }
 
 fn parseKind(value: []const u8) ?Kind {
-    if (std.ascii.eqlIgnoreCase(value, "r4l")) return .r4l;
     if (std.ascii.eqlIgnoreCase(value, "r4p")) return .r4p;
     if (std.ascii.eqlIgnoreCase(value, "r4d")) return .r4d;
     return null;
