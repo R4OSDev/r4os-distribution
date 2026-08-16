@@ -1,0 +1,59 @@
+﻿R4OS THIRD-PARTY NOTICES
+========================
+
+Apache License 2.0 applies only to original R4OS material. Third-party
+components retain the licenses listed below. Complete license texts are stored
+in this directory.
+
+Limine 12.0.1
+--------------
+Copyright (C) 2019-2026 Mintsuki and contributors.
+License: BSD-2-Clause.
+File: Limine-BSD-2-Clause.txt
+Source: https://github.com/limine-bootloader/limine
+
+FreeType 2.14.3
+---------------
+License selected by R4OS: FreeType License 1.0.
+File: FreeType-FTL.txt
+Source: https://freetype.org/
+
+Google Brotli 1.2.0
+------------------
+Copyright (c) 2009, 2010, 2013-2016 by the Brotli Authors.
+License: MIT.
+File: Brotli-MIT.txt
+Source: https://github.com/google/brotli
+
+zlib 1.3.1
+----------
+Copyright (C) 1995-2024 Jean-loup Gailly and Mark Adler.
+License: zlib License.
+File: zlib.txt
+Source: https://github.com/madler/zlib
+
+stb_image 2.30
+--------------
+Copyright (c) 2017 Sean Barrett.
+License selected by R4OS: MIT.
+File: stb_image-MIT.txt
+Source: https://github.com/nothings/stb
+
+RTL8168 firmware tables
+-----------------------
+src/rtl8168_firmware_tables.zig in the R4OS RTL8168 driver contains tables
+mechanically extracted from the GPL-2.0-only Realtek r8168 vendor driver.
+Those tables and binary artifacts containing them must be treated as
+GPL-2.0-only material.
+File: RTL8168-GPL-2.0-only.txt
+Reference: https://github.com/mtorromeo/r8168
+
+Public root certificates
+------------------------
+The R4OS trust store contains DigiCert Global Root G2, GlobalSign ECC Root
+CA - R4, GlobalSign Root CA, ISRG Root X1, and the R4OS development root.
+The external certificates remain governed by their certificate authorities'
+policies and repository terms.
+
+The private key included by the Test profile is public test material. It must
+never be used outside tests.

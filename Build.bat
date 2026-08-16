@@ -115,6 +115,7 @@ set "R4OS_QEMU_CONFIG=%R4OS_DISTRIBUTION_ROOT%\QEMU\standard.conf"
 set "R4OS_QEMU_TIMEOUT_HELPER=%R4OS_DISTRIBUTION_ROOT%\Tests\Invoke-QemuHeadless.ps1"
 set "R4OS_QEMU_MARKER_TEST=%R4OS_DISTRIBUTION_ROOT%\Tests\Test-QemuApiMarkers.ps1"
 set "R4OS_LOG_ROOT=%R4OS_OUTPUT_ROOT%\Logs"
+set "R4OS_LEGAL_SOURCE=%R4OS_DISTRIBUTION_ROOT%\Injection\R4OS\LICENSES"
 
 if not exist "%R4OS_CONTRACT_ROOT%\build.zig.zon" (
     echo ERROR: Contract repository not found: "%R4OS_CONTRACT_ROOT%"
@@ -147,6 +148,8 @@ call :build_tools
 exit /b %ERRORLEVEL%
 
 :test_action
+call :validate_legal_source
+if errorlevel 1 exit /b %ERRORLEVEL%
 call :build_tools test
 if errorlevel 1 exit /b %ERRORLEVEL%
 call :run_plan_acceptance
@@ -156,10 +159,16 @@ exit /b %ERRORLEVEL%
 
 :plan_action
 call :generate_plan "%R4OS_REQUESTED_PROFILE%"
+if errorlevel 1 exit /b %ERRORLEVEL%
+call :validate_image_legal_plan
 exit /b %ERRORLEVEL%
 
 :image_action
 call :generate_plan "%R4OS_REQUESTED_PROFILE%"
+if errorlevel 1 exit /b %ERRORLEVEL%
+call :validate_image_legal_plan
+if errorlevel 1 exit /b %ERRORLEVEL%
+call :validate_legal_source
 if errorlevel 1 exit /b %ERRORLEVEL%
 if not exist "%R4OS_LIMINE_EXE%" (
     echo ERROR: Limine executable not found: "%R4OS_LIMINE_EXE%"
@@ -178,6 +187,8 @@ if not exist "%R4OS_PROFILE_OUTPUT%\data.img" (
     if errorlevel 1 exit /b %ERRORLEVEL%
 )
 "%R4OS_LIMINE_EXE%" bios-install "%R4OS_PROFILE_OUTPUT%\disk.img"
+if errorlevel 1 exit /b %ERRORLEVEL%
+call :stage_legal
 exit /b %ERRORLEVEL%
 
 :verify_action
@@ -188,6 +199,12 @@ if not exist "%R4OS_PROFILE_OUTPUT%\disk.img" (
     echo ERROR: Image not found: "%R4OS_PROFILE_OUTPUT%\disk.img"
     exit /b 1
 )
+set "R4OS_IMAGE_LIST=%R4OS_PROFILE_OUTPUT%\image-adds.txt"
+call :validate_image_legal_plan
+if errorlevel 1 exit /b %ERRORLEVEL%
+set "R4OS_PROFILE_LEGAL=%R4OS_PROFILE_OUTPUT%\Legal"
+call :validate_staged_legal
+if errorlevel 1 exit /b %ERRORLEVEL%
 if not exist "%R4OS_NTFS_VERIFY%" call :build_tools
 if errorlevel 1 exit /b %ERRORLEVEL%
 "%R4OS_NTFS_VERIFY%" "%R4OS_PROFILE_OUTPUT%\disk.img"
@@ -290,8 +307,104 @@ set "R4OS_EXIT_CODE=%ERRORLEVEL%"
 popd
 exit /b %R4OS_EXIT_CODE%
 
+:validate_legal_source
+if not exist "%R4OS_LEGAL_SOURCE%" (
+    echo ERROR: Versioned legal payload not found: "%R4OS_LEGAL_SOURCE%"
+    exit /b 1
+)
+for %%F in (
+    "R4OS-LICENSE.txt"
+    "R4OS-NOTICE.txt"
+    "THIRD-PARTY-NOTICES.txt"
+    "Limine-BSD-2-Clause.txt"
+    "FreeType-FTL.txt"
+    "Brotli-MIT.txt"
+    "zlib.txt"
+    "stb_image-MIT.txt"
+    "RTL8168-GPL-2.0-only.txt"
+) do if not exist "%R4OS_LEGAL_SOURCE%\%%~F" (
+    echo ERROR: Required legal file is missing: "%R4OS_LEGAL_SOURCE%\%%~F"
+    exit /b 1
+)
+fc /b "%R4OS_DISTRIBUTION_ROOT%\LICENSE" "%R4OS_LEGAL_SOURCE%\R4OS-LICENSE.txt" >nul
+if errorlevel 1 (
+    echo ERROR: Image Apache license differs from repository LICENSE.
+    exit /b 1
+)
+fc /b "%R4OS_DISTRIBUTION_ROOT%\NOTICE" "%R4OS_LEGAL_SOURCE%\R4OS-NOTICE.txt" >nul
+if errorlevel 1 (
+    echo ERROR: Image NOTICE differs from repository NOTICE.
+    exit /b 1
+)
+exit /b 0
+
+:stage_legal
+set "R4OS_PROFILE_LEGAL=%R4OS_PROFILE_OUTPUT%\Legal"
+if exist "%R4OS_PROFILE_LEGAL%" rmdir /s /q "%R4OS_PROFILE_LEGAL%"
+if exist "%R4OS_PROFILE_LEGAL%" (
+    echo ERROR: Could not reset release legal directory: "%R4OS_PROFILE_LEGAL%"
+    exit /b 1
+)
+mkdir "%R4OS_PROFILE_LEGAL%" >nul 2>&1
+if errorlevel 1 (
+    echo ERROR: Could not create release legal directory: "%R4OS_PROFILE_LEGAL%"
+    exit /b 1
+)
+copy /y "%R4OS_LEGAL_SOURCE%\*" "%R4OS_PROFILE_LEGAL%\" >nul
+if errorlevel 1 (
+    echo ERROR: Could not stage release legal files.
+    exit /b 1
+)
+call :validate_staged_legal
+if errorlevel 1 exit /b %ERRORLEVEL%
+echo [OK] Release legal payload: %R4OS_PROFILE_LEGAL%
+exit /b 0
+
+:validate_staged_legal
+for %%F in (
+    "R4OS-LICENSE.txt"
+    "R4OS-NOTICE.txt"
+    "THIRD-PARTY-NOTICES.txt"
+    "Limine-BSD-2-Clause.txt"
+    "FreeType-FTL.txt"
+    "Brotli-MIT.txt"
+    "zlib.txt"
+    "stb_image-MIT.txt"
+    "RTL8168-GPL-2.0-only.txt"
+) do if not exist "%R4OS_PROFILE_LEGAL%\%%~F" (
+    echo ERROR: Staged legal file is missing: "%R4OS_PROFILE_LEGAL%\%%~F"
+    exit /b 1
+)
+exit /b 0
+
+:validate_image_legal_plan
+if not exist "%R4OS_IMAGE_LIST%" (
+    echo ERROR: Image plan not found: "%R4OS_IMAGE_LIST%"
+    exit /b 1
+)
+for %%F in (
+    "R4OS-LICENSE.txt"
+    "R4OS-NOTICE.txt"
+    "THIRD-PARTY-NOTICES.txt"
+    "Limine-BSD-2-Clause.txt"
+    "FreeType-FTL.txt"
+    "Brotli-MIT.txt"
+    "zlib.txt"
+    "stb_image-MIT.txt"
+    "RTL8168-GPL-2.0-only.txt"
+) do (
+    findstr /l /c:":/R4OS/LICENSES/%%~F" "%R4OS_IMAGE_LIST%" >nul
+    if errorlevel 1 (
+        echo ERROR: Image plan omits legal file: /R4OS/LICENSES/%%~F
+        exit /b 1
+    )
+)
+exit /b 0
+
 :generate_plan
 call :load_profile "%~1"
+if errorlevel 1 exit /b %ERRORLEVEL%
+call :validate_legal_source
 if errorlevel 1 exit /b %ERRORLEVEL%
 if not exist "%R4OS_IMAGE_PLAN%" call :build_tools
 if errorlevel 1 exit /b %ERRORLEVEL%

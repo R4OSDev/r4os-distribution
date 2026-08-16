@@ -81,6 +81,7 @@ build_prefix=$output_root/HostTools
 build_cache=$output_root/.Cache/build
 global_cache=$output_root/.Cache/global
 image_plan=$build_prefix/bin/image-plan
+legal_source=$distribution_root/Injection/R4OS/LICENSES
 
 if [ ! -f "$contract_root/build.zig.zon" ]; then
     echo "ERROR: Contract repository not found: $contract_root" >&2
@@ -115,6 +116,52 @@ build_tools() {
         "--fork=$sdk_root" \
         "--fork=$contract_root" \
         "--fork=$libraries_root"
+}
+
+validate_legal_source() {
+    for name in \
+        R4OS-LICENSE.txt \
+        R4OS-NOTICE.txt \
+        THIRD-PARTY-NOTICES.txt \
+        Limine-BSD-2-Clause.txt \
+        FreeType-FTL.txt \
+        Brotli-MIT.txt \
+        zlib.txt \
+        stb_image-MIT.txt \
+        RTL8168-GPL-2.0-only.txt
+    do
+        if [ ! -f "$legal_source/$name" ]; then
+            echo "ERROR: Required legal file is missing: $legal_source/$name" >&2
+            exit 1
+        fi
+    done
+    if ! cmp -s "$distribution_root/LICENSE" "$legal_source/R4OS-LICENSE.txt"; then
+        echo 'ERROR: Image Apache license differs from repository LICENSE.' >&2
+        exit 1
+    fi
+    if ! cmp -s "$distribution_root/NOTICE" "$legal_source/R4OS-NOTICE.txt"; then
+        echo 'ERROR: Image NOTICE differs from repository NOTICE.' >&2
+        exit 1
+    fi
+}
+
+validate_image_legal_plan() {
+    for name in \
+        R4OS-LICENSE.txt \
+        R4OS-NOTICE.txt \
+        THIRD-PARTY-NOTICES.txt \
+        Limine-BSD-2-Clause.txt \
+        FreeType-FTL.txt \
+        Brotli-MIT.txt \
+        zlib.txt \
+        stb_image-MIT.txt \
+        RTL8168-GPL-2.0-only.txt
+    do
+        if ! grep -F ":/R4OS/LICENSES/$name" "$image_list" >/dev/null; then
+            echo "ERROR: Image plan omits legal file: /R4OS/LICENSES/$name" >&2
+            exit 1
+        fi
+    done
 }
 
 run_plan_acceptance() {
@@ -164,6 +211,7 @@ load_profile() {
 
 generate_plan() {
     load_profile "$1"
+    validate_legal_source
     if [ ! -x "$image_plan" ]; then
         build_tools
     fi
@@ -207,11 +255,12 @@ generate_plan() {
             --overlay "$distribution_root/Injection" \
             --optional-overlay "$private_injection_root"
     fi
+    validate_image_legal_plan
 }
 
 case "$action" in
     tools) build_tools ;;
-    test) build_tools test; run_plan_acceptance ;;
+    test) validate_legal_source; build_tools test; run_plan_acceptance ;;
     plan)
         if [ -z "$requested_profile" ]; then
             echo 'Usage: Build.sh plan Slim|Full|Test' >&2
