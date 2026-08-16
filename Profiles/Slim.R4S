@@ -1,4 +1,5 @@
-﻿PROFILE=Slim
+﻿# R4OS distribution profile; keep this comment first for BOM-safe host parsing.
+PROFILE=Slim
 COMMON_PLAN=Common.plan
 COMPONENT_PLAN=Slim.plan
 TEST_OVERLAY=0

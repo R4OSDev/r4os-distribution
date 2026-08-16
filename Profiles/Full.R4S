@@ -1,4 +1,5 @@
-﻿PROFILE=Full
+﻿# R4OS distribution profile; keep this comment first for BOM-safe host parsing.
+PROFILE=Full
 COMMON_PLAN=Common.plan
 COMPONENT_PLAN=Full.plan
 TEST_OVERLAY=0

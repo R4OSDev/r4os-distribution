@@ -149,6 +149,8 @@ call :build_tools
 exit /b %ERRORLEVEL%
 
 :test_action
+call :run_profile_acceptance
+if errorlevel 1 exit /b %ERRORLEVEL%
 call :validate_legal_source
 if errorlevel 1 exit /b %ERRORLEVEL%
 call :build_tools test
@@ -462,6 +464,20 @@ for %%K in (PROFILE COMMON_PLAN_NAME COMPONENT_PLAN_NAME TEST_OVERLAY BOOT_MB SY
     echo ERROR: Profile mapping %%K is missing in "%R4OS_PROFILE_FILE%".
     exit /b 1
 )
+exit /b 0
+
+:run_profile_acceptance
+echo === Distribution profile mapping acceptance ===
+call :load_profile "Slim"
+if errorlevel 1 exit /b %ERRORLEVEL%
+if /i not "%R4OS_PROFILE%"=="Slim" exit /b 1
+call :load_profile "Full"
+if errorlevel 1 exit /b %ERRORLEVEL%
+if /i not "%R4OS_PROFILE%"=="Full" exit /b 1
+call :load_profile "Test"
+if errorlevel 1 exit /b %ERRORLEVEL%
+if /i not "%R4OS_PROFILE%"=="Test" exit /b 1
+echo [OK] Slim, Full and Test profile mappings are readable.
 exit /b 0
 
 :run_plan_acceptance

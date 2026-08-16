@@ -185,6 +185,17 @@ run_plan_acceptance() {
     echo '[OK] Slim, Full and Test plans are deterministic and collision-free.'
 }
 
+run_profile_acceptance() {
+    for expected_profile in Slim Full Test; do
+        load_profile "$expected_profile"
+        if [ "$profile" != "$expected_profile" ]; then
+            echo "ERROR: Profile identity mismatch: expected $expected_profile, got $profile" >&2
+            exit 1
+        fi
+    done
+    echo '[OK] Slim, Full and Test profile mappings are readable.'
+}
+
 load_profile() {
     profile_file=$distribution_root/Profiles/$1.R4S
     if [ ! -f "$profile_file" ]; then
@@ -260,7 +271,7 @@ generate_plan() {
 
 case "$action" in
     tools) build_tools ;;
-    test) validate_legal_source; build_tools test; run_plan_acceptance ;;
+    test) run_profile_acceptance; validate_legal_source; build_tools test; run_plan_acceptance ;;
     plan)
         if [ -z "$requested_profile" ]; then
             echo 'Usage: Build.sh plan Slim|Full|Test' >&2
