@@ -24,6 +24,31 @@ Every generated image contains legal material under
 Detailed German migration notes are preserved in
 `DOCUMENTATION.de.txt`.
 
+## Releases
+
+Build the required profile images before preparing a release. `Standard`
+packages Slim and Full; `All` additionally packages Test.
+
+    Release.bat selftest
+    Release.bat prepare Standard
+    Release.bat publish Standard
+    Release.bat publish Standard -prerelease
+
+`prepare` verifies every selected image and its legal payload, creates a ZIP
+per profile, calculates SHA-256 checksums, and records the exact repository
+commits and tool versions in a source manifest. Output is written below
+`Artifacts/Distribution/Releases/<version>/` in the mapped workspace.
+
+Each package contains `disk.img`, a newly generated empty `data.img`, the
+QEMU configuration, legal files, and an image manifest. The persistent
+profile data image from the developer workspace is never published.
+
+`publish` performs the same preparation, creates a draft release in
+`R4OSDev/r4os-distribution`, uploads every asset, and only then publishes the
+release. An interrupted upload remains a draft. It uses the workspace
+credential file created by `Tools/Setup.bat` and requires GitHub Contents
+write permission.
+
 ## License
 
 Original R4OS material is licensed under Apache License 2.0. Third-party

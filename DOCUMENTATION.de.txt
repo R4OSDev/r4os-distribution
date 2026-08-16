@@ -61,6 +61,39 @@ es als `R4TLSDEV.KEY`, `R4TLSDEV.CRT` und Test-Trust-Anchor zu. Es ist nicht
 bytegleich mit dem lokalen Entwicklungsschluessel; normale Images erhalten
 keinen privaten Schluessel aus dem Repository.
 
+Releases
+--------
+
+Vor dem Release werden die benoetigten Profile mit dem Workspace-Build
+erzeugt. `Standard` umfasst Slim und Full; `All` nimmt zusaetzlich das
+Testprofil auf.
+
+    Release.bat selftest
+    Release.bat prepare Standard
+    Release.bat publish Standard
+    Release.bat publish Standard -prerelease
+
+`prepare` prueft fuer jedes ausgewaehlte Profil das vorhandene `disk.img`
+und die stageierte Rechtsdokumentation ueber `Build.bat verify`. Danach wird
+je Profil ein ZIP erzeugt. Zusaetzlich entstehen `SHA256SUMS.txt`, ein
+Quellenmanifest mit den exakten Git-Commits aller beteiligten Repositories
+und lokale Release-Notes. Die Ausgabe liegt unter
+`Artifacts/Distribution/Releases/<Version>/`.
+
+Ein Profilpaket enthaelt das bootfaehige `disk.img`, ein neu erzeugtes und
+leeres `data.img`, `qemu.conf`, die Rechtsdokumentation sowie ein
+Image-Manifest mit Dateigroessen und SHA-256-Hashes. Das persistente
+`data.img` aus `Artifacts/Distribution/Profiles/<Profil>/` wird nie in ein
+Release uebernommen, weil es Zustand aus vorigen QEMU-Sitzungen enthalten
+kann.
+
+`publish` fuehrt dieselbe Vorbereitung aus und verwendet danach die lokale
+Workspace-Credentials-Datei. Es erzeugt den GitHub Release zunaechst als
+Draft, laedt alle Assets hoch und veroeffentlicht ihn erst nach vollstaendig
+erfolgreichem Upload. Bei einem Fehler bleibt der unvollstaendige Release als
+Draft erhalten. Vor der Vorbereitung muessen alle erfassten Quell-Repositories
+sauber, auf `main` und mit ihrem lokalen `origin/main` synchron sein.
+
 Private Dateien
 ---------------
 

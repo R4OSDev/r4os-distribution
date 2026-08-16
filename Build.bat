@@ -114,6 +114,7 @@ set "R4OS_NTFS_VERIFY=%R4OS_BUILD_PREFIX%\bin\ntfsverify.exe"
 set "R4OS_QEMU_CONFIG=%R4OS_DISTRIBUTION_ROOT%\QEMU\standard.conf"
 set "R4OS_QEMU_TIMEOUT_HELPER=%R4OS_DISTRIBUTION_ROOT%\Tests\Invoke-QemuHeadless.ps1"
 set "R4OS_QEMU_MARKER_TEST=%R4OS_DISTRIBUTION_ROOT%\Tests\Test-QemuApiMarkers.ps1"
+set "R4OS_RELEASE_TOOL=%R4OS_DISTRIBUTION_ROOT%\Release.bat"
 set "R4OS_LOG_ROOT=%R4OS_OUTPUT_ROOT%\Logs"
 set "R4OS_LEGAL_SOURCE=%R4OS_DISTRIBUTION_ROOT%\Injection\R4OS\LICENSES"
 
@@ -155,6 +156,8 @@ if errorlevel 1 exit /b %ERRORLEVEL%
 call :run_plan_acceptance
 if errorlevel 1 exit /b %ERRORLEVEL%
 call :run_marker_acceptance
+if errorlevel 1 exit /b %ERRORLEVEL%
+call :run_release_acceptance
 exit /b %ERRORLEVEL%
 
 :plan_action
@@ -488,6 +491,11 @@ exit /b %R4OS_EXIT_CODE%
 :run_marker_acceptance
 echo === QEMU marker evaluator acceptance ===
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_MARKER_TEST%" -SelfTest
+exit /b %ERRORLEVEL%
+
+:run_release_acceptance
+echo === Release tool acceptance ===
+call "%R4OS_RELEASE_TOOL%" selftest
 exit /b %ERRORLEVEL%
 
 :evaluate_headless_logs
