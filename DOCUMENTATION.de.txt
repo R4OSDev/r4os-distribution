@@ -52,6 +52,13 @@ Aktion `headless Test`. Unter Linux und macOS stehen Hosttool-Build, Tests und
 Plangenerierung ueber `Build.sh` bereit; der 0.64-Umbau wird praktisch auf
 Windows abgenommen.
 
+Der Workspace-Orchestrator nimmt AUDSVC ausdruecklich nur zusaetzlich in das
+Testprofil auf, damit die gehostete Subsystemabnahme den produktiven
+Audiofassaden- und Servicepfad pruefen kann. Die normale `IMAGE_SCOPE=full`-
+Zuordnung von AUDSVC sowie der Inhalt von Slim und Full bleiben dadurch
+unveraendert. AUTOEXEC gibt nach dem katalogbasierten Doppelstart sowohl den
+Subsystem-Host- als auch den Runtime-/Audio-Marker aus.
+
 Die Quellen fuer die 14 installierten R4OS-Systemfonts liegen unter
 `Assets/SystemFonts`; der Distribution-Build erzeugt daraus Hostartefakte,
 der Workspace nimmt diese explizit in `Common.plan` auf. Der bekannte
