@@ -250,6 +250,7 @@ generate_plan() {
             --tree "$contract_root/Module|/R4OS/SDK/Contract/Module" \
             --overlay "$distribution_root/Injection" \
             --overlay "$distribution_root/TestInjection" \
+            --optional-overlay "$output_root/Injection" \
             --optional-overlay "$private_injection_root"
     else
         "$image_plan" --output "$image_list" --plan "$common_plan" --plan "$component_plan" \
@@ -264,6 +265,7 @@ generate_plan() {
             --tree "$contract_root/Generated|/R4OS/SDK/Contract/Generated" \
             --tree "$contract_root/Module|/R4OS/SDK/Contract/Module" \
             --overlay "$distribution_root/Injection" \
+            --optional-overlay "$output_root/Injection" \
             --optional-overlay "$private_injection_root"
     fi
     validate_image_legal_plan

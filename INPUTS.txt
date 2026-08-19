@@ -30,8 +30,9 @@ einem Plan oder Overlay vorkommen.
 SDK- und Contract-Installationsbaeume sowie die oeffentliche Injection werden
 vom Distribution-Starter aus den gemappten kanonischen Repositories ergaenzt.
 Beim Testprofil ersetzt `TestInjection` gleichnamige oeffentliche Dateien.
-Der optionale private Overlaypfad besitzt die hoechste Prioritaet und bleibt
-vollstaendig ausserhalb von Git.
+Danach wird optional `Artifacts/Distribution/Injection` eingeblendet. Der
+optionale private Overlaypfad besitzt weiterhin die hoechste Prioritaet; beide
+lokalen Overlaypfade bleiben vollstaendig ausserhalb von Git.
 
 Die Plaene werden vom privaten Workspace beziehungsweise spaeter vom
 Komponentenkatalog erzeugt. Die Distribution prueft und konsumiert sie, ruft
