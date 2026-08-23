@@ -104,7 +104,7 @@ pub fn main(init: std.process.Init) !void {
     const out_dir = output_dir orelse return error.MissingOutput;
 
     for (stale_or_default_hive_files) |file_name| {
-        const stale_path = try std.fmt.allocPrint(allocator, "{s}\\{s}", .{ out_dir, file_name });
+        const stale_path = try std.fs.path.join(allocator, &.{ out_dir, file_name });
         defer allocator.free(stale_path);
         cwd.deleteFile(io, stale_path) catch {};
     }
@@ -112,7 +112,7 @@ pub fn main(init: std.process.Init) !void {
     const bytes = try buildSystemHive(allocator);
     defer allocator.free(bytes);
 
-    const out_path = try std.fmt.allocPrint(allocator, "{s}\\SYSTEM.R4R", .{out_dir});
+    const out_path = try std.fs.path.join(allocator, &.{ out_dir, "SYSTEM.R4R" });
     defer allocator.free(out_path);
     try cwd.writeFile(io, .{ .sub_path = out_path, .data = bytes });
 
