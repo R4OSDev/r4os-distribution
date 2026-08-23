@@ -244,7 +244,11 @@ function Assert-Throws([scriptblock]$Action, [string]$Label) {
 function Invoke-SelfTest {
     $scriptHash = Get-Sha256Hex $PSCommandPath
     if ($scriptHash -notmatch '^[a-f0-9]{64}$') { throw 'Portable SHA-256 helper failed.' }
-    $exitProbe = Invoke-ControlledProcess $env:ComSpec '/d /c exit 7' (Get-Location).Path 10000
+    if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) {
+        $exitProbe = Invoke-ControlledProcess $env:ComSpec '/d /c exit 7' (Get-Location).Path 10000
+    } else {
+        $exitProbe = Invoke-ControlledProcess '/bin/sh' '-c "exit 7"' (Get-Location).Path 10000
+    }
     if ($exitProbe.timed_out -or [int]$exitProbe.exit_code -ne 7) { throw 'Controlled process exit-code capture failed.' }
     $request = Get-ValidatedRequest 'perfdiag-clock' '0.3.7' 'warm' 5 $benchmarkEnvironmentId
     $guestText = New-GuestRequestText $request

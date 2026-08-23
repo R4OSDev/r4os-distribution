@@ -37,9 +37,17 @@ Unter Windows:
     Build.bat image Benchmark
     Build.bat benchmark Benchmark perfdiag-clock 0.3.7 warm 5 r4os-q35-haswell-1vcpu-1g-tcg-v1
 
+Unter Linux stehen dieselben Aktionen und Argumente ueber `./Build.sh` zur
+Verfuegung, beispielsweise:
+
+    ./Build.sh test
+    ./Build.sh image Full
+    ./Build.sh verify Full
+    ./Build.sh headless Test
+
 Ein uebergeordneter Workspace-Build darf diese Aktionen aufrufen, erzeugt
-Images oder QEMU-Aufrufe aber nicht selbst. Damit bleibt dieses `Build.bat`
-die einzige Implementierung fuer Planmontage, Image, Verifikation und QEMU.
+Images oder QEMU-Aufrufe aber nicht selbst. `Build.bat` und `Build.sh` sind
+die plattformspezifischen Starter fuer dieselben Distributionsaktionen.
 
 Die QEMU-Software selbst liegt ausschliesslich im DevKit unter dem durch
 `QEMU_ROOT` gemappten `Emulation/QEMU`. Dieses Repository enthaelt unter
@@ -48,12 +56,11 @@ GUI; `headless Test` erzeugt vor jedem Lauf ein frisches Datenimage, schreibt
 serielle Logs unter `Artifacts/Distribution/Logs`, wertet die verbindlichen
 Boot-/API-Marker aus und verlangt ein geordnetes Gast-Poweroff.
 
-`Build.bat test` baut alle sieben Hosttools und prueft die Slim-, Full-, Test-
-und Benchmark-Imageplaene bytegenau, mit einem negativen Kollisionstest sowie
-den Selbsttests der Headless-Markerauswertung und des Benchmarkrunners. Der echte Gastlauf ist die getrennte
-Aktion `headless Test`. Unter Linux und macOS stehen Hosttool-Build, Tests und
-Plangenerierung ueber `Build.sh` bereit; der 0.64-Umbau wird praktisch auf
-Windows abgenommen.
+`Build.bat test` beziehungsweise `./Build.sh test` baut alle sieben Hosttools
+und prueft die Slim-, Full-, Test- und Benchmark-Imageplaene bytegenau, mit
+einem negativen Kollisionstest sowie den Selbsttests der
+Headless-Markerauswertung und des Benchmarkrunners. Der echte Gastlauf ist
+die getrennte Aktion `headless Test`.
 
 Der Workspace-Orchestrator nimmt AUDSVC ausdruecklich nur zusaetzlich in das
 Testprofil auf, damit die gehostete Subsystemabnahme den produktiven

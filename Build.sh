@@ -19,6 +19,9 @@ libraries_setting=
 devkit_setting=
 artifacts_setting=
 zig_setting=
+limine_setting=
+qemu_setting=
+devkit_hosttools_setting=
 distribution_output_setting=
 input_setting=
 private_injection_setting=
@@ -33,6 +36,9 @@ while IFS='=' read -r key value; do
         DEVKIT_ROOT) devkit_setting=$value ;;
         ARTIFACTS_ROOT) artifacts_setting=$value ;;
         ZIG_ROOT) zig_setting=$value ;;
+        LIMINE_ROOT) limine_setting=$value ;;
+        QEMU_ROOT) qemu_setting=$value ;;
+        DEVKIT_HOSTTOOLS_ROOT) devkit_hosttools_setting=$value ;;
         DISTRIBUTION_OUTPUT_ROOT) distribution_output_setting=$value ;;
         INPUT_ROOT) input_setting=$value ;;
         PRIVATE_INJECTION_ROOT) private_injection_setting=$value ;;
@@ -61,6 +67,9 @@ require_setting LIBRARIES_ROOT "$libraries_setting"
 require_setting DEVKIT_ROOT "$devkit_setting"
 require_setting ARTIFACTS_ROOT "$artifacts_setting"
 require_setting ZIG_ROOT "$zig_setting"
+require_setting LIMINE_ROOT "$limine_setting"
+require_setting QEMU_ROOT "$qemu_setting"
+require_setting DEVKIT_HOSTTOOLS_ROOT "$devkit_hosttools_setting"
 require_setting DISTRIBUTION_OUTPUT_ROOT "$distribution_output_setting"
 require_setting INPUT_ROOT "$input_setting"
 require_setting PRIVATE_INJECTION_ROOT "$private_injection_setting"
@@ -73,14 +82,29 @@ libraries_root=$(resolve_path "$repositories_root" "$libraries_setting")
 devkit_root=$(resolve_path "$workspace_root" "$devkit_setting")
 artifacts_root=$(resolve_path "$workspace_root" "$artifacts_setting")
 zig_root=$(resolve_path "$devkit_root" "$zig_setting")
+limine_root=$(resolve_path "$devkit_root" "$limine_setting")
+qemu_root=$(resolve_path "$devkit_root" "$qemu_setting")
+devkit_hosttools_root=$(resolve_path "$devkit_root" "$devkit_hosttools_setting")
 output_root=$(resolve_path "$artifacts_root" "$distribution_output_setting")
 input_root=$(resolve_path "$artifacts_root" "$input_setting")
 private_injection_root=$(resolve_path "$artifacts_root" "$private_injection_setting")
 zig_exe=$zig_root/zig
+limine_exe=$limine_root/limine
+qemu_exe=$qemu_root/qemu-system-x86_64
 build_prefix=$output_root/HostTools
 build_cache=$output_root/.Cache/build
 global_cache=$output_root/.Cache/global
 image_plan=$build_prefix/bin/image-plan
+image_creator=$build_prefix/bin/imagecreater
+ntfs_verify=$build_prefix/bin/ntfsverify
+qemu_config=$distribution_root/QEMU/standard.conf
+benchmark_qemu_config=$distribution_root/QEMU/benchmark.conf
+qemu_timeout_helper=$distribution_root/Tests/Invoke-QemuHeadless.ps1
+benchmark_runner=$distribution_root/Tests/Invoke-QemuBenchmark.ps1
+benchmark_history=$distribution_root/Tools/BenchmarkHistory.ps1
+qemu_marker_test=$distribution_root/Tests/Test-QemuApiMarkers.ps1
+release_tool=$distribution_root/Tools/Release.ps1
+log_root=$output_root/Logs
 legal_source=$distribution_root/Injection/R4OS/LICENSES
 
 if [ ! -f "$contract_root/build.zig.zon" ]; then
@@ -146,6 +170,10 @@ validate_legal_source() {
 }
 
 validate_image_legal_plan() {
+    if [ ! -f "$image_list" ]; then
+        echo "ERROR: Image plan not found: $image_list" >&2
+        exit 1
+    fi
     for name in \
         R4OS-LICENSE.txt \
         R4OS-NOTICE.txt \
@@ -197,6 +225,10 @@ run_profile_acceptance() {
             exit 1
         fi
     done
+    if [ "$benchmark_overlay" != 1 ]; then
+        echo 'ERROR: Benchmark profile has no benchmark overlay.' >&2
+        exit 1
+    fi
     echo '[OK] Slim, Full, Test and Benchmark profile mappings are readable.'
 }
 
@@ -211,6 +243,9 @@ load_profile() {
     component_plan_name=
     test_overlay=
     benchmark_overlay=
+    boot_mb=
+    system_mb=
+    data_mb=
     while IFS='=' read -r key value; do
         case "$key" in
             PROFILE) profile=$value ;;
@@ -218,6 +253,9 @@ load_profile() {
             COMPONENT_PLAN) component_plan_name=$value ;;
             TEST_OVERLAY) test_overlay=$value ;;
             BENCHMARK_OVERLAY) benchmark_overlay=$value ;;
+            BOOT_MB) boot_mb=$value ;;
+            SYSTEM_MB) system_mb=$value ;;
+            DATA_MB) data_mb=$value ;;
         esac
     done < "$profile_file"
     require_setting PROFILE "$profile"
@@ -225,6 +263,9 @@ load_profile() {
     require_setting COMPONENT_PLAN "$component_plan_name"
     require_setting TEST_OVERLAY "$test_overlay"
     require_setting BENCHMARK_OVERLAY "$benchmark_overlay"
+    require_setting BOOT_MB "$boot_mb"
+    require_setting SYSTEM_MB "$system_mb"
+    require_setting DATA_MB "$data_mb"
 }
 
 generate_plan() {
@@ -292,9 +333,224 @@ generate_plan() {
     validate_image_legal_plan
 }
 
+validate_staged_legal() {
+    for name in \
+        R4OS-LICENSE.txt \
+        R4OS-NOTICE.txt \
+        THIRD-PARTY-NOTICES.txt \
+        Limine-BSD-2-Clause.txt \
+        FreeType-FTL.txt \
+        Brotli-MIT.txt \
+        zlib.txt \
+        stb_image-MIT.txt \
+        RTL8168-GPL-2.0-only.txt
+    do
+        if [ ! -f "$profile_legal/$name" ]; then
+            echo "ERROR: Staged legal file is missing: $profile_legal/$name" >&2
+            exit 1
+        fi
+    done
+}
+
+stage_legal() {
+    profile_legal=$profile_output/Legal
+    case "$profile_legal/" in
+        "$output_root"/*) ;;
+        *)
+            echo "ERROR: Refusing to reset legal directory outside output root: $profile_legal" >&2
+            exit 1
+            ;;
+    esac
+    rm -rf "$profile_legal"
+    mkdir -p "$profile_legal"
+    cp "$legal_source"/* "$profile_legal/"
+    validate_staged_legal
+    echo "[OK] Release legal payload: $profile_legal"
+}
+
+image_action() {
+    generate_plan "$1"
+    validate_legal_source
+    if [ ! -x "$image_creator" ]; then
+        build_tools
+    fi
+    if [ ! -x "$limine_exe" ]; then
+        echo "ERROR: Limine executable not found: $limine_exe" >&2
+        exit 1
+    fi
+    ntfs_meta=$sdk_root/Tests/Fixture/Ntfs/Meta0605
+    if [ ! -f "$ntfs_meta/upcase.bin" ]; then
+        echo "ERROR: NTFS metadata fixture not found: $ntfs_meta" >&2
+        exit 1
+    fi
+    echo "=== Create $profile image ==="
+    "$image_creator" create-system \
+        --output "$profile_output/disk.img" \
+        --boot-mb "$boot_mb" \
+        --system-mb "$system_mb" \
+        --meta "$ntfs_meta" \
+        --add-list "$image_list"
+    if [ "$profile" = Benchmark ]; then
+        rm -f "$profile_output/data.img"
+    fi
+    if [ ! -f "$profile_output/data.img" ]; then
+        "$image_creator" --output "$profile_output/data.img" --size "$data_mb"
+    fi
+    "$limine_exe" bios-install "$profile_output/disk.img"
+    stage_legal
+}
+
+verify_action() {
+    load_profile "$1"
+    profile_output=$output_root/Profiles/$profile
+    image_list=$profile_output/image-adds.txt
+    profile_legal=$profile_output/Legal
+    if [ ! -f "$profile_output/disk.img" ]; then
+        echo "ERROR: Image not found: $profile_output/disk.img" >&2
+        exit 1
+    fi
+    validate_image_legal_plan
+    validate_staged_legal
+    if [ ! -x "$ntfs_verify" ]; then
+        build_tools
+    fi
+    "$ntfs_verify" "$profile_output/disk.img"
+}
+
+qemu_action() {
+    load_profile "$1"
+    profile_output=$output_root/Profiles/$profile
+    if [ ! -f "$profile_output/disk.img" ]; then
+        echo "ERROR: Image not found: $profile_output/disk.img" >&2
+        exit 1
+    fi
+    if [ ! -f "$profile_output/data.img" ]; then
+        echo "ERROR: Data image not found: $profile_output/data.img" >&2
+        exit 1
+    fi
+    if [ ! -x "$qemu_exe" ]; then
+        echo "ERROR: QEMU executable not found: $qemu_exe" >&2
+        exit 1
+    fi
+    if [ ! -f "$qemu_config" ]; then
+        echo "ERROR: QEMU config not found: $qemu_config" >&2
+        exit 1
+    fi
+    cd "$profile_output"
+    "$qemu_exe" -readconfig "$qemu_config" -m 1024 -smp 4 -cpu max -boot c
+}
+
+headless_action() {
+    load_profile "$1"
+    if [ "$profile" != Test ] || [ "$test_overlay" != 1 ]; then
+        echo 'ERROR: Headless acceptance requires the Test profile with test overlay.' >&2
+        exit 1
+    fi
+    profile_output=$output_root/Profiles/$profile
+    if [ ! -f "$profile_output/disk.img" ]; then
+        echo "ERROR: Image not found: $profile_output/disk.img" >&2
+        exit 1
+    fi
+    if [ ! -x "$image_creator" ]; then
+        build_tools
+    fi
+    for required_file in "$qemu_exe" "$qemu_config" "$qemu_timeout_helper" "$qemu_marker_test"; do
+        if [ ! -e "$required_file" ]; then
+            echo "ERROR: Headless dependency not found: $required_file" >&2
+            exit 1
+        fi
+    done
+
+    rm -f "$profile_output/data.img"
+    echo "=== Recreate Test data image for headless acceptance: $data_mb MB ==="
+    "$image_creator" --output "$profile_output/data.img" --size "$data_mb"
+
+    mkdir -p "$log_root"
+    qemu_log=$log_root/qemu-test-standard.log
+    qemu_error_log=$log_root/qemu-test-standard.err
+    rm -f "$qemu_log" "$qemu_error_log"
+    qemu_timeout=${QEMU_TEST_TIMEOUT_SECONDS:-240}
+
+    export R4OS_QEMU_EXE=$qemu_exe
+    export R4OS_QEMU_CONFIG=$qemu_config
+    export R4OS_QEMU_LOG=$qemu_log
+    export R4OS_QEMU_ERROR_LOG=$qemu_error_log
+    export R4OS_QEMU_WORKING_DIRECTORY=$profile_output
+    export QEMU_TEST_TIMEOUT_SECONDS=$qemu_timeout
+
+    echo '=== Start QEMU Test profile headless ==='
+    echo "    Config:  $qemu_config"
+    echo "    Serial:  $qemu_log"
+    echo "    Timeout: ${qemu_timeout}s"
+    if pwsh -NoLogo -NoProfile -File "$qemu_timeout_helper"; then
+        qemu_exit=0
+    else
+        qemu_exit=$?
+    fi
+    if [ "$qemu_exit" -eq 124 ]; then
+        echo "QEMU: TIMEOUT after ${qemu_timeout}s; guest did not power off."
+    fi
+
+    echo '=== HEADLESS TEST EVALUATION ==='
+    if ! pwsh -NoLogo -NoProfile -File "$qemu_marker_test" \
+        -LogPath "$qemu_log" -ErrorPath "$qemu_error_log" -QemuExitCode "$qemu_exit"
+    then
+        echo '=== HEADLESS TEST FAILED ==='
+        echo "Log:    $qemu_log"
+        echo "Stderr: $qemu_error_log"
+        exit 1
+    fi
+    echo '=== HEADLESS TEST OK ==='
+    echo 'Boot: OK'
+    echo 'Poweroff: OK'
+    echo 'Errors: none'
+    echo "Log: $qemu_log"
+}
+
+benchmark_action() {
+    load_profile "$1"
+    if [ "$profile" != Benchmark ] || [ "$benchmark_overlay" != 1 ]; then
+        echo 'ERROR: Explicit benchmark runs require the Benchmark profile with benchmark overlay.' >&2
+        exit 1
+    fi
+    profile_output=$output_root/Profiles/$profile
+    if [ ! -f "$profile_output/disk.img" ]; then
+        echo "ERROR: Benchmark image not found: $profile_output/disk.img" >&2
+        exit 1
+    fi
+    if [ ! -x "$image_creator" ]; then
+        build_tools
+    fi
+    for required_file in "$qemu_exe" "$benchmark_qemu_config" "$benchmark_runner"; do
+        if [ ! -e "$required_file" ]; then
+            echo "ERROR: Benchmark dependency not found: $required_file" >&2
+            exit 1
+        fi
+    done
+
+    export R4OS_BENCHMARK_QEMU_EXE=$qemu_exe
+    export R4OS_BENCHMARK_IMAGE_CREATOR=$image_creator
+    export R4OS_BENCHMARK_PROFILE_OUTPUT=$profile_output
+    export R4OS_BENCHMARK_RUN_OUTPUT=$profile_output/Runs/current
+    export R4OS_BENCHMARK_DATA_MB=$data_mb
+    export R4OS_BENCHMARK_RELEASE_VERSION_FILE=$distribution_root/Injection/R4OS/CONFIG/VERSION.R4S
+    pwsh -NoLogo -NoProfile -File "$benchmark_runner" \
+        -Suite "$2" -WorkloadVersion "$3" -CacheState "$4" \
+        -Repetitions "$5" -EnvironmentId "$6"
+}
+
 case "$action" in
     tools) build_tools ;;
-    test) run_profile_acceptance; validate_legal_source; build_tools test; run_plan_acceptance ;;
+    test)
+        run_profile_acceptance
+        validate_legal_source
+        build_tools test
+        run_plan_acceptance
+        pwsh -NoLogo -NoProfile -File "$qemu_marker_test" -SelfTest
+        pwsh -NoLogo -NoProfile -File "$benchmark_runner" -SelfTest
+        pwsh -NoLogo -NoProfile -File "$benchmark_history" -Action selftest
+        pwsh -NoLogo -NoProfile -File "$release_tool" -Action SelfTest
+        ;;
     plan)
         if [ -z "$requested_profile" ]; then
             echo 'Usage: Build.sh plan Slim|Full|Test|Benchmark' >&2
@@ -302,9 +558,19 @@ case "$action" in
         fi
         generate_plan "$requested_profile"
         ;;
+    image) image_action "$requested_profile" ;;
+    verify) verify_action "$requested_profile" ;;
+    qemu) qemu_action "$requested_profile" ;;
+    headless) headless_action "$requested_profile" ;;
+    benchmark)
+        if [ "$#" -ne 7 ]; then
+            echo 'Usage: Build.sh benchmark Benchmark SUITE WORKLOAD_VERSION WARM|COLD REPETITIONS ENVIRONMENT_ID' >&2
+            exit 1
+        fi
+        benchmark_action "$requested_profile" "$3" "$4" "$5" "$6" "$7"
+        ;;
     *)
-        echo 'Usage: Build.sh [tools|test|plan Slim|Full|Test|Benchmark]' >&2
-        echo 'Image, verify and QEMU actions currently use Build.bat with the Windows DevKit.' >&2
+        echo 'Usage: Build.sh [tools|test|plan|image|verify|qemu|headless|benchmark] ...' >&2
         exit 1
         ;;
 esac

@@ -63,7 +63,17 @@ $argumentLine = @(
 
 Write-Host ('=== QEMU headless smoke; timeout ' + $timeoutSeconds + 's ===')
 Normalize-StartProcessEnvironment
-$process = Start-Process -FilePath $qemu -ArgumentList $argumentLine -WorkingDirectory $workingDirectory -WindowStyle Hidden -RedirectStandardError $errorPath -PassThru
+$startParameters = @{
+    FilePath = $qemu
+    ArgumentList = $argumentLine
+    WorkingDirectory = $workingDirectory
+    RedirectStandardError = $errorPath
+    PassThru = $true
+}
+if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) {
+    $startParameters.WindowStyle = 'Hidden'
+}
+$process = Start-Process @startParameters
 if ($process.WaitForExit($timeoutSeconds * 1000)) {
     exit $process.ExitCode
 }

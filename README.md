@@ -16,8 +16,10 @@ rebuild the kernel, libraries, or modules.
     Build.bat image Benchmark
     Build.bat benchmark Benchmark perfdiag-clock 0.3.7 warm 5 r4os-q35-haswell-1vcpu-1g-tcg-v1
 
-The equivalent host-neutral tool and plan checks are available through
-`./Build.sh`. `Settings.R4S` maps input artifacts and DevKit tools.
+On Linux, use the same arguments with `./Build.sh`; tools, tests, plan
+generation, image creation, verification, GUI/headless QEMU, and benchmarks
+are equivalent host entry points. `Settings.R4S` maps input artifacts and
+DevKit tools with portable relative defaults.
 
 Building the Benchmark profile never starts a benchmark. The `benchmark`
 action is the only measured path: it requires a complete request, creates a
