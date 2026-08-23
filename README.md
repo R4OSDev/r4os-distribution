@@ -26,6 +26,15 @@ complete PERFDIAG machine block and regular guest poweroff, and writes the
 current machine-readable result below the Benchmark profile. Normal builds,
 tests, headless acceptance, and GUI runs never invoke it.
 
+The result uses `r4os.benchmark.run` schema 2 and binds a unique run ID,
+release and benchmark-image SHA-256 to the validated request and machine
+records. `Tools/BenchmarkHistory.ps1` validates and atomically imports only
+catalogued trend metrics into the workspace-local
+`ExFiles/Reports/Benchmarks.jsonl`, validates the JSONL history, and compares
+only identical suite/workload/environment/metric series. It is never invoked
+automatically by image creation, tests, or QEMU startup. The complete operator
+contract is `Agents/Benchmark.txt` in the workspace root.
+
 Every generated image contains legal material under
 `/R4OS/LICENSES`. The same payload is staged in the profile's
 `Legal` directory beside `disk.img` for binary releases.

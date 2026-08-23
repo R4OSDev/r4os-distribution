@@ -116,6 +116,7 @@ set "R4OS_QEMU_CONFIG=%R4OS_DISTRIBUTION_ROOT%\QEMU\standard.conf"
 set "R4OS_BENCHMARK_QEMU_CONFIG=%R4OS_DISTRIBUTION_ROOT%\QEMU\benchmark.conf"
 set "R4OS_QEMU_TIMEOUT_HELPER=%R4OS_DISTRIBUTION_ROOT%\Tests\Invoke-QemuHeadless.ps1"
 set "R4OS_BENCHMARK_RUNNER=%R4OS_DISTRIBUTION_ROOT%\Tests\Invoke-QemuBenchmark.ps1"
+set "R4OS_BENCHMARK_HISTORY=%R4OS_DISTRIBUTION_ROOT%\Tools\BenchmarkHistory.ps1"
 set "R4OS_QEMU_MARKER_TEST=%R4OS_DISTRIBUTION_ROOT%\Tests\Test-QemuApiMarkers.ps1"
 set "R4OS_RELEASE_TOOL=%R4OS_DISTRIBUTION_ROOT%\Release.bat"
 set "R4OS_LOG_ROOT=%R4OS_OUTPUT_ROOT%\Logs"
@@ -164,6 +165,8 @@ if errorlevel 1 exit /b %ERRORLEVEL%
 call :run_marker_acceptance
 if errorlevel 1 exit /b %ERRORLEVEL%
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_BENCHMARK_RUNNER%" -SelfTest
+if errorlevel 1 exit /b %ERRORLEVEL%
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_BENCHMARK_HISTORY%" -Action selftest
 if errorlevel 1 exit /b %ERRORLEVEL%
 call :run_release_acceptance
 exit /b %ERRORLEVEL%
@@ -346,6 +349,7 @@ set "R4OS_BENCHMARK_IMAGE_CREATOR=%R4OS_IMAGE_CREATOR%"
 set "R4OS_BENCHMARK_PROFILE_OUTPUT=%R4OS_PROFILE_OUTPUT%"
 set "R4OS_BENCHMARK_RUN_OUTPUT=%R4OS_PROFILE_OUTPUT%\Runs\current"
 set "R4OS_BENCHMARK_DATA_MB=%R4OS_DATA_MB%"
+set "R4OS_BENCHMARK_RELEASE_VERSION_FILE=%R4OS_DISTRIBUTION_ROOT%\Injection\R4OS\CONFIG\VERSION.R4S"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_BENCHMARK_RUNNER%" -Suite "%~3" -WorkloadVersion "%~4" -CacheState "%~5" -Repetitions "%~6" -EnvironmentId "%~7"
 exit /b %ERRORLEVEL%
 

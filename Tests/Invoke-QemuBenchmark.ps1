@@ -36,6 +36,22 @@ function Write-Utf8NoBom([string]$Path, [string]$Content) {
     [IO.File]::WriteAllText($Path, $Content, $encoding)
 }
 
+function Get-Sha256Hex([string]$Path) {
+    Assert-File $Path 'SHA-256 input'
+    $stream = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+    try {
+        $sha256 = [Security.Cryptography.SHA256]::Create()
+        try {
+            $hash = $sha256.ComputeHash($stream)
+        } finally {
+            $sha256.Dispose()
+        }
+    } finally {
+        $stream.Dispose()
+    }
+    return [BitConverter]::ToString($hash).Replace('-', '').ToLowerInvariant()
+}
+
 function Get-ValidatedRequest(
     [string]$RequestedSuite,
     [string]$RequestedVersion,
@@ -129,13 +145,55 @@ function Normalize-StartProcessEnvironment {
     [Environment]::SetEnvironmentVariable('Path', $pathValue, 'Process')
 }
 
+function Invoke-ControlledProcess(
+    [string]$FilePath,
+    [string]$Arguments,
+    [string]$WorkingDirectory,
+    [int]$TimeoutMilliseconds
+) {
+    if ($TimeoutMilliseconds -le 0) { throw 'Controlled process timeout must be positive.' }
+    Normalize-StartProcessEnvironment
+    $startInfo = New-Object Diagnostics.ProcessStartInfo
+    $startInfo.FileName = $FilePath
+    $startInfo.Arguments = $Arguments
+    $startInfo.WorkingDirectory = $WorkingDirectory
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.RedirectStandardError = $true
+    $process = New-Object Diagnostics.Process
+    $process.StartInfo = $startInfo
+    try {
+        if (-not $process.Start()) { throw ('Process start failed: ' + $FilePath) }
+        $errorTask = $process.StandardError.ReadToEndAsync()
+        $timedOut = -not $process.WaitForExit($TimeoutMilliseconds)
+        if ($timedOut) {
+            if (-not $process.HasExited) { $process.Kill() }
+            if (-not $process.WaitForExit(5000)) { throw ('Timed-out process did not terminate: ' + $FilePath) }
+        }
+        $process.WaitForExit()
+        $exitCode = if ($timedOut) { 124 } else { [int]$process.ExitCode }
+        $stderr = $errorTask.GetAwaiter().GetResult()
+        return [pscustomobject]@{
+            exit_code = $exitCode
+            timed_out = $timedOut
+            stderr = [string]$stderr
+        }
+    } finally {
+        $process.Dispose()
+    }
+}
+
 function Get-ExactCount([string[]]$Lines, [string]$Expected) {
     return @($Lines | Where-Object { $_.Trim().Equals($Expected, [StringComparison]::Ordinal) }).Count
 }
 
-function Read-BenchmarkRecords([string[]]$Lines, $Request, [int]$QemuExitCode) {
-    if ($QemuExitCode -eq 124) { throw 'Benchmark timed out before regular guest poweroff.' }
-    if ($QemuExitCode -ne 0) { throw ('QEMU benchmark failed with exit code ' + $QemuExitCode + '.') }
+function Read-BenchmarkRecords([string[]]$Lines, $Request, $QemuExitCode) {
+    $validatedExitCode = 0
+    if ($null -eq $QemuExitCode -or -not [int]::TryParse([string]$QemuExitCode, [ref]$validatedExitCode)) {
+        throw 'QEMU benchmark exit code is missing or invalid.'
+    }
+    if ($validatedExitCode -eq 124) { throw 'Benchmark timed out before regular guest poweroff.' }
+    if ($validatedExitCode -ne 0) { throw ('QEMU benchmark failed with exit code ' + $validatedExitCode + '.') }
     foreach ($marker in @('R4BENCH request begin', 'R4BENCH request end', 'PERFDIAG machine-result begin', 'PERFDIAG machine-result end', 'PERFDIAG result: OK', 'R4BENCH guest poweroff')) {
         if ((Get-ExactCount $Lines $marker) -ne 1) {
             throw ('Benchmark log must contain exactly one marker: ' + $marker)
@@ -184,6 +242,10 @@ function Assert-Throws([scriptblock]$Action, [string]$Label) {
 }
 
 function Invoke-SelfTest {
+    $scriptHash = Get-Sha256Hex $PSCommandPath
+    if ($scriptHash -notmatch '^[a-f0-9]{64}$') { throw 'Portable SHA-256 helper failed.' }
+    $exitProbe = Invoke-ControlledProcess $env:ComSpec '/d /c exit 7' (Get-Location).Path 10000
+    if ($exitProbe.timed_out -or [int]$exitProbe.exit_code -ne 7) { throw 'Controlled process exit-code capture failed.' }
     $request = Get-ValidatedRequest 'perfdiag-clock' '0.3.7' 'warm' 5 $benchmarkEnvironmentId
     $guestText = New-GuestRequestText $request
     if (@($guestText -split "`r`n" | Where-Object { $_ -match 'PERFDIAG\.R4X' }).Count -ne 1) { throw 'Guest request does not contain exactly one workload.' }
@@ -209,6 +271,7 @@ function Invoke-SelfTest {
     Assert-Throws { Get-ValidatedRequest '' '0.3.7' 'warm' 5 $benchmarkEnvironmentId } 'missing request'
     Assert-Throws { Get-ValidatedRequest 'perfdiag-clock' '0.3.7' 'warm' 5 'unknown-environment' } 'environment mismatch'
     Assert-Throws { Read-BenchmarkRecords $goodLog $request 124 } 'timeout'
+    Assert-Throws { Read-BenchmarkRecords $goodLog $request $null } 'missing QEMU exit code'
     Assert-Throws { Read-BenchmarkRecords @($goodLog | Where-Object { $_ -ne 'R4BENCH guest poweroff' }) $request 0 } 'missing poweroff'
     Assert-Throws { Read-BenchmarkRecords @($goodLog | Where-Object { $_ -ne 'PERFDIAG machine-result end' }) $request 0 } 'incomplete machine block'
     Write-Host '[OK] Benchmark request, fixed QEMU environment and result gates.'
@@ -228,6 +291,7 @@ $config = $env:R4OS_BENCHMARK_QEMU_CONFIG
 $imageCreator = $env:R4OS_BENCHMARK_IMAGE_CREATOR
 $profileOutput = $env:R4OS_BENCHMARK_PROFILE_OUTPUT
 $runOutput = $env:R4OS_BENCHMARK_RUN_OUTPUT
+$releaseVersionFile = $env:R4OS_BENCHMARK_RELEASE_VERSION_FILE
 $dataMb = 0
 if (-not [int]::TryParse($env:R4OS_BENCHMARK_DATA_MB, [ref]$dataMb) -or $dataMb -le 0) {
     throw 'Benchmark DATA_MB is invalid.'
@@ -242,7 +306,17 @@ Assert-File $qemu 'QEMU executable'
 Assert-File $config 'Benchmark QEMU config'
 Assert-File $imageCreator 'ImageCreator'
 Assert-Directory $profileOutput 'Benchmark profile output'
-Assert-File (Join-Path $profileOutput 'disk.img') 'Benchmark disk image'
+$benchmarkImage = Join-Path $profileOutput 'disk.img'
+Assert-File $benchmarkImage 'Benchmark disk image'
+Assert-File $releaseVersionFile 'Release version file'
+$releaseLine = @([IO.File]::ReadAllLines($releaseVersionFile) | Where-Object { $_ -match '^RELEASE_VERSION=' })
+if ($releaseLine.Count -ne 1) { throw 'Release version file must contain exactly one RELEASE_VERSION.' }
+$release = $releaseLine[0].Substring('RELEASE_VERSION='.Length).Trim()
+if ($release -notmatch '^\d+\.\d+\.\d+$') { throw ('Invalid benchmark release version: ' + $release) }
+$imageSha256 = Get-Sha256Hex $benchmarkImage
+$runTimestamp = [DateTime]::UtcNow.ToString('yyyyMMddTHHmmssfffZ', [Globalization.CultureInfo]::InvariantCulture).ToLowerInvariant()
+$runSuffix = [Guid]::NewGuid().ToString('N').Substring(0, 8)
+$runId = ('r4os-' + $release + '-' + $request.suite + '-' + $request.cache_state + '-' + $runTimestamp + '-' + $runSuffix).ToLowerInvariant()
 if (-not (Test-Path -LiteralPath $runOutput -PathType Container)) {
     New-Item -ItemType Directory -Path $runOutput | Out-Null
 }
@@ -266,21 +340,9 @@ $argumentLine = Get-QemuArgumentLine $config $logPath
 Write-Host ('=== QEMU benchmark ' + $request.suite + '; timeout ' + $timeoutSeconds + 's ===')
 Write-Host ('    Environment: ' + $request.environment_id)
 Write-Host ('    Run output:  ' + $runOutput)
-Normalize-StartProcessEnvironment
-$process = Start-Process -FilePath $qemu -ArgumentList $argumentLine -WorkingDirectory $runOutput -WindowStyle Hidden -RedirectStandardError $errorPath -PassThru
-if ($process.WaitForExit($timeoutSeconds * 1000)) {
-    $qemuExitCode = $process.ExitCode
-} else {
-    try {
-        if (-not $process.HasExited) {
-            $process.Kill()
-            $process.WaitForExit(5000) | Out-Null
-        }
-    } catch {
-        Write-Host ('QEMU benchmark termination failed: ' + $_.Exception.Message)
-    }
-    $qemuExitCode = 124
-}
+$execution = Invoke-ControlledProcess $qemu $argumentLine $runOutput ($timeoutSeconds * 1000)
+$qemuExitCode = [int]$execution.exit_code
+Write-Utf8NoBom $errorPath $execution.stderr
 
 Assert-File $logPath 'Benchmark serial log'
 $logLines = [IO.File]::ReadAllLines($logPath)
@@ -288,7 +350,12 @@ $records = Read-BenchmarkRecords $logLines $request $qemuExitCode
 $qemuVersion = @(& $qemu --version 2>$null | Select-Object -First 1)
 $result = [ordered]@{
     schema = 'r4os.benchmark.run'
-    schema_version = 1
+    schema_version = 2
+    identity = [ordered]@{
+        run_id = $runId
+        release = $release
+        image_sha256 = $imageSha256
+    }
     environment = [ordered]@{
         id = $benchmarkEnvironmentId
         machine = 'q35'

@@ -77,6 +77,18 @@ vollstaendigen PERFDIAG-NDJSON-Block und regulaeres Poweroff. Anforderung,
 Logs, Lauf-Datenimage und `benchmark-result.json` liegen unter
 `Artifacts/Distribution/Profiles/Benchmark/Runs/current/`.
 
+`benchmark-result.json` verwendet `r4os.benchmark.run` Schema 2 und bindet
+Run-ID, Release und SHA-256 des Benchmark-Images an Request, Umgebung und
+Maschinenrecords. `Tools/BenchmarkHistory.ps1` besitzt die getrennten Aktionen
+`import`, `validate`, `compare`, `migrate-legacy` und `selftest`. Der Import
+uebernimmt nur katalogisierte Verteilungen mit vollstaendigen Rohsamples in
+die workspace-lokale UTF-8/LF-Datei `ExFiles/Reports/Benchmarks.jsonl`; er
+prueft den vorhandenen Bestand und ersetzt ihn erst danach atomar. Vergleich
+ist nur fuer identische Suite, Workload-ID, Environment-ID und Metrik
+zulaessig. Weder Imagebau noch normale Tests importieren Ergebnisse oder
+starten einen Benchmark. Der vollstaendige Bedien- und Fehlervertrag steht in
+`Agents/Benchmark.txt` des Root-Repositories.
+
 Die Quellen fuer die 14 installierten R4OS-Systemfonts liegen unter
 `Assets/SystemFonts`; der Distribution-Build erzeugt daraus Hostartefakte,
 der Workspace nimmt diese explizit in `Common.plan` auf. Der bekannte

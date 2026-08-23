@@ -1,0 +1,114 @@
+{
+  "schema": "r4os.benchmark.run",
+  "schema_version": 2,
+  "identity": {
+    "run_id": "r4os-0.69.99-perfdiag-clock-warm-fixture",
+    "release": "0.69.99",
+    "image_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "environment": {
+    "id": "r4os-q35-haswell-1vcpu-1g-tcg-v1",
+    "machine": "q35",
+    "accelerator": "tcg-single-thread",
+    "cpu": "Haswell",
+    "vcpu": 1,
+    "memory_mb": 1024,
+    "network": "none",
+    "qemu": "QEMU fixture"
+  },
+  "request": {
+    "schema": "r4os.benchmark.request",
+    "schema_version": 1,
+    "suite": "perfdiag-clock",
+    "workload": "clock",
+    "workload_version": "0.3.7",
+    "cache_state": "warm",
+    "repetitions": 5,
+    "environment_id": "r4os-q35-haswell-1vcpu-1g-tcg-v1"
+  },
+  "outcome": {
+    "qemu_exit_code": 0,
+    "regular_poweroff": true,
+    "machine_block_complete": true,
+    "result": "ok"
+  },
+  "records": [
+    {
+      "schema": "r4os.perfdiag.ndjson",
+      "schema_version": 6,
+      "type": "run",
+      "module": "PERFDIAG",
+      "module_version": "0.3.7",
+      "mode": "benchmark",
+      "cache_state": "warm",
+      "benchmark": "clock",
+      "repetitions": 5,
+      "clock_available": true,
+      "clock_source": "hpet",
+      "clock_resolution_ns": 10,
+      "event_frequency_numerator": 1000,
+      "event_frequency_denominator": 1,
+      "result": "ok"
+    },
+    {
+      "schema": "r4os.perfdiag.ndjson",
+      "schema_version": 6,
+      "type": "check",
+      "name": "Monotonic clock benchmark",
+      "ok": true
+    },
+    {
+      "schema": "r4os.perfdiag.ndjson",
+      "schema_version": 6,
+      "type": "clock_sample",
+      "sample": 1,
+      "calls": 10000,
+      "ns_per_call": 2425
+    },
+    {
+      "schema": "r4os.perfdiag.ndjson",
+      "schema_version": 6,
+      "type": "clock_sample",
+      "sample": 2,
+      "calls": 10000,
+      "ns_per_call": 2269
+    },
+    {
+      "schema": "r4os.perfdiag.ndjson",
+      "schema_version": 6,
+      "type": "clock_sample",
+      "sample": 3,
+      "calls": 10000,
+      "ns_per_call": 2345
+    },
+    {
+      "schema": "r4os.perfdiag.ndjson",
+      "schema_version": 6,
+      "type": "clock_sample",
+      "sample": 4,
+      "calls": 10000,
+      "ns_per_call": 2370
+    },
+    {
+      "schema": "r4os.perfdiag.ndjson",
+      "schema_version": 6,
+      "type": "clock_sample",
+      "sample": 5,
+      "calls": 10000,
+      "ns_per_call": 2462
+    },
+    {
+      "schema": "r4os.perfdiag.ndjson",
+      "schema_version": 6,
+      "type": "clock_distribution",
+      "unit": "ns/call",
+      "count": 5,
+      "min": 2269,
+      "p50": 2370,
+      "p95": 2462,
+      "p99": 2462,
+      "max": 2462,
+      "mean": 2374
+    }
+  ]
+}
