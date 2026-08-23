@@ -132,10 +132,11 @@ build_tools() {
         build_step=
     fi
     cd "$distribution_root"
-    "$zig_exe" build $build_step \
+    "$zig_exe" build \
         "--cache-dir=$build_cache" \
         "--global-cache-dir=$global_cache" \
         "--prefix=$build_prefix" \
+        $build_step \
         -Doptimize=ReleaseSafe \
         "--fork=$sdk_root" \
         "--fork=$contract_root" \
