@@ -1,9 +1,9 @@
 ﻿# R4OS distribution profile; keep this comment first for BOM-safe host parsing.
-PROFILE=Full
+PROFILE=Benchmark
 COMMON_PLAN=Common.plan
-COMPONENT_PLAN=Full.plan
+COMPONENT_PLAN=Benchmark.plan
 TEST_OVERLAY=0
-BENCHMARK_OVERLAY=0
+BENCHMARK_OVERLAY=1
 BOOT_MB=128
 SYSTEM_MB=512
 DATA_MB=128

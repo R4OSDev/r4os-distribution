@@ -176,24 +176,28 @@ run_plan_acceptance() {
         --plan Tests/Fixtures/Plans/Common.plan --plan Tests/Fixtures/Plans/Test.plan \
         --tree 'Tests/Fixtures/Tree|/R4OS/SDK' \
         --overlay Tests/Fixtures/Injection --overlay Tests/Fixtures/TestInjection
+    "$image_plan" --check --output Tests/Expected/Benchmark.plan \
+        --plan Tests/Fixtures/Plans/Common.plan --plan Tests/Fixtures/Plans/Test.plan \
+        --tree 'Tests/Fixtures/Tree|/R4OS/SDK' \
+        --overlay Tests/Fixtures/Injection --overlay Tests/Fixtures/BenchmarkInjection
     if "$image_plan" --check --output Tests/Expected/Full.plan \
         --plan Tests/Fixtures/Plans/Common.plan --plan Tests/Fixtures/Plans/Collision.plan \
         --tree 'Tests/Fixtures/Tree|/R4OS/SDK' --overlay Tests/Fixtures/Injection >/dev/null 2>&1; then
         echo 'ERROR: Duplicate target was accepted.' >&2
         exit 1
     fi
-    echo '[OK] Slim, Full and Test plans are deterministic and collision-free.'
+    echo '[OK] Slim, Full, Test and Benchmark plans are deterministic and collision-free.'
 }
 
 run_profile_acceptance() {
-    for expected_profile in Slim Full Test; do
+    for expected_profile in Slim Full Test Benchmark; do
         load_profile "$expected_profile"
         if [ "$profile" != "$expected_profile" ]; then
             echo "ERROR: Profile identity mismatch: expected $expected_profile, got $profile" >&2
             exit 1
         fi
     done
-    echo '[OK] Slim, Full and Test profile mappings are readable.'
+    echo '[OK] Slim, Full, Test and Benchmark profile mappings are readable.'
 }
 
 load_profile() {
@@ -206,18 +210,21 @@ load_profile() {
     common_plan_name=
     component_plan_name=
     test_overlay=
+    benchmark_overlay=
     while IFS='=' read -r key value; do
         case "$key" in
             PROFILE) profile=$value ;;
             COMMON_PLAN) common_plan_name=$value ;;
             COMPONENT_PLAN) component_plan_name=$value ;;
             TEST_OVERLAY) test_overlay=$value ;;
+            BENCHMARK_OVERLAY) benchmark_overlay=$value ;;
         esac
     done < "$profile_file"
     require_setting PROFILE "$profile"
     require_setting COMMON_PLAN "$common_plan_name"
     require_setting COMPONENT_PLAN "$component_plan_name"
     require_setting TEST_OVERLAY "$test_overlay"
+    require_setting BENCHMARK_OVERLAY "$benchmark_overlay"
 }
 
 generate_plan() {
@@ -236,7 +243,21 @@ generate_plan() {
     image_list=$profile_output/image-adds.txt
     mkdir -p "$profile_output"
     cd "$distribution_root"
-    if [ "$test_overlay" = 1 ]; then
+    if [ "$benchmark_overlay" = 1 ]; then
+        "$image_plan" --output "$image_list" --plan "$common_plan" --plan "$component_plan" \
+            --tree "$sdk_root/Shared/C/include|/R4OS/SDK/Include/C" \
+            --tree "$sdk_root/Shared/C/src|/R4OS/SDK/Startup/C" \
+            --tree "$sdk_root/r4os/linker|/R4OS/SDK/Linker" \
+            --tree "$sdk_root/Templates|/R4OS/SDK/Templates" \
+            --tree "$sdk_root/BuildProfiles|/R4OS/SDK/BuildProfiles" \
+            --tree "$sdk_root/Toolchains|/R4OS/SDK/Toolchains" \
+            --tree "$contract_root/ABI|/R4OS/SDK/Contract/ABI" \
+            --tree "$contract_root/API|/R4OS/SDK/Contract/API" \
+            --tree "$contract_root/Generated|/R4OS/SDK/Contract/Generated" \
+            --tree "$contract_root/Module|/R4OS/SDK/Contract/Module" \
+            --overlay "$distribution_root/Injection" \
+            --overlay "$distribution_root/BenchmarkInjection"
+    elif [ "$test_overlay" = 1 ]; then
         "$image_plan" --output "$image_list" --plan "$common_plan" --plan "$component_plan" \
             --tree "$sdk_root/Shared/C/include|/R4OS/SDK/Include/C" \
             --tree "$sdk_root/Shared/C/src|/R4OS/SDK/Startup/C" \
@@ -276,13 +297,13 @@ case "$action" in
     test) run_profile_acceptance; validate_legal_source; build_tools test; run_plan_acceptance ;;
     plan)
         if [ -z "$requested_profile" ]; then
-            echo 'Usage: Build.sh plan Slim|Full|Test' >&2
+            echo 'Usage: Build.sh plan Slim|Full|Test|Benchmark' >&2
             exit 1
         fi
         generate_plan "$requested_profile"
         ;;
     *)
-        echo 'Usage: Build.sh [tools|test|plan Slim|Full|Test]' >&2
+        echo 'Usage: Build.sh [tools|test|plan Slim|Full|Test|Benchmark]' >&2
         echo 'Image, verify and QEMU actions currently use Build.bat with the Windows DevKit.' >&2
         exit 1
         ;;

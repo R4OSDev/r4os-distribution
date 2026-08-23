@@ -14,6 +14,7 @@ if /i "%R4OS_ACTION%"=="image" goto require_profile
 if /i "%R4OS_ACTION%"=="verify" goto require_profile
 if /i "%R4OS_ACTION%"=="qemu" goto require_profile
 if /i "%R4OS_ACTION%"=="headless" goto require_profile
+if /i "%R4OS_ACTION%"=="benchmark" goto require_profile
 goto usage
 
 :require_profile
@@ -112,7 +113,9 @@ set "R4OS_IMAGE_PLAN=%R4OS_BUILD_PREFIX%\bin\image-plan.exe"
 set "R4OS_IMAGE_CREATOR=%R4OS_BUILD_PREFIX%\bin\imagecreater.exe"
 set "R4OS_NTFS_VERIFY=%R4OS_BUILD_PREFIX%\bin\ntfsverify.exe"
 set "R4OS_QEMU_CONFIG=%R4OS_DISTRIBUTION_ROOT%\QEMU\standard.conf"
+set "R4OS_BENCHMARK_QEMU_CONFIG=%R4OS_DISTRIBUTION_ROOT%\QEMU\benchmark.conf"
 set "R4OS_QEMU_TIMEOUT_HELPER=%R4OS_DISTRIBUTION_ROOT%\Tests\Invoke-QemuHeadless.ps1"
+set "R4OS_BENCHMARK_RUNNER=%R4OS_DISTRIBUTION_ROOT%\Tests\Invoke-QemuBenchmark.ps1"
 set "R4OS_QEMU_MARKER_TEST=%R4OS_DISTRIBUTION_ROOT%\Tests\Test-QemuApiMarkers.ps1"
 set "R4OS_RELEASE_TOOL=%R4OS_DISTRIBUTION_ROOT%\Release.bat"
 set "R4OS_LOG_ROOT=%R4OS_OUTPUT_ROOT%\Logs"
@@ -142,6 +145,7 @@ if /i "%R4OS_ACTION%"=="image" goto image_action
 if /i "%R4OS_ACTION%"=="verify" goto verify_action
 if /i "%R4OS_ACTION%"=="qemu" goto qemu_action
 if /i "%R4OS_ACTION%"=="headless" goto headless_action
+if /i "%R4OS_ACTION%"=="benchmark" goto benchmark_action
 goto usage
 
 :build_tools_action
@@ -158,6 +162,8 @@ if errorlevel 1 exit /b %ERRORLEVEL%
 call :run_plan_acceptance
 if errorlevel 1 exit /b %ERRORLEVEL%
 call :run_marker_acceptance
+if errorlevel 1 exit /b %ERRORLEVEL%
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_BENCHMARK_RUNNER%" -SelfTest
 if errorlevel 1 exit /b %ERRORLEVEL%
 call :run_release_acceptance
 exit /b %ERRORLEVEL%
@@ -187,6 +193,13 @@ if not exist "%R4OS_NTFS_META%\upcase.bin" (
 echo === Create %R4OS_PROFILE% image ===
 "%R4OS_IMAGE_CREATOR%" create-system --output "%R4OS_PROFILE_OUTPUT%\disk.img" --boot-mb %R4OS_BOOT_MB% --system-mb %R4OS_SYSTEM_MB% --meta "%R4OS_NTFS_META%" --add-list "%R4OS_IMAGE_LIST%"
 if errorlevel 1 exit /b %ERRORLEVEL%
+if /i "%R4OS_PROFILE%"=="Benchmark" (
+    if exist "%R4OS_PROFILE_OUTPUT%\data.img" del /f /q "%R4OS_PROFILE_OUTPUT%\data.img"
+    if exist "%R4OS_PROFILE_OUTPUT%\data.img" (
+        echo ERROR: Could not reset Benchmark data image.
+        exit /b 1
+    )
+)
 if not exist "%R4OS_PROFILE_OUTPUT%\data.img" (
     "%R4OS_IMAGE_CREATOR%" --output "%R4OS_PROFILE_OUTPUT%\data.img" --size %R4OS_DATA_MB%
     if errorlevel 1 exit /b %ERRORLEVEL%
@@ -295,6 +308,45 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_TIMEOUT_HELP
 set "R4OS_QEMU_EXIT=%ERRORLEVEL%"
 if "%R4OS_QEMU_EXIT%"=="124" echo QEMU: TIMEOUT after %QEMU_TEST_TIMEOUT_SECONDS%s; guest did not power off.
 call :evaluate_headless_logs "%R4OS_QEMU_EXIT%"
+exit /b %ERRORLEVEL%
+
+:benchmark_action
+if not "%~8"=="" goto usage
+call :load_profile "%R4OS_REQUESTED_PROFILE%"
+if errorlevel 1 exit /b %ERRORLEVEL%
+if /i not "%R4OS_PROFILE%"=="Benchmark" (
+    echo ERROR: Explicit benchmark runs require the Benchmark profile.
+    exit /b 1
+)
+if not "%R4OS_BENCHMARK_OVERLAY%"=="1" (
+    echo ERROR: Benchmark profile has no benchmark overlay.
+    exit /b 1
+)
+set "R4OS_PROFILE_OUTPUT=%R4OS_OUTPUT_ROOT%\Profiles\%R4OS_PROFILE%"
+if not exist "%R4OS_PROFILE_OUTPUT%\disk.img" (
+    echo ERROR: Benchmark image not found: "%R4OS_PROFILE_OUTPUT%\disk.img"
+    exit /b 1
+)
+if not exist "%R4OS_IMAGE_CREATOR%" call :build_tools
+if errorlevel 1 exit /b %ERRORLEVEL%
+if not exist "%R4OS_QEMU_EXE%" (
+    echo ERROR: QEMU executable not found: "%R4OS_QEMU_EXE%"
+    exit /b 1
+)
+if not exist "%R4OS_BENCHMARK_QEMU_CONFIG%" (
+    echo ERROR: Benchmark QEMU config not found: "%R4OS_BENCHMARK_QEMU_CONFIG%"
+    exit /b 1
+)
+if not exist "%R4OS_BENCHMARK_RUNNER%" (
+    echo ERROR: Benchmark runner not found: "%R4OS_BENCHMARK_RUNNER%"
+    exit /b 1
+)
+set "R4OS_BENCHMARK_QEMU_EXE=%R4OS_QEMU_EXE%"
+set "R4OS_BENCHMARK_IMAGE_CREATOR=%R4OS_IMAGE_CREATOR%"
+set "R4OS_BENCHMARK_PROFILE_OUTPUT=%R4OS_PROFILE_OUTPUT%"
+set "R4OS_BENCHMARK_RUN_OUTPUT=%R4OS_PROFILE_OUTPUT%\Runs\current"
+set "R4OS_BENCHMARK_DATA_MB=%R4OS_DATA_MB%"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_BENCHMARK_RUNNER%" -Suite "%~3" -WorkloadVersion "%~4" -CacheState "%~5" -Repetitions "%~6" -EnvironmentId "%~7"
 exit /b %ERRORLEVEL%
 
 :build_tools
@@ -431,11 +483,16 @@ if not exist "%R4OS_PROFILE_OUTPUT%" mkdir "%R4OS_PROFILE_OUTPUT%" || exit /b 1
 
 echo === Generate %R4OS_PROFILE% image plan ===
 if "%R4OS_TEST_OVERLAY%"=="1" goto generate_test_plan
+if "%R4OS_BENCHMARK_OVERLAY%"=="1" goto generate_benchmark_plan
 "%R4OS_IMAGE_PLAN%" --output "%R4OS_IMAGE_LIST%" --plan "%R4OS_COMMON_PLAN%" --plan "%R4OS_COMPONENT_PLAN%" --tree "%R4OS_SDK_ROOT%\Shared\C\include|/R4OS/SDK/Include/C" --tree "%R4OS_SDK_ROOT%\Shared\C\src|/R4OS/SDK/Startup/C" --tree "%R4OS_SDK_ROOT%\r4os\linker|/R4OS/SDK/Linker" --tree "%R4OS_SDK_ROOT%\Templates|/R4OS/SDK/Templates" --tree "%R4OS_SDK_ROOT%\BuildProfiles|/R4OS/SDK/BuildProfiles" --tree "%R4OS_SDK_ROOT%\Toolchains|/R4OS/SDK/Toolchains" --tree "%R4OS_CONTRACT_ROOT%\ABI|/R4OS/SDK/Contract/ABI" --tree "%R4OS_CONTRACT_ROOT%\API|/R4OS/SDK/Contract/API" --tree "%R4OS_CONTRACT_ROOT%\Generated|/R4OS/SDK/Contract/Generated" --tree "%R4OS_CONTRACT_ROOT%\Module|/R4OS/SDK/Contract/Module" --overlay "%R4OS_DISTRIBUTION_ROOT%\Injection" --optional-overlay "%R4OS_OUTPUT_ROOT%\Injection" --optional-overlay "%R4OS_PRIVATE_INJECTION_ROOT%"
 exit /b %ERRORLEVEL%
 
 :generate_test_plan
 "%R4OS_IMAGE_PLAN%" --output "%R4OS_IMAGE_LIST%" --plan "%R4OS_COMMON_PLAN%" --plan "%R4OS_COMPONENT_PLAN%" --tree "%R4OS_SDK_ROOT%\Shared\C\include|/R4OS/SDK/Include/C" --tree "%R4OS_SDK_ROOT%\Shared\C\src|/R4OS/SDK/Startup/C" --tree "%R4OS_SDK_ROOT%\r4os\linker|/R4OS/SDK/Linker" --tree "%R4OS_SDK_ROOT%\Templates|/R4OS/SDK/Templates" --tree "%R4OS_SDK_ROOT%\BuildProfiles|/R4OS/SDK/BuildProfiles" --tree "%R4OS_SDK_ROOT%\Toolchains|/R4OS/SDK/Toolchains" --tree "%R4OS_CONTRACT_ROOT%\ABI|/R4OS/SDK/Contract/ABI" --tree "%R4OS_CONTRACT_ROOT%\API|/R4OS/SDK/Contract/API" --tree "%R4OS_CONTRACT_ROOT%\Generated|/R4OS/SDK/Contract/Generated" --tree "%R4OS_CONTRACT_ROOT%\Module|/R4OS/SDK/Contract/Module" --overlay "%R4OS_DISTRIBUTION_ROOT%\Injection" --overlay "%R4OS_DISTRIBUTION_ROOT%\TestInjection" --optional-overlay "%R4OS_OUTPUT_ROOT%\Injection" --optional-overlay "%R4OS_PRIVATE_INJECTION_ROOT%"
+exit /b %ERRORLEVEL%
+
+:generate_benchmark_plan
+"%R4OS_IMAGE_PLAN%" --output "%R4OS_IMAGE_LIST%" --plan "%R4OS_COMMON_PLAN%" --plan "%R4OS_COMPONENT_PLAN%" --tree "%R4OS_SDK_ROOT%\Shared\C\include|/R4OS/SDK/Include/C" --tree "%R4OS_SDK_ROOT%\Shared\C\src|/R4OS/SDK/Startup/C" --tree "%R4OS_SDK_ROOT%\r4os\linker|/R4OS/SDK/Linker" --tree "%R4OS_SDK_ROOT%\Templates|/R4OS/SDK/Templates" --tree "%R4OS_SDK_ROOT%\BuildProfiles|/R4OS/SDK/BuildProfiles" --tree "%R4OS_SDK_ROOT%\Toolchains|/R4OS/SDK/Toolchains" --tree "%R4OS_CONTRACT_ROOT%\ABI|/R4OS/SDK/Contract/ABI" --tree "%R4OS_CONTRACT_ROOT%\API|/R4OS/SDK/Contract/API" --tree "%R4OS_CONTRACT_ROOT%\Generated|/R4OS/SDK/Contract/Generated" --tree "%R4OS_CONTRACT_ROOT%\Module|/R4OS/SDK/Contract/Module" --overlay "%R4OS_DISTRIBUTION_ROOT%\Injection" --overlay "%R4OS_DISTRIBUTION_ROOT%\BenchmarkInjection"
 exit /b %ERRORLEVEL%
 
 :load_profile
@@ -448,6 +505,7 @@ set "R4OS_PROFILE="
 set "R4OS_COMMON_PLAN_NAME="
 set "R4OS_COMPONENT_PLAN_NAME="
 set "R4OS_TEST_OVERLAY="
+set "R4OS_BENCHMARK_OVERLAY="
 set "R4OS_BOOT_MB="
 set "R4OS_SYSTEM_MB="
 set "R4OS_DATA_MB="
@@ -456,11 +514,12 @@ for /f "usebackq tokens=1,* delims==" %%A in ("%R4OS_PROFILE_FILE%") do (
     if /i "%%A"=="COMMON_PLAN" set "R4OS_COMMON_PLAN_NAME=%%B"
     if /i "%%A"=="COMPONENT_PLAN" set "R4OS_COMPONENT_PLAN_NAME=%%B"
     if /i "%%A"=="TEST_OVERLAY" set "R4OS_TEST_OVERLAY=%%B"
+    if /i "%%A"=="BENCHMARK_OVERLAY" set "R4OS_BENCHMARK_OVERLAY=%%B"
     if /i "%%A"=="BOOT_MB" set "R4OS_BOOT_MB=%%B"
     if /i "%%A"=="SYSTEM_MB" set "R4OS_SYSTEM_MB=%%B"
     if /i "%%A"=="DATA_MB" set "R4OS_DATA_MB=%%B"
 )
-for %%K in (PROFILE COMMON_PLAN_NAME COMPONENT_PLAN_NAME TEST_OVERLAY BOOT_MB SYSTEM_MB DATA_MB) do if not defined R4OS_%%K (
+for %%K in (PROFILE COMMON_PLAN_NAME COMPONENT_PLAN_NAME TEST_OVERLAY BENCHMARK_OVERLAY BOOT_MB SYSTEM_MB DATA_MB) do if not defined R4OS_%%K (
     echo ERROR: Profile mapping %%K is missing in "%R4OS_PROFILE_FILE%".
     exit /b 1
 )
@@ -477,11 +536,15 @@ if /i not "%R4OS_PROFILE%"=="Full" exit /b 1
 call :load_profile "Test"
 if errorlevel 1 exit /b %ERRORLEVEL%
 if /i not "%R4OS_PROFILE%"=="Test" exit /b 1
-echo [OK] Slim, Full and Test profile mappings are readable.
+call :load_profile "Benchmark"
+if errorlevel 1 exit /b %ERRORLEVEL%
+if /i not "%R4OS_PROFILE%"=="Benchmark" exit /b 1
+if not "%R4OS_BENCHMARK_OVERLAY%"=="1" exit /b 1
+echo [OK] Slim, Full, Test and Benchmark profile mappings are readable.
 exit /b 0
 
 :run_plan_acceptance
-echo === Slim, Full and Test image-plan acceptance ===
+echo === Slim, Full, Test and Benchmark image-plan acceptance ===
 pushd "%R4OS_DISTRIBUTION_ROOT%" >nul || exit /b 1
 "%R4OS_IMAGE_PLAN%" --check --output "Tests\Expected\Slim.plan" --plan "Tests\Fixtures\Plans\Common.plan" --plan "Tests\Fixtures\Plans\Slim.plan" --tree "Tests\Fixtures\Tree|/R4OS/SDK" --overlay "Tests\Fixtures\Injection"
 if errorlevel 1 goto plan_acceptance_error
@@ -489,13 +552,15 @@ if errorlevel 1 goto plan_acceptance_error
 if errorlevel 1 goto plan_acceptance_error
 "%R4OS_IMAGE_PLAN%" --check --output "Tests\Expected\Test.plan" --plan "Tests\Fixtures\Plans\Common.plan" --plan "Tests\Fixtures\Plans\Test.plan" --tree "Tests\Fixtures\Tree|/R4OS/SDK" --overlay "Tests\Fixtures\Injection" --overlay "Tests\Fixtures\TestInjection"
 if errorlevel 1 goto plan_acceptance_error
+"%R4OS_IMAGE_PLAN%" --check --output "Tests\Expected\Benchmark.plan" --plan "Tests\Fixtures\Plans\Common.plan" --plan "Tests\Fixtures\Plans\Test.plan" --tree "Tests\Fixtures\Tree|/R4OS/SDK" --overlay "Tests\Fixtures\Injection" --overlay "Tests\Fixtures\BenchmarkInjection"
+if errorlevel 1 goto plan_acceptance_error
 "%R4OS_IMAGE_PLAN%" --check --output "Tests\Expected\Full.plan" --plan "Tests\Fixtures\Plans\Common.plan" --plan "Tests\Fixtures\Plans\Collision.plan" --tree "Tests\Fixtures\Tree|/R4OS/SDK" --overlay "Tests\Fixtures\Injection" >nul 2>&1
 if not errorlevel 1 (
     echo ERROR: Duplicate target was accepted.
     goto plan_acceptance_error
 )
 popd
-echo [OK] Slim, Full and Test plans are deterministic and collision-free.
+echo [OK] Slim, Full, Test and Benchmark plans are deterministic and collision-free.
 exit /b 0
 
 :plan_acceptance_error
@@ -539,9 +604,10 @@ echo Usage:
 echo   Build.bat
 echo   Build.bat tools
 echo   Build.bat test
-echo   Build.bat plan Slim^|Full^|Test
-echo   Build.bat image Slim^|Full^|Test
-echo   Build.bat verify Slim^|Full^|Test
-echo   Build.bat qemu Slim^|Full^|Test
+echo   Build.bat plan Slim^|Full^|Test^|Benchmark
+echo   Build.bat image Slim^|Full^|Test^|Benchmark
+echo   Build.bat verify Slim^|Full^|Test^|Benchmark
+echo   Build.bat qemu Slim^|Full^|Test^|Benchmark
 echo   Build.bat headless Test
+echo   Build.bat benchmark Benchmark SUITE WORKLOAD_VERSION WARM^|COLD REPETITIONS ENVIRONMENT_ID
 exit /b 1

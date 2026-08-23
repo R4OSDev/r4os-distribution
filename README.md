@@ -1,7 +1,7 @@
 ﻿# R4OS Distribution
 
 This repository assembles independently built R4OS components into Slim, Full,
-and Test disk images. It owns image profiles, versioned injection data,
+Test, and explicit Benchmark disk images. It owns image profiles, versioned injection data,
 host-side image tools, QEMU configuration, and integration checks. It does not
 rebuild the kernel, libraries, or modules.
 
@@ -13,9 +13,18 @@ rebuild the kernel, libraries, or modules.
     Build.bat verify Full
     Build.bat qemu Full
     Build.bat headless Test
+    Build.bat image Benchmark
+    Build.bat benchmark Benchmark perfdiag-clock 0.3.7 warm 5 r4os-q35-haswell-1vcpu-1g-tcg-v1
 
 The equivalent host-neutral tool and plan checks are available through
 `./Build.sh`. `Settings.R4S` maps input artifacts and DevKit tools.
+
+Building the Benchmark profile never starts a benchmark. The `benchmark`
+action is the only measured path: it requires a complete request, creates a
+fresh run data image, uses the versioned fixed QEMU environment, requires a
+complete PERFDIAG machine block and regular guest poweroff, and writes the
+current machine-readable result below the Benchmark profile. Normal builds,
+tests, headless acceptance, and GUI runs never invoke it.
 
 Every generated image contains legal material under
 `/R4OS/LICENSES`. The same payload is staged in the profile's

@@ -1,0 +1,12 @@
+Tests/Fixtures/Artifacts/kernel.bin:/boot/r4os.elf
+Tests/Fixtures/Artifacts/boot.bin:/boot/limine-bios.sys
+Tests/Fixtures/Artifacts/app.bin:/R4OS/SOFTWARE/APP.R4X
+Tests/Fixtures/Artifacts/driver.bin:/R4OS/DRIVERS/DRIVER.R4D
+Tests/Fixtures/Artifacts/protocol.bin:/R4OS/PROTOCOLS/PROTOCOL.R4P
+Tests/Fixtures/Artifacts/diagnostic.bin:/R4OS/SOFTWARE/DIAGNOSTIC.R4X
+Tests/Fixtures/Tree/include/a.h:/R4OS/SDK/include/a.h
+Tests/Fixtures/Tree/include/z.h:/R4OS/SDK/include/z.h
+Tests/Fixtures/Injection/R4OS/CONFIG/BASE.R4S:/R4OS/CONFIG/BASE.R4S
+Tests/Fixtures/Injection/R4OS/CONFIG/SERVICES.R4S:/R4OS/CONFIG/SERVICES.R4S
+Tests/Fixtures/BenchmarkInjection/AUTOEXEC.BAT:/AUTOEXEC.BAT
+Tests/Fixtures/BenchmarkInjection/CONFIG.R4S:/CONFIG.R4S

@@ -3,7 +3,8 @@
 
 Dieses Repository besitzt die reproduzierbare Image- und Releaseintegration
 von R4OS. Es enthaelt die oeffentliche System-Injection, die Profile `Slim`,
-`Full` und `Test`, QEMU-Konfiguration und distributionsspezifische Hosttools.
+`Full`, `Test` und `Benchmark`, QEMU-Konfiguration und
+distributionsspezifische Hosttools.
 
 Repositorygrenze
 ----------------
@@ -33,6 +34,8 @@ Unter Windows:
     Build.bat verify Full
     Build.bat qemu Full
     Build.bat headless Test
+    Build.bat image Benchmark
+    Build.bat benchmark Benchmark perfdiag-clock 0.3.7 warm 5 r4os-q35-haswell-1vcpu-1g-tcg-v1
 
 Ein uebergeordneter Workspace-Build darf diese Aktionen aufrufen, erzeugt
 Images oder QEMU-Aufrufe aber nicht selbst. Damit bleibt dieses `Build.bat`
@@ -45,9 +48,9 @@ GUI; `headless Test` erzeugt vor jedem Lauf ein frisches Datenimage, schreibt
 serielle Logs unter `Artifacts/Distribution/Logs`, wertet die verbindlichen
 Boot-/API-Marker aus und verlangt ein geordnetes Gast-Poweroff.
 
-`Build.bat test` baut alle sieben Hosttools und prueft die Slim-, Full- und
-Test-Imageplaene bytegenau, mit einem negativen Kollisionstest und mit dem
-Selbsttest der Headless-Markerauswertung. Der echte Gastlauf ist die getrennte
+`Build.bat test` baut alle sieben Hosttools und prueft die Slim-, Full-, Test-
+und Benchmark-Imageplaene bytegenau, mit einem negativen Kollisionstest sowie
+den Selbsttests der Headless-Markerauswertung und des Benchmarkrunners. Der echte Gastlauf ist die getrennte
 Aktion `headless Test`. Unter Linux und macOS stehen Hosttool-Build, Tests und
 Plangenerierung ueber `Build.sh` bereit; der 0.64-Umbau wird praktisch auf
 Windows abgenommen.
@@ -58,6 +61,21 @@ Audiofassaden- und Servicepfad pruefen kann. Die normale `IMAGE_SCOPE=full`-
 Zuordnung von AUDSVC sowie der Inhalt von Slim und Full bleiben dadurch
 unveraendert. AUTOEXEC gibt nach dem katalogbasierten Doppelstart sowohl den
 Subsystem-Host- als auch den Runtime-/Audio-Marker aus.
+
+Das Benchmarkprofil waehlt den Full-Umfang und nimmt PERFDIAG als einzige
+explizite Diagnose aus `IMAGE_SCOPE=test` hinzu. Es verwendet
+`BenchmarkInjection` ueber der normalen Injection, setzt die Shell explizit
+auf das AUTOEXEC-faehige Terminal und verwendet keine lokalen oder
+privaten Overlays. Imagebau, normale Tests, Headless und GUI starten nie einen
+Benchmark. Nur `Build.bat benchmark Benchmark ...` akzeptiert eine
+vollstaendige Anforderung aus Suite, Workload-Version, Warm/Kalt,
+Wiederholungszahl und der festen Umgebungs-ID
+`r4os-q35-haswell-1vcpu-1g-tcg-v1`. Der Runner erzeugt ein getrenntes frisches
+D:-Image mit genau einer Workload und startet q35 mit TCG single-thread,
+Haswell, einem vCPU, 1 GiB und ohne Netzwerk. Erfolg verlangt genau einen
+vollstaendigen PERFDIAG-NDJSON-Block und regulaeres Poweroff. Anforderung,
+Logs, Lauf-Datenimage und `benchmark-result.json` liegen unter
+`Artifacts/Distribution/Profiles/Benchmark/Runs/current/`.
 
 Die Quellen fuer die 14 installierten R4OS-Systemfonts liegen unter
 `Assets/SystemFonts`; der Distribution-Build erzeugt daraus Hostartefakte,
@@ -107,6 +125,8 @@ Private Dateien
 Private Injection-Dateien liegen ausschliesslich im durch `Settings.R4S`
 gemappten lokalen `PrivateInjection`-Ordner. Ein dortiger Pfad ueberschreibt
 denselben relativen Pfad aus `Injection` beziehungsweise `TestInjection`.
-Schluesseldateien werden durch `.gitignore` nie versioniert.
+Schluesseldateien werden durch `.gitignore` nie versioniert. Das
+Benchmarkprofil ignoriert diese privaten und sonstigen lokalen Overlays fuer
+reproduzierbare Eingaben.
 
 Herkunft und Transfergrenzen stehen in `PROVENANCE.txt`.
