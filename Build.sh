@@ -133,9 +133,9 @@ build_tools() {
     fi
     cd "$distribution_root"
     "$zig_exe" build \
-        "--cache-dir=$build_cache" \
-        "--global-cache-dir=$global_cache" \
-        "--prefix=$build_prefix" \
+        --cache-dir "$build_cache" \
+        --global-cache-dir "$global_cache" \
+        --prefix "$build_prefix" \
         $build_step \
         -Doptimize=ReleaseSafe \
         "--fork=$sdk_root" \
