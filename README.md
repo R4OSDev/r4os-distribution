@@ -12,7 +12,10 @@ rebuild the kernel, libraries, or modules.
     Build.bat image Full
     Build.bat verify Full
     Build.bat qemu Full
+    Build.bat ssh Full
     Build.bat headless Test
+    Build.bat image Test browser
+    Build.bat headless Test browser
     Build.bat image Benchmark
     Build.bat benchmark Benchmark perfdiag-clock 0.3.7 warm 5 r4os-q35-haswell-1vcpu-1g-tcg-v1
 
@@ -20,6 +23,20 @@ On Linux, use the same arguments with `./Build.sh`; tools, tests, plan
 generation, image creation, verification, GUI/headless QEMU, and benchmarks
 are equivalent host entry points. `Settings.R4S` maps input artifacts and
 DevKit tools with portable relative defaults.
+
+`ssh Full` starts an existing Full image without a display and forwards only
+`127.0.0.1:10022` to the guest's `10.0.2.15:22`. It keeps the profile data
+image persistent, writes serial output to
+`Artifacts/Distribution/Logs/qemu-ssh-debug.log`, and stays in the foreground
+until the guest powers off. Connect with
+`ssh -p 10022 -c chacha20-poly1305@openssh.com r4os@127.0.0.1`. Normal GUI
+launches provide the same local RTL8139/SSH path; automated headless tests and
+benchmarks remain network-disabled.
+
+The optional `browser` variant layers `BrowserTestInjection` over the normal
+Test injection and evaluates the additional offline Klickifax markers. The
+workspace command `-testbrowser` creates the matching component plan; regular
+Test images and marker runs omit the browser bundle.
 
 Building the Benchmark profile never starts a benchmark. The `benchmark`
 action is the only measured path: it requires a complete request, creates a

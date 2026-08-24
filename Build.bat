@@ -6,6 +6,7 @@ set "R4OS_SETTINGS=%R4OS_DISTRIBUTION_ROOT%\Settings.R4S"
 
 set "R4OS_ACTION=%~1"
 if not defined R4OS_ACTION set "R4OS_ACTION=tools"
+set "R4OS_REQUESTED_VARIANT=%~3"
 
 if /i "%R4OS_ACTION%"=="tools" goto resolve_settings
 if /i "%R4OS_ACTION%"=="test" goto resolve_settings
@@ -13,6 +14,7 @@ if /i "%R4OS_ACTION%"=="plan" goto require_profile
 if /i "%R4OS_ACTION%"=="image" goto require_profile
 if /i "%R4OS_ACTION%"=="verify" goto require_profile
 if /i "%R4OS_ACTION%"=="qemu" goto require_profile
+if /i "%R4OS_ACTION%"=="ssh" goto require_profile
 if /i "%R4OS_ACTION%"=="headless" goto require_profile
 if /i "%R4OS_ACTION%"=="benchmark" goto require_profile
 goto usage
@@ -114,6 +116,7 @@ set "R4OS_IMAGE_CREATOR=%R4OS_BUILD_PREFIX%\bin\imagecreater.exe"
 set "R4OS_NTFS_VERIFY=%R4OS_BUILD_PREFIX%\bin\ntfsverify.exe"
 set "R4OS_QEMU_CONFIG=%R4OS_DISTRIBUTION_ROOT%\QEMU\standard.conf"
 set "R4OS_BENCHMARK_QEMU_CONFIG=%R4OS_DISTRIBUTION_ROOT%\QEMU\benchmark.conf"
+set "R4OS_QEMU_RUNNER=%R4OS_DISTRIBUTION_ROOT%\Tools\Invoke-Qemu.ps1"
 set "R4OS_QEMU_TIMEOUT_HELPER=%R4OS_DISTRIBUTION_ROOT%\Tests\Invoke-QemuHeadless.ps1"
 set "R4OS_BENCHMARK_RUNNER=%R4OS_DISTRIBUTION_ROOT%\Tests\Invoke-QemuBenchmark.ps1"
 set "R4OS_BENCHMARK_HISTORY=%R4OS_DISTRIBUTION_ROOT%\Tools\BenchmarkHistory.ps1"
@@ -145,6 +148,7 @@ if /i "%R4OS_ACTION%"=="plan" goto plan_action
 if /i "%R4OS_ACTION%"=="image" goto image_action
 if /i "%R4OS_ACTION%"=="verify" goto verify_action
 if /i "%R4OS_ACTION%"=="qemu" goto qemu_action
+if /i "%R4OS_ACTION%"=="ssh" goto ssh_action
 if /i "%R4OS_ACTION%"=="headless" goto headless_action
 if /i "%R4OS_ACTION%"=="benchmark" goto benchmark_action
 goto usage
@@ -163,6 +167,8 @@ if errorlevel 1 exit /b %ERRORLEVEL%
 call :run_plan_acceptance
 if errorlevel 1 exit /b %ERRORLEVEL%
 call :run_marker_acceptance
+if errorlevel 1 exit /b %ERRORLEVEL%
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_RUNNER%" -SelfTest
 if errorlevel 1 exit /b %ERRORLEVEL%
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_BENCHMARK_RUNNER%" -SelfTest
 if errorlevel 1 exit /b %ERRORLEVEL%
@@ -243,15 +249,37 @@ if not exist "%R4OS_PROFILE_OUTPUT%\data.img" (
     echo ERROR: Data image not found: "%R4OS_PROFILE_OUTPUT%\data.img"
     exit /b 1
 )
-if not exist "%R4OS_QEMU_EXE%" (
-    echo ERROR: QEMU executable not found: "%R4OS_QEMU_EXE%"
+if not exist "%R4OS_QEMU_RUNNER%" (
+    echo ERROR: QEMU runner not found: "%R4OS_QEMU_RUNNER%"
     exit /b 1
 )
-pushd "%R4OS_PROFILE_OUTPUT%" >nul || exit /b 1
-"%R4OS_QEMU_EXE%" -readconfig "%R4OS_QEMU_CONFIG%" -m 1024 -smp 4 -cpu max -boot c
-set "R4OS_EXIT_CODE=%ERRORLEVEL%"
-popd
-exit /b %R4OS_EXIT_CODE%
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_RUNNER%" -Mode Gui -QemuPath "%R4OS_QEMU_EXE%" -ConfigPath "%R4OS_QEMU_CONFIG%" -WorkingDirectory "%R4OS_PROFILE_OUTPUT%"
+exit /b %ERRORLEVEL%
+
+:ssh_action
+call :load_profile "%R4OS_REQUESTED_PROFILE%"
+if errorlevel 1 exit /b %ERRORLEVEL%
+if /i not "%R4OS_PROFILE%"=="Full" (
+    echo ERROR: SSH debugging requires the Full profile.
+    exit /b 1
+)
+set "R4OS_PROFILE_OUTPUT=%R4OS_OUTPUT_ROOT%\Profiles\%R4OS_PROFILE%"
+if not exist "%R4OS_PROFILE_OUTPUT%\disk.img" (
+    echo ERROR: Image not found: "%R4OS_PROFILE_OUTPUT%\disk.img"
+    exit /b 1
+)
+if not exist "%R4OS_PROFILE_OUTPUT%\data.img" (
+    echo ERROR: Data image not found: "%R4OS_PROFILE_OUTPUT%\data.img"
+    exit /b 1
+)
+if not exist "%R4OS_QEMU_RUNNER%" (
+    echo ERROR: QEMU runner not found: "%R4OS_QEMU_RUNNER%"
+    exit /b 1
+)
+if not exist "%R4OS_LOG_ROOT%" mkdir "%R4OS_LOG_ROOT%" || exit /b 1
+set "R4OS_SSH_LOG=%R4OS_LOG_ROOT%\qemu-ssh-debug.log"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_RUNNER%" -Mode SshDebug -QemuPath "%R4OS_QEMU_EXE%" -ConfigPath "%R4OS_QEMU_CONFIG%" -WorkingDirectory "%R4OS_PROFILE_OUTPUT%" -SerialLogPath "%R4OS_SSH_LOG%"
+exit /b %ERRORLEVEL%
 
 :headless_action
 call :load_profile "%R4OS_REQUESTED_PROFILE%"
@@ -263,6 +291,14 @@ if /i not "%R4OS_PROFILE%"=="Test" (
 if not "%R4OS_TEST_OVERLAY%"=="1" (
     echo ERROR: Test profile has no test overlay.
     exit /b 1
+)
+set "R4OS_HEADLESS_VARIANT=standard"
+if defined R4OS_REQUESTED_VARIANT (
+    if /i not "%R4OS_REQUESTED_VARIANT%"=="browser" (
+        echo ERROR: Unknown headless variant: %R4OS_REQUESTED_VARIANT%
+        exit /b 1
+    )
+    set "R4OS_HEADLESS_VARIANT=browser"
 )
 set "R4OS_PROFILE_OUTPUT=%R4OS_OUTPUT_ROOT%\Profiles\%R4OS_PROFILE%"
 if not exist "%R4OS_PROFILE_OUTPUT%\disk.img" (
@@ -296,8 +332,8 @@ echo === Recreate Test data image for headless acceptance: %R4OS_DATA_MB% MB ===
 if errorlevel 1 exit /b %ERRORLEVEL%
 
 if not exist "%R4OS_LOG_ROOT%" mkdir "%R4OS_LOG_ROOT%" || exit /b 1
-set "R4OS_QEMU_LOG=%R4OS_LOG_ROOT%\qemu-test-standard.log"
-set "R4OS_QEMU_ERROR_LOG=%R4OS_LOG_ROOT%\qemu-test-standard.err"
+set "R4OS_QEMU_LOG=%R4OS_LOG_ROOT%\qemu-test-%R4OS_HEADLESS_VARIANT%.log"
+set "R4OS_QEMU_ERROR_LOG=%R4OS_LOG_ROOT%\qemu-test-%R4OS_HEADLESS_VARIANT%.err"
 set "R4OS_QEMU_WORKING_DIRECTORY=%R4OS_PROFILE_OUTPUT%"
 if exist "%R4OS_QEMU_LOG%" del /f /q "%R4OS_QEMU_LOG%" || exit /b 1
 if exist "%R4OS_QEMU_ERROR_LOG%" del /f /q "%R4OS_QEMU_ERROR_LOG%" || exit /b 1
@@ -465,6 +501,16 @@ exit /b 0
 :generate_plan
 call :load_profile "%~1"
 if errorlevel 1 exit /b %ERRORLEVEL%
+if defined R4OS_REQUESTED_VARIANT (
+    if /i not "%R4OS_PROFILE%"=="Test" (
+        echo ERROR: Unknown image variant for %R4OS_PROFILE%: %R4OS_REQUESTED_VARIANT%
+        exit /b 1
+    )
+    if /i not "%R4OS_REQUESTED_VARIANT%"=="browser" (
+        echo ERROR: Unknown image variant for %R4OS_PROFILE%: %R4OS_REQUESTED_VARIANT%
+        exit /b 1
+    )
+)
 call :validate_legal_source
 if errorlevel 1 exit /b %ERRORLEVEL%
 if not exist "%R4OS_IMAGE_PLAN%" call :build_tools
@@ -486,13 +532,20 @@ set "R4OS_IMAGE_LIST=%R4OS_PROFILE_OUTPUT%\image-adds.txt"
 if not exist "%R4OS_PROFILE_OUTPUT%" mkdir "%R4OS_PROFILE_OUTPUT%" || exit /b 1
 
 echo === Generate %R4OS_PROFILE% image plan ===
-if "%R4OS_TEST_OVERLAY%"=="1" goto generate_test_plan
+if "%R4OS_TEST_OVERLAY%"=="1" (
+    if /i "%R4OS_REQUESTED_VARIANT%"=="browser" goto generate_browser_test_plan
+    goto generate_test_plan
+)
 if "%R4OS_BENCHMARK_OVERLAY%"=="1" goto generate_benchmark_plan
 "%R4OS_IMAGE_PLAN%" --output "%R4OS_IMAGE_LIST%" --plan "%R4OS_COMMON_PLAN%" --plan "%R4OS_COMPONENT_PLAN%" --tree "%R4OS_SDK_ROOT%\Shared\C\include|/R4OS/SDK/Include/C" --tree "%R4OS_SDK_ROOT%\Shared\C\src|/R4OS/SDK/Startup/C" --tree "%R4OS_SDK_ROOT%\r4os\linker|/R4OS/SDK/Linker" --tree "%R4OS_SDK_ROOT%\Templates|/R4OS/SDK/Templates" --tree "%R4OS_SDK_ROOT%\BuildProfiles|/R4OS/SDK/BuildProfiles" --tree "%R4OS_SDK_ROOT%\Toolchains|/R4OS/SDK/Toolchains" --tree "%R4OS_CONTRACT_ROOT%\ABI|/R4OS/SDK/Contract/ABI" --tree "%R4OS_CONTRACT_ROOT%\API|/R4OS/SDK/Contract/API" --tree "%R4OS_CONTRACT_ROOT%\Generated|/R4OS/SDK/Contract/Generated" --tree "%R4OS_CONTRACT_ROOT%\Module|/R4OS/SDK/Contract/Module" --overlay "%R4OS_DISTRIBUTION_ROOT%\Injection" --optional-overlay "%R4OS_OUTPUT_ROOT%\Injection" --optional-overlay "%R4OS_PRIVATE_INJECTION_ROOT%"
 exit /b %ERRORLEVEL%
 
 :generate_test_plan
 "%R4OS_IMAGE_PLAN%" --output "%R4OS_IMAGE_LIST%" --plan "%R4OS_COMMON_PLAN%" --plan "%R4OS_COMPONENT_PLAN%" --tree "%R4OS_SDK_ROOT%\Shared\C\include|/R4OS/SDK/Include/C" --tree "%R4OS_SDK_ROOT%\Shared\C\src|/R4OS/SDK/Startup/C" --tree "%R4OS_SDK_ROOT%\r4os\linker|/R4OS/SDK/Linker" --tree "%R4OS_SDK_ROOT%\Templates|/R4OS/SDK/Templates" --tree "%R4OS_SDK_ROOT%\BuildProfiles|/R4OS/SDK/BuildProfiles" --tree "%R4OS_SDK_ROOT%\Toolchains|/R4OS/SDK/Toolchains" --tree "%R4OS_CONTRACT_ROOT%\ABI|/R4OS/SDK/Contract/ABI" --tree "%R4OS_CONTRACT_ROOT%\API|/R4OS/SDK/Contract/API" --tree "%R4OS_CONTRACT_ROOT%\Generated|/R4OS/SDK/Contract/Generated" --tree "%R4OS_CONTRACT_ROOT%\Module|/R4OS/SDK/Contract/Module" --overlay "%R4OS_DISTRIBUTION_ROOT%\Injection" --overlay "%R4OS_DISTRIBUTION_ROOT%\TestInjection" --optional-overlay "%R4OS_OUTPUT_ROOT%\Injection" --optional-overlay "%R4OS_PRIVATE_INJECTION_ROOT%"
+exit /b %ERRORLEVEL%
+
+:generate_browser_test_plan
+"%R4OS_IMAGE_PLAN%" --output "%R4OS_IMAGE_LIST%" --plan "%R4OS_COMMON_PLAN%" --plan "%R4OS_COMPONENT_PLAN%" --tree "%R4OS_SDK_ROOT%\Shared\C\include|/R4OS/SDK/Include/C" --tree "%R4OS_SDK_ROOT%\Shared\C\src|/R4OS/SDK/Startup/C" --tree "%R4OS_SDK_ROOT%\r4os\linker|/R4OS/SDK/Linker" --tree "%R4OS_SDK_ROOT%\Templates|/R4OS/SDK/Templates" --tree "%R4OS_SDK_ROOT%\BuildProfiles|/R4OS/SDK/BuildProfiles" --tree "%R4OS_SDK_ROOT%\Toolchains|/R4OS/SDK/Toolchains" --tree "%R4OS_CONTRACT_ROOT%\ABI|/R4OS/SDK/Contract/ABI" --tree "%R4OS_CONTRACT_ROOT%\API|/R4OS/SDK/Contract/API" --tree "%R4OS_CONTRACT_ROOT%\Generated|/R4OS/SDK/Contract/Generated" --tree "%R4OS_CONTRACT_ROOT%\Module|/R4OS/SDK/Contract/Module" --overlay "%R4OS_DISTRIBUTION_ROOT%\Injection" --overlay "%R4OS_DISTRIBUTION_ROOT%\TestInjection" --overlay "%R4OS_DISTRIBUTION_ROOT%\BrowserTestInjection" --optional-overlay "%R4OS_OUTPUT_ROOT%\Injection" --optional-overlay "%R4OS_PRIVATE_INJECTION_ROOT%"
 exit /b %ERRORLEVEL%
 
 :generate_benchmark_plan
@@ -576,6 +629,8 @@ exit /b %R4OS_EXIT_CODE%
 :run_marker_acceptance
 echo === QEMU marker evaluator acceptance ===
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_MARKER_TEST%" -SelfTest
+if errorlevel 1 exit /b %ERRORLEVEL%
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_MARKER_TEST%" -SelfTest -Browser
 exit /b %ERRORLEVEL%
 
 :run_release_acceptance
@@ -588,7 +643,11 @@ set "R4OS_QEMU_EXIT=%~1"
 
 echo.
 echo === HEADLESS TEST EVALUATION ===
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_MARKER_TEST%" -LogPath "%R4OS_QEMU_LOG%" -ErrorPath "%R4OS_QEMU_ERROR_LOG%" -QemuExitCode %R4OS_QEMU_EXIT%
+if /i "%R4OS_HEADLESS_VARIANT%"=="browser" (
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_MARKER_TEST%" -LogPath "%R4OS_QEMU_LOG%" -ErrorPath "%R4OS_QEMU_ERROR_LOG%" -QemuExitCode %R4OS_QEMU_EXIT% -Browser
+) else (
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_MARKER_TEST%" -LogPath "%R4OS_QEMU_LOG%" -ErrorPath "%R4OS_QEMU_ERROR_LOG%" -QemuExitCode %R4OS_QEMU_EXIT%
+)
 if errorlevel 1 (
     echo === HEADLESS TEST FAILED ===
     echo Log:    %R4OS_QEMU_LOG%
@@ -609,9 +668,10 @@ echo   Build.bat
 echo   Build.bat tools
 echo   Build.bat test
 echo   Build.bat plan Slim^|Full^|Test^|Benchmark
-echo   Build.bat image Slim^|Full^|Test^|Benchmark
+echo   Build.bat image Slim^|Full^|Test^|Benchmark [browser]
 echo   Build.bat verify Slim^|Full^|Test^|Benchmark
 echo   Build.bat qemu Slim^|Full^|Test^|Benchmark
-echo   Build.bat headless Test
+echo   Build.bat ssh Full
+echo   Build.bat headless Test [browser]
 echo   Build.bat benchmark Benchmark SUITE WORKLOAD_VERSION WARM^|COLD REPETITIONS ENVIRONMENT_ID
 exit /b 1

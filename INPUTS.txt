@@ -2,7 +2,8 @@
 =====================================
 
 Der lokale `INPUT_ROOT` wird in `Settings.R4S` gemappt und liegt standardmaessig
-unter `D:\R4OS\Artifacts\Distribution\Inputs`. Er ist kein Quellrepository.
+unter `Artifacts/Distribution/Inputs` im Workspace. Er ist kein
+Quellrepository.
 
 Erforderliche Plaene:
 
@@ -10,6 +11,7 @@ Erforderliche Plaene:
     Slim.plan
     Full.plan
     Test.plan
+    Benchmark.plan
 
 Jede Nutzzeile besitzt das Format:
 
@@ -23,14 +25,16 @@ eindeutig.
 
 `Common.plan` enthaelt die fertigen gemeinsamen Voraussetzungen, insbesondere
 Kernel, Limine-Dateien, PRELOAD.R4I, bootfruehe Module, Fonts, Registry und das
-generierte Modulinventar. Die drei Profilplaene enthalten die jeweils fertig
+generierte Modulinventar. Die vier Profilplaene enthalten die jeweils fertig
 gebauten R4X-, R4D-, R4P- und R4L-Artefakte. Derselbe Zielpfad darf nur in genau
 einem Plan oder Overlay vorkommen.
 
 SDK- und Contract-Installationsbaeume sowie die oeffentliche Injection werden
 vom Distribution-Starter aus den gemappten kanonischen Repositories ergaenzt.
 Beim Testprofil ersetzt `TestInjection` gleichnamige oeffentliche Dateien.
-Danach wird optional `Artifacts/Distribution/Injection` eingeblendet. Der
+Die ausdrueckliche Browservariante legt zusaetzlich `BrowserTestInjection`
+darueber. Danach wird optional `Artifacts/Distribution/Injection`
+eingeblendet. Der
 optionale private Overlaypfad besitzt weiterhin die hoechste Prioritaet; beide
 lokalen Overlaypfade bleiben vollstaendig ausserhalb von Git.
 

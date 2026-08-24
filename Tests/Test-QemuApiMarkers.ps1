@@ -10,7 +10,11 @@ param(
     [int]$QemuExitCode = 0,
 
     [Parameter(Mandatory, ParameterSetName = 'SelfTest')]
-    [switch]$SelfTest
+    [switch]$SelfTest,
+
+    [Parameter(ParameterSetName = 'Log')]
+    [Parameter(ParameterSetName = 'SelfTest')]
+    [switch]$Browser
 )
 
 $ErrorActionPreference = 'Stop'
@@ -28,12 +32,6 @@ $required = @(
     'SUBSYSTEM host selftest: OK modes=640x350+320x200+256x224 formats=indexed8+xrgb32 tiles=bounded input=translated idle=no-frame fps>=20',
     'SUBSYSTEM runtime selftest: OK instances=2 slices=bounded time=monotonic audio=s16le-buffered lifecycle=pause+resume+reset+complete+close errors=isolated resources=closed',
     'APPEARANCE selftest: OK',
-    'KLICKIFAX font selftest: OK family=R4 Sans faces=12',
-    'KLICKIFAX image selftest: OK responsive=data+srcset css-background=resource SVG=nested-image-optional',
-    'KLICKIFAX loading selftest: OK resource=container png=256x384 alpha=yes reuse=1 geometry=native+bounded tiles=6 missing=blank corrupt=blank',
-    'KLICKIFAX font-cache selftest: OK demand=used-only storage=content-addressed warm=verified',
-    'KLICKIFAX webfont-runtime selftest: OK cold=decoded warm=cache network=0 transport=alpha8',
-    'KLICKIFAX selftest: OK',
     'NOTEPAD font size selftest: OK',
     'Invalid R4M0 entry section',
     'NOTEPAD - simple text editor',
@@ -45,6 +43,15 @@ $required = @(
     'R4PACK result: OK',
     'R4BUILD result: OK'
 )
+$browserRequired = @(
+    'KLICKIFAX font selftest: OK family=R4 Sans faces=12',
+    'KLICKIFAX image selftest: OK responsive=data+srcset css-background=resource SVG=nested-image-optional',
+    'KLICKIFAX loading selftest: OK resource=container png=256x384 alpha=yes reuse=1 geometry=native+bounded tiles=6 missing=blank corrupt=blank',
+    'KLICKIFAX font-cache selftest: OK demand=used-only storage=content-addressed warm=verified',
+    'KLICKIFAX webfont-runtime selftest: OK cold=decoded warm=cache network=0 transport=alpha8',
+    'KLICKIFAX selftest: OK'
+)
+if ($Browser) { $required += $browserRequired }
 $forbidden = @(
     'PANIC',
     'FATAL',
@@ -150,7 +157,7 @@ if ($SelfTest) {
     }
     $mismatch = $valid.Replace('lang=c domain=3 raw=-5 payload=123', 'lang=c domain=3 raw=-5 payload=124')
     if ((Test-ApiMarkerContract $mismatch -Quiet) -eq 0) { throw 'cross-language parity mismatch was not rejected' }
-    Write-Host 'QEMU API marker self-test OK.'
+    Write-Host ('QEMU API marker self-test OK (' + $(if ($Browser) { 'browser' } else { 'standard' }) + ').')
     exit 0
 }
 

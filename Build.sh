@@ -5,6 +5,7 @@ distribution_root=$(CDPATH= cd "$(dirname "$0")" && pwd -P)
 settings_file="$distribution_root/Settings.R4S"
 action=${1:-tools}
 requested_profile=${2:-}
+requested_variant=${3:-}
 
 if [ ! -f "$settings_file" ]; then
     echo "ERROR: Settings file not found: $settings_file" >&2
@@ -99,6 +100,7 @@ image_creator=$build_prefix/bin/imagecreater
 ntfs_verify=$build_prefix/bin/ntfsverify
 qemu_config=$distribution_root/QEMU/standard.conf
 benchmark_qemu_config=$distribution_root/QEMU/benchmark.conf
+qemu_runner=$distribution_root/Tools/Invoke-Qemu.ps1
 qemu_timeout_helper=$distribution_root/Tests/Invoke-QemuHeadless.ps1
 benchmark_runner=$distribution_root/Tests/Invoke-QemuBenchmark.ps1
 benchmark_history=$distribution_root/Tools/BenchmarkHistory.ps1
@@ -271,6 +273,11 @@ load_profile() {
 
 generate_plan() {
     load_profile "$1"
+    plan_variant=${2:-}
+    if [ -n "$plan_variant" ] && { [ "$profile" != Test ] || [ "$plan_variant" != browser ]; }; then
+        echo "ERROR: Unknown image variant for $profile: $plan_variant" >&2
+        exit 1
+    fi
     validate_legal_source
     if [ ! -x "$image_plan" ]; then
         build_tools
@@ -300,21 +307,40 @@ generate_plan() {
             --overlay "$distribution_root/Injection" \
             --overlay "$distribution_root/BenchmarkInjection"
     elif [ "$test_overlay" = 1 ]; then
-        "$image_plan" --output "$image_list" --plan "$common_plan" --plan "$component_plan" \
-            --tree "$sdk_root/Shared/C/include|/R4OS/SDK/Include/C" \
-            --tree "$sdk_root/Shared/C/src|/R4OS/SDK/Startup/C" \
-            --tree "$sdk_root/r4os/linker|/R4OS/SDK/Linker" \
-            --tree "$sdk_root/Templates|/R4OS/SDK/Templates" \
-            --tree "$sdk_root/BuildProfiles|/R4OS/SDK/BuildProfiles" \
-            --tree "$sdk_root/Toolchains|/R4OS/SDK/Toolchains" \
-            --tree "$contract_root/ABI|/R4OS/SDK/Contract/ABI" \
-            --tree "$contract_root/API|/R4OS/SDK/Contract/API" \
-            --tree "$contract_root/Generated|/R4OS/SDK/Contract/Generated" \
-            --tree "$contract_root/Module|/R4OS/SDK/Contract/Module" \
-            --overlay "$distribution_root/Injection" \
-            --overlay "$distribution_root/TestInjection" \
-            --optional-overlay "$output_root/Injection" \
-            --optional-overlay "$private_injection_root"
+        if [ "$plan_variant" = browser ]; then
+            "$image_plan" --output "$image_list" --plan "$common_plan" --plan "$component_plan" \
+                --tree "$sdk_root/Shared/C/include|/R4OS/SDK/Include/C" \
+                --tree "$sdk_root/Shared/C/src|/R4OS/SDK/Startup/C" \
+                --tree "$sdk_root/r4os/linker|/R4OS/SDK/Linker" \
+                --tree "$sdk_root/Templates|/R4OS/SDK/Templates" \
+                --tree "$sdk_root/BuildProfiles|/R4OS/SDK/BuildProfiles" \
+                --tree "$sdk_root/Toolchains|/R4OS/SDK/Toolchains" \
+                --tree "$contract_root/ABI|/R4OS/SDK/Contract/ABI" \
+                --tree "$contract_root/API|/R4OS/SDK/Contract/API" \
+                --tree "$contract_root/Generated|/R4OS/SDK/Contract/Generated" \
+                --tree "$contract_root/Module|/R4OS/SDK/Contract/Module" \
+                --overlay "$distribution_root/Injection" \
+                --overlay "$distribution_root/TestInjection" \
+                --overlay "$distribution_root/BrowserTestInjection" \
+                --optional-overlay "$output_root/Injection" \
+                --optional-overlay "$private_injection_root"
+        else
+            "$image_plan" --output "$image_list" --plan "$common_plan" --plan "$component_plan" \
+                --tree "$sdk_root/Shared/C/include|/R4OS/SDK/Include/C" \
+                --tree "$sdk_root/Shared/C/src|/R4OS/SDK/Startup/C" \
+                --tree "$sdk_root/r4os/linker|/R4OS/SDK/Linker" \
+                --tree "$sdk_root/Templates|/R4OS/SDK/Templates" \
+                --tree "$sdk_root/BuildProfiles|/R4OS/SDK/BuildProfiles" \
+                --tree "$sdk_root/Toolchains|/R4OS/SDK/Toolchains" \
+                --tree "$contract_root/ABI|/R4OS/SDK/Contract/ABI" \
+                --tree "$contract_root/API|/R4OS/SDK/Contract/API" \
+                --tree "$contract_root/Generated|/R4OS/SDK/Contract/Generated" \
+                --tree "$contract_root/Module|/R4OS/SDK/Contract/Module" \
+                --overlay "$distribution_root/Injection" \
+                --overlay "$distribution_root/TestInjection" \
+                --optional-overlay "$output_root/Injection" \
+                --optional-overlay "$private_injection_root"
+        fi
     else
         "$image_plan" --output "$image_list" --plan "$common_plan" --plan "$component_plan" \
             --tree "$sdk_root/Shared/C/include|/R4OS/SDK/Include/C" \
@@ -370,7 +396,7 @@ stage_legal() {
 }
 
 image_action() {
-    generate_plan "$1"
+    generate_plan "$1" "${2:-}"
     validate_legal_source
     if [ ! -x "$image_creator" ]; then
         build_tools
@@ -429,20 +455,43 @@ qemu_action() {
         echo "ERROR: Data image not found: $profile_output/data.img" >&2
         exit 1
     fi
-    if [ ! -x "$qemu_exe" ]; then
-        echo "ERROR: QEMU executable not found: $qemu_exe" >&2
+    for required_file in "$qemu_exe" "$qemu_config" "$qemu_runner"; do
+        if [ ! -e "$required_file" ]; then
+            echo "ERROR: QEMU dependency not found: $required_file" >&2
+            exit 1
+        fi
+    done
+    pwsh -NoLogo -NoProfile -File "$qemu_runner" \
+        -Mode Gui -QemuPath "$qemu_exe" -ConfigPath "$qemu_config" \
+        -WorkingDirectory "$profile_output"
+}
+
+ssh_action() {
+    load_profile "$1"
+    if [ "$profile" != Full ]; then
+        echo 'ERROR: SSH debugging requires the Full profile.' >&2
         exit 1
     fi
-    if [ ! -f "$qemu_config" ]; then
-        echo "ERROR: QEMU config not found: $qemu_config" >&2
-        exit 1
-    fi
-    cd "$profile_output"
-    "$qemu_exe" -readconfig "$qemu_config" -m 1024 -smp 4 -cpu max -boot c
+    profile_output=$output_root/Profiles/$profile
+    for required_file in "$profile_output/disk.img" "$profile_output/data.img" "$qemu_exe" "$qemu_config" "$qemu_runner"; do
+        if [ ! -e "$required_file" ]; then
+            echo "ERROR: SSH debug dependency not found: $required_file" >&2
+            exit 1
+        fi
+    done
+    mkdir -p "$log_root"
+    pwsh -NoLogo -NoProfile -File "$qemu_runner" \
+        -Mode SshDebug -QemuPath "$qemu_exe" -ConfigPath "$qemu_config" \
+        -WorkingDirectory "$profile_output" -SerialLogPath "$log_root/qemu-ssh-debug.log"
 }
 
 headless_action() {
     load_profile "$1"
+    headless_variant=${2:-}
+    if [ -n "$headless_variant" ] && [ "$headless_variant" != browser ]; then
+        echo "ERROR: Unknown headless variant: $headless_variant" >&2
+        exit 1
+    fi
     if [ "$profile" != Test ] || [ "$test_overlay" != 1 ]; then
         echo 'ERROR: Headless acceptance requires the Test profile with test overlay.' >&2
         exit 1
@@ -467,8 +516,8 @@ headless_action() {
     "$image_creator" --output "$profile_output/data.img" --size "$data_mb"
 
     mkdir -p "$log_root"
-    qemu_log=$log_root/qemu-test-standard.log
-    qemu_error_log=$log_root/qemu-test-standard.err
+    qemu_log=$log_root/qemu-test-${headless_variant:-standard}.log
+    qemu_error_log=$log_root/qemu-test-${headless_variant:-standard}.err
     rm -f "$qemu_log" "$qemu_error_log"
     qemu_timeout=${QEMU_TEST_TIMEOUT_SECONDS:-240}
 
@@ -493,9 +542,16 @@ headless_action() {
     fi
 
     echo '=== HEADLESS TEST EVALUATION ==='
-    if ! pwsh -NoLogo -NoProfile -File "$qemu_marker_test" \
-        -LogPath "$qemu_log" -ErrorPath "$qemu_error_log" -QemuExitCode "$qemu_exit"
-    then
+    if [ "$headless_variant" = browser ]; then
+        marker_exit=0
+        pwsh -NoLogo -NoProfile -File "$qemu_marker_test" \
+            -LogPath "$qemu_log" -ErrorPath "$qemu_error_log" -QemuExitCode "$qemu_exit" -Browser || marker_exit=$?
+    else
+        marker_exit=0
+        pwsh -NoLogo -NoProfile -File "$qemu_marker_test" \
+            -LogPath "$qemu_log" -ErrorPath "$qemu_error_log" -QemuExitCode "$qemu_exit" || marker_exit=$?
+    fi
+    if [ "$marker_exit" -ne 0 ]; then
         echo '=== HEADLESS TEST FAILED ==='
         echo "Log:    $qemu_log"
         echo "Stderr: $qemu_error_log"
@@ -549,6 +605,8 @@ case "$action" in
         build_tools test
         run_plan_acceptance
         pwsh -NoLogo -NoProfile -File "$qemu_marker_test" -SelfTest
+        pwsh -NoLogo -NoProfile -File "$qemu_marker_test" -SelfTest -Browser
+        pwsh -NoLogo -NoProfile -File "$qemu_runner" -SelfTest
         pwsh -NoLogo -NoProfile -File "$benchmark_runner" -SelfTest
         pwsh -NoLogo -NoProfile -File "$benchmark_history" -Action selftest
         pwsh -NoLogo -NoProfile -File "$release_tool" -Action SelfTest
@@ -558,12 +616,13 @@ case "$action" in
             echo 'Usage: Build.sh plan Slim|Full|Test|Benchmark' >&2
             exit 1
         fi
-        generate_plan "$requested_profile"
+        generate_plan "$requested_profile" "$requested_variant"
         ;;
-    image) image_action "$requested_profile" ;;
+    image) image_action "$requested_profile" "$requested_variant" ;;
     verify) verify_action "$requested_profile" ;;
     qemu) qemu_action "$requested_profile" ;;
-    headless) headless_action "$requested_profile" ;;
+    ssh) ssh_action "$requested_profile" ;;
+    headless) headless_action "$requested_profile" "$requested_variant" ;;
     benchmark)
         if [ "$#" -ne 7 ]; then
             echo 'Usage: Build.sh benchmark Benchmark SUITE WORKLOAD_VERSION WARM|COLD REPETITIONS ENVIRONMENT_ID' >&2
@@ -572,7 +631,7 @@ case "$action" in
         benchmark_action "$requested_profile" "$3" "$4" "$5" "$6" "$7"
         ;;
     *)
-        echo 'Usage: Build.sh [tools|test|plan|image|verify|qemu|headless|benchmark] ...' >&2
+        echo 'Usage: Build.sh [tools|test|plan|image|verify|qemu|ssh|headless|benchmark] ...' >&2
         exit 1
         ;;
 esac

@@ -33,7 +33,10 @@ Unter Windows:
     Build.bat image Full
     Build.bat verify Full
     Build.bat qemu Full
+    Build.bat ssh Full
     Build.bat headless Test
+    Build.bat image Test browser
+    Build.bat headless Test browser
     Build.bat image Benchmark
     Build.bat benchmark Benchmark perfdiag-clock 0.3.7 warm 5 r4os-q35-haswell-1vcpu-1g-tcg-v1
 
@@ -43,7 +46,10 @@ Verfuegung, beispielsweise:
     ./Build.sh test
     ./Build.sh image Full
     ./Build.sh verify Full
+    ./Build.sh ssh Full
     ./Build.sh headless Test
+    ./Build.sh image Test browser
+    ./Build.sh headless Test browser
 
 Ein uebergeordneter Workspace-Build darf diese Aktionen aufrufen, erzeugt
 Images oder QEMU-Aufrufe aber nicht selbst. `Build.bat` und `Build.sh` sind
@@ -51,16 +57,36 @@ die plattformspezifischen Starter fuer dieselben Distributionsaktionen.
 
 Die QEMU-Software selbst liegt ausschliesslich im DevKit unter dem durch
 `QEMU_ROOT` gemappten `Emulation/QEMU`. Dieses Repository enthaelt unter
-`QEMU/` nur R4OS-spezifische Konfiguration. `qemu` startet ein Profil mit
-GUI; `headless Test` erzeugt vor jedem Lauf ein frisches Datenimage, schreibt
-serielle Logs unter `Artifacts/Distribution/Logs`, wertet die verbindlichen
-Boot-/API-Marker aus und verlangt ein geordnetes Gast-Poweroff.
+`QEMU/` nur R4OS-spezifische Konfiguration. `qemu` startet ein Profil mit GUI.
+Der gemeinsame Runner gibt GUI- und SSH-Debuglaeufen einen RTL8139-Adapter und
+die ausschliesslich lokale Weiterleitung
+`127.0.0.1:10022 -> 10.0.2.15:22`. `ssh Full` startet ein vorhandenes
+Full-Image ohne Anzeige, verwendet dessen persistentes Datenimage, schreibt
+die serielle Ausgabe nach
+`Artifacts/Distribution/Logs/qemu-ssh-debug.log` und bleibt bis zum
+Gast-Poweroff im Vordergrund. Die Anmeldung erfolgt mit:
+
+    ssh -p 10022 -c chacha20-poly1305@openssh.com r4os@127.0.0.1
+
+Eine externe Port- oder Firewallfreigabe ist dafuer nicht erforderlich.
+`headless Test` erzeugt dagegen vor jedem Lauf ein frisches Datenimage,
+deaktiviert das Netzwerk, schreibt serielle Logs unter
+`Artifacts/Distribution/Logs`, wertet die verbindlichen Boot-/API-Marker aus
+und verlangt ein geordnetes Gast-Poweroff. Auch der Benchmark bleibt
+netzwerklos.
+
+Die optionale Variante `browser` legt `BrowserTestInjection` nach
+`TestInjection` ueber das Testimage und verlangt bei der Headless-Auswertung
+zusaetzlich die Offline-Klickifax-Marker. Der uebergeordnete Workspace-Modus
+`-testbrowser` erzeugt den dazu passenden Komponentenplan. Der normale
+Testlauf verwendet weiterhin nur `TestInjection` und verlangt keine
+Browsermarker.
 
 `Build.bat test` beziehungsweise `./Build.sh test` baut alle sieben Hosttools
 und prueft die Slim-, Full-, Test- und Benchmark-Imageplaene bytegenau, mit
 einem negativen Kollisionstest sowie den Selbsttests der
-Headless-Markerauswertung und des Benchmarkrunners. Der echte Gastlauf ist
-die getrennte Aktion `headless Test`.
+Headless-Markerauswertung, des portablen GUI-/SSH-QEMU-Runners und des
+Benchmarkrunners. Der echte Gastlauf ist die getrennte Aktion `headless Test`.
 
 Der Workspace-Orchestrator nimmt AUDSVC ausdruecklich nur zusaetzlich in das
 Testprofil auf, damit die gehostete Subsystemabnahme den produktiven
@@ -68,6 +94,12 @@ Audiofassaden- und Servicepfad pruefen kann. Die normale `IMAGE_SCOPE=full`-
 Zuordnung von AUDSVC sowie der Inhalt von Slim und Full bleiben dadurch
 unveraendert. AUTOEXEC gibt nach dem katalogbasierten Doppelstart sowohl den
 Subsystem-Host- als auch den Runtime-/Audio-Marker aus.
+
+Klickifax und KlickifaxLive gehoeren nicht zum normalen Testplan. Der
+gezielte Browser-Test nimmt beide sowie R4HTTP, R4HTML, R4CSS und R4JS auf;
+Klickifax liefert dabei die Offline-Gastmarker. KlickifaxLive wird lediglich
+installiert, weil seine Live-Proben Netzwerk benoetigen und das Headless-QEMU
+bewusst mit deaktiviertem Netzwerk startet.
 
 Das Benchmarkprofil waehlt den Full-Umfang und nimmt PERFDIAG als einzige
 explizite Diagnose aus `IMAGE_SCOPE=test` hinzu. Es verwendet
