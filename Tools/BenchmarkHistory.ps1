@@ -19,7 +19,7 @@ $historySchemaVersion = 1
 $runSchema = 'r4os.benchmark.run'
 $runSchemaVersion = 2
 $perfdiagSchema = 'r4os.perfdiag.ndjson'
-$perfdiagSchemaVersion = 6
+$perfdiagSchemaVersion = 7
 $standardEnvironmentId = 'r4os-q35-haswell-1vcpu-1g-tcg-v1'
 $legacyEnvironmentId = 'legacy-qemu-1vcpu-unversioned-v1'
 $allowedRecordFields = @(
@@ -58,6 +58,10 @@ $metricCatalog = @{
     'perfdiag.driver_work.run.latency' = [pscustomobject]@{ suite = 'perfdiag-driver-work'; unit = 'ns/work'; direction = 'lower' }
     'perfdiag.driver_work.e2e.latency' = [pscustomobject]@{ suite = 'perfdiag-driver-work'; unit = 'ns/work'; direction = 'lower' }
     'perfdiag.pci_inventory.latency' = [pscustomobject]@{ suite = 'perfdiag-pci-inventory'; unit = 'ns/inventory'; direction = 'lower' }
+    'perfdiag.memory_metadata.reserve_commit.latency' = [pscustomobject]@{ suite = 'perfdiag-memory-metadata'; unit = 'ns/page'; direction = 'lower' }
+    'perfdiag.memory_metadata.fault.latency' = [pscustomobject]@{ suite = 'perfdiag-memory-metadata'; unit = 'ns/page'; direction = 'lower' }
+    'perfdiag.memory_metadata.page_state.latency' = [pscustomobject]@{ suite = 'perfdiag-memory-metadata'; unit = 'ns/page'; direction = 'lower' }
+    'perfdiag.memory_metadata.reclaim.latency' = [pscustomobject]@{ suite = 'perfdiag-memory-metadata'; unit = 'ns/frame'; direction = 'lower' }
 }
 $suiteWorkloads = @{
     'perfdiag-blit' = 'blit'
@@ -66,6 +70,7 @@ $suiteWorkloads = @{
     'perfdiag-kernel-ipc' = 'kernel-ipc'
     'perfdiag-driver-work' = 'driver-work'
     'perfdiag-pci-inventory' = 'pci-inventory'
+    'perfdiag-memory-metadata' = 'memory-metadata'
 }
 
 function Assert-File([string]$Path, [string]$Label) {
@@ -426,6 +431,11 @@ function Get-WorkloadId([string]$SuiteName, [object[]]$Records) {
             $records = Get-UniformPositiveInteger $samples 'records' 'pci-inventory'
             return ('perfdiag.pci-inventory.iterations-' + $iterations + '.records-' + $records + '.v1')
         }
+        'perfdiag-memory-metadata' {
+            $samples = @(Get-RecordsOfType $Records 'memory_metadata_sample')
+            $pages = Get-UniformPositiveInteger $samples 'pages' 'memory-metadata'
+            return ('perfdiag.memory-metadata.pages-' + $pages + '.v1')
+        }
         default { throw ('Unknown benchmark suite: ' + $SuiteName) }
     }
 }
@@ -462,6 +472,14 @@ function Get-SuiteMetricSpecs([string]$SuiteName) {
         }
         'perfdiag-pci-inventory' {
             return ,([pscustomobject]@{ metric = 'perfdiag.pci_inventory.latency'; distribution_type = 'pci_inventory_distribution'; sample_type = 'pci_inventory_sample'; sample_field = 'ns_per_inventory'; selector_field = ''; selector_value = '' })
+        }
+        'perfdiag-memory-metadata' {
+            return @(
+                [pscustomobject]@{ metric = 'perfdiag.memory_metadata.reserve_commit.latency'; distribution_type = 'memory_metadata_distribution'; sample_type = 'memory_metadata_sample'; sample_field = 'reserve_commit_ns_per_page'; selector_field = 'metric'; selector_value = 'reserve-commit' },
+                [pscustomobject]@{ metric = 'perfdiag.memory_metadata.fault.latency'; distribution_type = 'memory_metadata_distribution'; sample_type = 'memory_metadata_sample'; sample_field = 'fault_ns_per_page'; selector_field = 'metric'; selector_value = 'fault' },
+                [pscustomobject]@{ metric = 'perfdiag.memory_metadata.page_state.latency'; distribution_type = 'memory_metadata_distribution'; sample_type = 'memory_metadata_sample'; sample_field = 'page_state_ns_per_page'; selector_field = 'metric'; selector_value = 'page-state' },
+                [pscustomobject]@{ metric = 'perfdiag.memory_metadata.reclaim.latency'; distribution_type = 'memory_metadata_distribution'; sample_type = 'memory_metadata_sample'; sample_field = 'reclaim_ns_per_vm_frame'; selector_field = 'metric'; selector_value = 'reclaim' }
+            )
         }
         default { throw ('Unknown benchmark suite: ' + $SuiteName) }
     }
@@ -548,7 +566,7 @@ function Get-MetricRecordsFromRunResult($Result) {
         $distribution = Get-SourceDistribution $records $spec.distribution_type $spec.selector_field $spec.selector_value
         $sampleSelectorField = $spec.selector_field
         $sampleSelectorValue = $spec.selector_value
-        if ($spec.sample_type -in @('kernel_ipc_sample', 'driver_work_sample')) {
+        if ($spec.sample_type -in @('kernel_ipc_sample', 'driver_work_sample', 'memory_metadata_sample')) {
             $sampleSelectorField = ''
             $sampleSelectorValue = ''
         }
@@ -862,6 +880,28 @@ function Invoke-SelfTest {
         }
         $payload.Add((New-SelfTestDistributionRecord 'pci_inventory_distribution' 'ns/inventory' $values))
         $suiteCases.Add([pscustomobject]@{ expected = 1; result = New-SelfTestRunCase $fixture 'perfdiag-pci-inventory' 'pci-inventory' $payload.ToArray() })
+
+        $payload = [Collections.Generic.List[object]]::new()
+        for ($index = 0; $index -lt $values.Count; $index++) {
+            $payload.Add((New-SelfTestSourceRecord 'memory_metadata_sample' @{
+                sample = $index + 1
+                pages = 8
+                reserve_commit_ns_per_page = $values[$index]
+                fault_ns_per_page = $values[$index] + 1
+                page_state_ns_per_page = $values[$index] + 2
+                reclaim_ns_per_vm_frame = $values[$index] + 3
+            }))
+        }
+        foreach ($definition in @(
+            [pscustomobject]@{ selector = 'reserve-commit'; unit = 'ns/page'; offset = 0 },
+            [pscustomobject]@{ selector = 'fault'; unit = 'ns/page'; offset = 1 },
+            [pscustomobject]@{ selector = 'page-state'; unit = 'ns/page'; offset = 2 },
+            [pscustomobject]@{ selector = 'reclaim'; unit = 'ns/frame'; offset = 3 }
+        )) {
+            $metricValues = @($values | ForEach-Object { $_ + $definition.offset })
+            $payload.Add((New-SelfTestDistributionRecord 'memory_metadata_distribution' $definition.unit $metricValues 'metric' $definition.selector))
+        }
+        $suiteCases.Add([pscustomobject]@{ expected = 4; result = New-SelfTestRunCase $fixture 'perfdiag-memory-metadata' 'memory-metadata' $payload.ToArray() })
 
         foreach ($suiteCase in $suiteCases) {
             $caseMetrics = @(Get-MetricRecordsFromRunResult $suiteCase.result)

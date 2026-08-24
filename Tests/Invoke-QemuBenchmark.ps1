@@ -17,6 +17,7 @@ $suiteWorkloads = @{
     'perfdiag-kernel-ipc' = 'kernel-ipc'
     'perfdiag-driver-work' = 'driver-work'
     'perfdiag-pci-inventory' = 'pci-inventory'
+    'perfdiag-memory-metadata' = 'memory-metadata'
 }
 
 function Assert-File([string]$Path, [string]$Label) {
@@ -213,7 +214,7 @@ function Read-BenchmarkRecords([string[]]$Lines, $Request, $QemuExitCode) {
         } catch {
             throw ('Invalid JSON in PERFDIAG machine-result block: ' + $Lines[$index])
         }
-        if ($record.schema -ne 'r4os.perfdiag.ndjson' -or [int]$record.schema_version -ne 6) {
+        if ($record.schema -ne 'r4os.perfdiag.ndjson' -or [int]$record.schema_version -ne 7) {
             throw 'Unexpected PERFDIAG result schema.'
         }
         $records.Add($record)
@@ -263,8 +264,8 @@ function Invoke-SelfTest {
         'R4BENCH request begin',
         'R4BENCH request end',
         'PERFDIAG machine-result begin',
-        '{"schema":"r4os.perfdiag.ndjson","schema_version":6,"type":"run","module_version":"0.3.7","mode":"benchmark","cache_state":"warm","benchmark":"clock","repetitions":5,"result":"ok"}',
-        '{"schema":"r4os.perfdiag.ndjson","schema_version":6,"type":"observer"}',
+        '{"schema":"r4os.perfdiag.ndjson","schema_version":7,"type":"run","module_version":"0.3.7","mode":"benchmark","cache_state":"warm","benchmark":"clock","repetitions":5,"result":"ok"}',
+        '{"schema":"r4os.perfdiag.ndjson","schema_version":7,"type":"observer"}',
         'PERFDIAG machine-result end',
         'PERFDIAG result: OK',
         'R4BENCH guest poweroff'

@@ -35,7 +35,7 @@
   "records": [
     {
       "schema": "r4os.perfdiag.ndjson",
-      "schema_version": 6,
+      "schema_version": 7,
       "type": "run",
       "module": "PERFDIAG",
       "module_version": "0.3.7",
@@ -52,14 +52,14 @@
     },
     {
       "schema": "r4os.perfdiag.ndjson",
-      "schema_version": 6,
+      "schema_version": 7,
       "type": "check",
       "name": "Monotonic clock benchmark",
       "ok": true
     },
     {
       "schema": "r4os.perfdiag.ndjson",
-      "schema_version": 6,
+      "schema_version": 7,
       "type": "clock_sample",
       "sample": 1,
       "calls": 10000,
@@ -67,7 +67,7 @@
     },
     {
       "schema": "r4os.perfdiag.ndjson",
-      "schema_version": 6,
+      "schema_version": 7,
       "type": "clock_sample",
       "sample": 2,
       "calls": 10000,
@@ -75,7 +75,7 @@
     },
     {
       "schema": "r4os.perfdiag.ndjson",
-      "schema_version": 6,
+      "schema_version": 7,
       "type": "clock_sample",
       "sample": 3,
       "calls": 10000,
@@ -83,7 +83,7 @@
     },
     {
       "schema": "r4os.perfdiag.ndjson",
-      "schema_version": 6,
+      "schema_version": 7,
       "type": "clock_sample",
       "sample": 4,
       "calls": 10000,
@@ -91,7 +91,7 @@
     },
     {
       "schema": "r4os.perfdiag.ndjson",
-      "schema_version": 6,
+      "schema_version": 7,
       "type": "clock_sample",
       "sample": 5,
       "calls": 10000,
@@ -99,7 +99,7 @@
     },
     {
       "schema": "r4os.perfdiag.ndjson",
-      "schema_version": 6,
+      "schema_version": 7,
       "type": "clock_distribution",
       "unit": "ns/call",
       "count": 5,
