@@ -74,7 +74,8 @@ explizite Diagnose aus `IMAGE_SCOPE=test` hinzu. Es verwendet
 `BenchmarkInjection` ueber der normalen Injection, setzt die Shell explizit
 auf das AUTOEXEC-faehige Terminal und verwendet keine lokalen oder
 privaten Overlays. Imagebau, normale Tests, Headless und GUI starten nie einen
-Benchmark. Nur `Build.bat benchmark Benchmark ...` akzeptiert eine
+Benchmark. Nur `Build.bat benchmark Benchmark ...` unter Windows
+beziehungsweise `./Build.sh benchmark Benchmark ...` unter Linux akzeptiert eine
 vollstaendige Anforderung aus Suite, Workload-Version, Warm/Kalt,
 Wiederholungszahl und der festen Umgebungs-ID
 `r4os-q35-haswell-1vcpu-1g-tcg-v1`. Der Runner erzeugt ein getrenntes frisches

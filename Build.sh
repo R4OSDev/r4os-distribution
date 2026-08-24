@@ -530,6 +530,7 @@ benchmark_action() {
     done
 
     export R4OS_BENCHMARK_QEMU_EXE=$qemu_exe
+    export R4OS_BENCHMARK_QEMU_CONFIG=$benchmark_qemu_config
     export R4OS_BENCHMARK_IMAGE_CREATOR=$image_creator
     export R4OS_BENCHMARK_PROFILE_OUTPUT=$profile_output
     export R4OS_BENCHMARK_RUN_OUTPUT=$profile_output/Runs/current
