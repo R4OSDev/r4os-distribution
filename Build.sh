@@ -519,7 +519,13 @@ headless_action() {
     qemu_log=$log_root/qemu-test-${headless_variant:-standard}.log
     qemu_error_log=$log_root/qemu-test-${headless_variant:-standard}.err
     rm -f "$qemu_log" "$qemu_error_log"
-    qemu_timeout=${QEMU_TEST_TIMEOUT_SECONDS:-240}
+    if [ -n "${QEMU_TEST_TIMEOUT_SECONDS:-}" ]; then
+        qemu_timeout=$QEMU_TEST_TIMEOUT_SECONDS
+    elif [ "$headless_variant" = browser ]; then
+        qemu_timeout=360
+    else
+        qemu_timeout=240
+    fi
 
     export R4OS_QEMU_EXE=$qemu_exe
     export R4OS_QEMU_CONFIG=$qemu_config

@@ -36,7 +36,9 @@ benchmarks remain network-disabled.
 The optional `browser` variant layers `BrowserTestInjection` over the normal
 Test injection and evaluates the additional offline Klickifax markers. The
 workspace command `-testbrowser` creates the matching component plan; regular
-Test images and marker runs omit the browser bundle.
+Test images and marker runs omit the browser bundle. Headless acceptance uses
+a 240-second default timeout for the standard variant and 360 seconds for the
+larger browser variant; `QEMU_TEST_TIMEOUT_SECONDS` overrides either default.
 
 Building the Benchmark profile never starts a benchmark. The `benchmark`
 action is the only measured path: it requires a complete request, creates a
