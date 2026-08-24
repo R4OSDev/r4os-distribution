@@ -95,6 +95,12 @@ Zuordnung von AUDSVC sowie der Inhalt von Slim und Full bleiben dadurch
 unveraendert. AUTOEXEC gibt nach dem katalogbasierten Doppelstart sowohl den
 Subsystem-Host- als auch den Runtime-/Audio-Marker aus.
 
+Die Test-AUTOEXEC startet `FSDIAG /PAGECACHE` als gezielte 1-MB-Gastprobe.
+Die Markerauswertung verlangt sowohl autonomen budgetierten Dirty-Fortschritt
+als auch den erfolgreichen Abschluss des bestehenden Stream-, selektiven
+Commit-, Readback- und Abbruchvertrags; die umfangreiche 14-MB-FSDIAG-Suite
+wird dadurch nicht in jeden Standardlauf aufgenommen.
+
 Klickifax und KlickifaxLive gehoeren nicht zum normalen Testplan. Der
 gezielte Browser-Test nimmt beide sowie R4HTTP, R4HTML, R4CSS und R4JS auf;
 Klickifax liefert dabei die Offline-Gastmarker. KlickifaxLive wird lediglich

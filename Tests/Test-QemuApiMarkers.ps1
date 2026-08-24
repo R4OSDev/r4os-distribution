@@ -23,6 +23,8 @@ $required = @(
     'Booted via Limine [OK]',
     'System poweroff.',
     'dirs=ok',
+    'FSDIAG pagecache policy: OK',
+    'FSDIAG result: OK',
     'AUDIOD path: upstreamDropped=0 driverUnderruns=0 driverErrors=0 backendFail=0 silencePeriods=0',
     'Audio PCM continuity diagnostics: OK',
     'AUDIOD result: OK',
