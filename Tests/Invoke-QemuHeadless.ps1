@@ -55,6 +55,8 @@ $argumentLine = @(
     '-m', '1G',
     '-smp', '1',
     '-nic', 'none',
+    '-audiodev', 'driver=none,id=headless-audio',
+    '-global', 'hda-duplex.audiodev=headless-audio',
     '-serial', (Quote-Argument ('file:' + $logPath)),
     '-display', 'none',
     '-no-reboot',
