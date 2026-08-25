@@ -96,6 +96,16 @@ sowie der Inhalt von Slim und Full bleiben dadurch unveraendert. AUTOEXEC gibt
 nach dem katalogbasierten Doppelstart sowohl den Subsystem-Host- als auch den
 Runtime-/Audio-Marker aus.
 
+Der produktive R4Basic-Teil der Test-AUTOEXEC verwendet die lokal injizierte
+kanonische Datei `C:\TEMP\GORILLA.BAS`. Desktop startet sie katalogbasiert im
+Headless-Modus, und R4Basic schreibt nach dem ersten tatsaechlich publizierten
+Gastframe `C:\TEMP\R4BASIC.BASELINE`. Der gemeinsame Trace-Identifier verbindet
+Probe, Aufloesung, Desktopgrenze, Kernel-Admission und -Loader sowie Quelle,
+Compiler, VM, erste Instruktion und ersten Gastframe. Der Markerpruefer
+verlangt dabei reale Loader-, VM-, Present- und Yield-Arbeit. Ein normaler
+GUI-Start derselben Datei verwendet denselben Vertrag, schreibt die letzte
+Momentaufnahme nach `C:\TEMP\R4BASIC.LAST` und laesst die Anwendung weiterlaufen.
+
 Die Test-AUTOEXEC startet `FSDIAG /PAGECACHE` als gezielte 1-MB-Gastprobe.
 Die Markerauswertung verlangt sowohl autonomen budgetierten Dirty-Fortschritt
 als auch den erfolgreichen Abschluss des bestehenden Stream-, selektiven

@@ -115,6 +115,7 @@ $forbidden = @(
     'SUBSYSTEM host selftest FAILED',
     'SUBSYSTEM runtime selftest FAILED',
     'SUBSYSTEM runtime bootstrap FAILED',
+    'R4BASIC baseline: FAILED',
     'DESKTOP present selftest: FAILED',
     'APPEARANCE selftest FAILED',
     'KLICKIFAX selftest FAILED',
@@ -148,6 +149,57 @@ function Test-ApiMarkerContract {
         if ($Text.IndexOf($marker, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
             if (-not $Quiet) { Write-Host ('API diagnostic marker FAILED forbidden: ' + $marker) }
             $failures++
+        }
+    }
+
+    $baselineMatch = [regex]::Match($Text, '(?im)^R4BASIC baseline: OK id=([0-9A-F]{16}) mode=headless guest=C:\\TEMP\\GORILLA\.BAS source_bytes=29434 bytecode=(\d+)\r?$')
+    if (-not $baselineMatch.Success -or [uint64]$baselineMatch.Groups[2].Value -eq 0) {
+        if (-not $Quiet) { Write-Host 'R4BASIC baseline marker FAILED: canonical app/frame result missing.' }
+        $failures++
+    } else {
+        $traceId = $baselineMatch.Groups[1].Value
+        $timelinePattern = '(?im)^R4BASIC timeline: start_ns=(?<start>\d+) probe_ns=(?<probe>\d+) resolve_ns=(?<resolve>\d+) desktop_ns=(?<desktop>\d+) app_ns=(?<app>\d+) source_begin_ns=(?<source_begin>\d+) source_end_ns=(?<source_end>\d+) compile_begin_ns=(?<compile_begin>\d+) compile_end_ns=(?<compile_end>\d+) vm_begin_ns=(?<vm_begin>\d+) vm_end_ns=(?<vm_end>\d+) host_ready_ns=(?<host_ready>\d+) initial_frame_ns=(?<initial_frame>\d+) runtime_begin_ns=(?<runtime_begin>\d+) first_instruction_ns=(?<first_instruction>\d+) audio_open_ns=(?<audio_open>\d+) first_frame_ns=(?<first_frame>\d+)\r?$'
+        $timeline = [regex]::Match($Text, $timelinePattern)
+        $runtime = [regex]::Match($Text, '(?im)^R4BASIC runtime: requested_operations=(\d+) executed_operations=(\d+) slices=(\d+) yields=(\d+) sleeps=(\d+) present_attempts=(\d+) presents=(\d+) skipped_presents=(\d+)\r?$')
+        $admission = [regex]::Match($Text, '(?im)^\[R4BASIC-LAUNCH\] id=' + $traceId + ' mode=H phase=admission ns=(\d+)\r?$')
+        $loader = [regex]::Match($Text, '(?im)^\[R4BASIC-LAUNCH\] id=' + $traceId + ' mode=H phase=loader-complete ns=(\d+) duration_ns=(\d+) range_reads=(\d+) fs_requests=(\d+) gate_waits=(\d+) fs_ticks=(\d+) sections=(\d+) imports=(\d+) relocations=(\d+)\r?$')
+        $r4xstart = [regex]::Match($Text, '(?im)^\[R4BASIC-LAUNCH\] id=' + $traceId + ' mode=H phase=r4xstart ns=(\d+)\r?$')
+        $timelineOk = $timeline.Success -and
+            [uint64]$timeline.Groups['start'].Value -gt 0 -and
+            [uint64]$timeline.Groups['probe'].Value -ge [uint64]$timeline.Groups['start'].Value -and
+            [uint64]$timeline.Groups['resolve'].Value -ge [uint64]$timeline.Groups['probe'].Value -and
+            [uint64]$timeline.Groups['desktop'].Value -ge [uint64]$timeline.Groups['resolve'].Value -and
+            [uint64]$timeline.Groups['app'].Value -ge [uint64]$timeline.Groups['desktop'].Value -and
+            [uint64]$timeline.Groups['source_begin'].Value -ge [uint64]$timeline.Groups['app'].Value -and
+            [uint64]$timeline.Groups['source_end'].Value -ge [uint64]$timeline.Groups['source_begin'].Value -and
+            [uint64]$timeline.Groups['compile_begin'].Value -ge [uint64]$timeline.Groups['source_end'].Value -and
+            [uint64]$timeline.Groups['compile_end'].Value -ge [uint64]$timeline.Groups['compile_begin'].Value -and
+            [uint64]$timeline.Groups['vm_begin'].Value -ge [uint64]$timeline.Groups['compile_end'].Value -and
+            [uint64]$timeline.Groups['vm_end'].Value -ge [uint64]$timeline.Groups['vm_begin'].Value -and
+            [uint64]$timeline.Groups['host_ready'].Value -ge [uint64]$timeline.Groups['vm_end'].Value -and
+            [uint64]$timeline.Groups['initial_frame'].Value -ge [uint64]$timeline.Groups['host_ready'].Value -and
+            [uint64]$timeline.Groups['runtime_begin'].Value -ge [uint64]$timeline.Groups['initial_frame'].Value -and
+            [uint64]$timeline.Groups['first_instruction'].Value -ge [uint64]$timeline.Groups['runtime_begin'].Value -and
+            [uint64]$timeline.Groups['first_frame'].Value -ge [uint64]$timeline.Groups['first_instruction'].Value
+        $runtimeOk = $runtime.Success -and
+            [uint64]$runtime.Groups[1].Value -ge [uint64]$runtime.Groups[2].Value -and
+            [uint64]$runtime.Groups[2].Value -gt 0 -and
+            [uint64]$runtime.Groups[3].Value -gt 0 -and
+            ([uint64]$runtime.Groups[4].Value + [uint64]$runtime.Groups[5].Value) -gt 0 -and
+            [uint64]$runtime.Groups[6].Value -ge [uint64]$runtime.Groups[7].Value -and
+            [uint64]$runtime.Groups[7].Value -gt 0
+        $kernelOk = $timeline.Success -and $admission.Success -and $loader.Success -and $r4xstart.Success -and
+            [uint64]$loader.Groups[3].Value -gt 0 -and
+            [uint64]$loader.Groups[7].Value -gt 0 -and
+            [uint64]$loader.Groups[9].Value -gt 0 -and
+            [uint64]$admission.Groups[1].Value -le [uint64]$loader.Groups[1].Value -and
+            [uint64]$loader.Groups[1].Value -le [uint64]$r4xstart.Groups[1].Value -and
+            [uint64]$r4xstart.Groups[1].Value -le [uint64]$timeline.Groups['app'].Value
+        if (-not $timelineOk -or -not $runtimeOk -or -not $kernelOk) {
+            if (-not $Quiet) { Write-Host 'R4BASIC launch timeline FAILED: phase order, real work, or loader evidence invalid.' }
+            $failures++
+        } elseif (-not $Quiet) {
+            Write-Host ('R4BASIC launch timeline OK: id=' + $traceId)
         }
     }
 
@@ -235,6 +287,13 @@ if ($SelfTest) {
     $valid = ($required -join "`r`n") + "`r`n" +
         'APPPARITY lang=zig domain=3 raw=-5 payload=123 bytes=12 mutated=1 tail=1 handle_before=1 close=0 handle_after=0' + "`r`n" +
         'APPPARITY lang=c domain=3 raw=-5 payload=123 bytes=12 mutated=1 tail=1 handle_before=1 close=0 handle_after=0'
+    $valid += "`r`n" +
+        'R4BASIC baseline: OK id=0123456789ABCDEF mode=headless guest=C:\TEMP\GORILLA.BAS source_bytes=29434 bytecode=1234' + "`r`n" +
+        'R4BASIC timeline: start_ns=100 probe_ns=110 resolve_ns=120 desktop_ns=130 app_ns=180 source_begin_ns=190 source_end_ns=200 compile_begin_ns=210 compile_end_ns=220 vm_begin_ns=230 vm_end_ns=240 host_ready_ns=250 initial_frame_ns=260 runtime_begin_ns=270 first_instruction_ns=280 audio_open_ns=0 first_frame_ns=300' + "`r`n" +
+        'R4BASIC runtime: requested_operations=8192 executed_operations=5000 slices=2 yields=1 sleeps=0 present_attempts=1 presents=1 skipped_presents=0' + "`r`n" +
+        '[R4BASIC-LAUNCH] id=0123456789ABCDEF mode=H phase=admission ns=140' + "`r`n" +
+        '[R4BASIC-LAUNCH] id=0123456789ABCDEF mode=H phase=loader-complete ns=160 duration_ns=20 range_reads=12 fs_requests=13 gate_waits=0 fs_ticks=2 sections=4 imports=4 relocations=2110' + "`r`n" +
+        '[R4BASIC-LAUNCH] id=0123456789ABCDEF mode=H phase=r4xstart ns=170'
     if ($SmpCpuCount -gt 1) {
         $expectedOnline = $SmpCpuCount - $SmpFailedCount
         $valid += "`r`n" + ('[SMP] stage=active discovered=' + $SmpCpuCount + ' started=' +
