@@ -25,6 +25,8 @@ $required = @(
     '[R4D] runtime load EXAMPLE [OK]',
     '[R4D] runtime load DISPBLIT [OK]',
     'dirs=ok',
+    'RDPSVC nscodec selftest: ok negotiation=ns1 decode=visible cache=wait/publish/hit fallback=error/wire',
+    'RDPSVC selftest: OK',
     'REG generation cache selftest: OK reads=64 publications=4',
     'REG commit failure selftest: OK generation=unchanged partial=none',
     'REG snapshot batch selftest: OK pages=5 restarts=1 operations=32',
