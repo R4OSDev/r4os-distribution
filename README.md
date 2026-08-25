@@ -43,9 +43,13 @@ The standard QEMU configuration keeps the boot volume on ICH9 AHCI and attaches 
 fresh data image as an NVMe namespace. The existing 1-MB FSDIAG guest probe and
 required ownership/mount markers therefore cover canonical NVME.R4D discovery
 and data-volume I/O on every normal headless acceptance run.
-Both standard and browser acceptance also run `REG APITEST`. Its required
-markers cover repeated reads of one resident hive generation and a forced
-pre-publication commit failure that must leave the visible generation intact.
+Both standard and browser acceptance run `REG APITEST`, `REG MIGRATESELFTEST`,
+and `REGEDIT /SELFTEST`. Required markers cover stable bounded snapshot pages,
+explicit generation restart, a 32-operation atomic batch, validation and
+commit aborts without partial visibility, batched R4S migration, and the real
+REGEDIT snapshot model. REGEDIT remains a Full module and is added to Test only
+as an explicit integration-test include. Legacy single-value operations remain
+covered.
 
 Building the Benchmark profile never starts a benchmark. The `benchmark`
 action is the only measured path: it requires a complete request, creates a

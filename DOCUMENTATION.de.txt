@@ -88,12 +88,13 @@ einem negativen Kollisionstest sowie den Selbsttests der
 Headless-Markerauswertung, des portablen GUI-/SSH-QEMU-Runners und des
 Benchmarkrunners. Der echte Gastlauf ist die getrennte Aktion `headless Test`.
 
-Der Workspace-Orchestrator nimmt AUDSVC ausdruecklich nur zusaetzlich in das
-Testprofil auf, damit die gehostete Subsystemabnahme den produktiven
-Audiofassaden- und Servicepfad pruefen kann. Die normale `IMAGE_SCOPE=full`-
-Zuordnung von AUDSVC sowie der Inhalt von Slim und Full bleiben dadurch
-unveraendert. AUTOEXEC gibt nach dem katalogbasierten Doppelstart sowohl den
-Subsystem-Host- als auch den Runtime-/Audio-Marker aus.
+Der Workspace-Orchestrator nimmt AUDSVC und REGEDIT ausdruecklich nur
+zusaetzlich in das Testprofil auf, damit die gehostete Subsystemabnahme den
+produktiven Audiofassaden- und Servicepfad und die Registry-Abnahme den echten
+Editor pruefen kann. Die normale `IMAGE_SCOPE=full`-Zuordnung beider Module
+sowie der Inhalt von Slim und Full bleiben dadurch unveraendert. AUTOEXEC gibt
+nach dem katalogbasierten Doppelstart sowohl den Subsystem-Host- als auch den
+Runtime-/Audio-Marker aus.
 
 Die Test-AUTOEXEC startet `FSDIAG /PAGECACHE` als gezielte 1-MB-Gastprobe.
 Die Markerauswertung verlangt sowohl autonomen budgetierten Dirty-Fortschritt
@@ -101,11 +102,14 @@ als auch den erfolgreichen Abschluss des bestehenden Stream-, selektiven
 Commit-, Readback- und Abbruchvertrags; die umfangreiche 14-MB-FSDIAG-Suite
 wird dadurch nicht in jeden Standardlauf aufgenommen.
 
-Standard- und Browser-AUTOEXEC starten ausserdem `REG APITEST`. Die
-Pflichtmarker belegen 64 wiederholte Reads einer unveraenderten residenten
-Hivegeneration, vier konsistente Publikationen und einen erzwungenen
-Commitfehler, bei dem weder Dateigeneration noch sichtbarer Wert teilweise
-wechseln duerfen.
+Standard- und Browser-AUTOEXEC starten ausserdem `REG APITEST`,
+`REG MIGRATESELFTEST` und `REGEDIT /SELFTEST`. Die Pflichtmarker belegen 64
+wiederholte Reads einer unveraenderten residenten Hivegeneration, die
+Kompatibilitaet der Einzeloperationen, eine atomare Mutation mit 32
+Operationen, fuenf direkte Snapshotseiten mit stabiler Generation, einen
+erzwungenen Snapshotneustart sowie Validierungs- und Commitabbrueche ohne
+Teilmutation. Die beiden Verbrauchertests pruefen zusaetzlich die gebatchte
+R4S-Migration und das echte Snapshot-Ansichtsmodell von REGEDIT.
 
 Die Standard-QEMU-Konfiguration bindet das Bootvolume an einen expliziten
 ICH9-AHCI-Controller und das frische Datenimage als NVMe-Namespace ein. Der
