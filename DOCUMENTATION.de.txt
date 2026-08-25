@@ -101,6 +101,14 @@ als auch den erfolgreichen Abschluss des bestehenden Stream-, selektiven
 Commit-, Readback- und Abbruchvertrags; die umfangreiche 14-MB-FSDIAG-Suite
 wird dadurch nicht in jeden Standardlauf aufgenommen.
 
+Die Standard-QEMU-Konfiguration behaelt das Bootvolume auf IDE und bindet das
+frische Datenimage als NVMe-Namespace ein. Der Headless-Markervertrag verlangt
+den kanonischen NVME.R4D-Preloadbesitzer und das durch NVME.R4D gemountete
+Datenvolume; die vorhandene 1-MB-FSDIAG-Probe liefert darauf Stream-, Readback-,
+Flush-, Pagecache- und Datenintegritaets-I/O. Damit prueft der normale Gastlauf
+sowohl den synchronen Bootfallback als auch den spaeteren Blockworkerpfad auf
+echter emulierter NVMe-Hardware, ohne ein neues Testgate einzufuehren.
+
 Klickifax und KlickifaxLive gehoeren nicht zum normalen Testplan. Der
 gezielte Browser-Test nimmt beide sowie R4HTTP, R4HTML, R4CSS und R4JS auf;
 Klickifax liefert dabei die Offline-Gastmarker. KlickifaxLive wird lediglich

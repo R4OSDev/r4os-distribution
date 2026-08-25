@@ -39,6 +39,10 @@ workspace command `-testbrowser` creates the matching component plan; regular
 Test images and marker runs omit the browser bundle. Headless acceptance uses
 a 240-second default timeout for the standard variant and 360 seconds for the
 larger browser variant; `QEMU_TEST_TIMEOUT_SECONDS` overrides either default.
+The standard QEMU configuration keeps the boot volume on IDE and attaches the
+fresh data image as an NVMe namespace. The existing 1-MB FSDIAG guest probe and
+required ownership/mount markers therefore cover canonical NVME.R4D discovery
+and data-volume I/O on every normal headless acceptance run.
 
 Building the Benchmark profile never starts a benchmark. The `benchmark`
 action is the only measured path: it requires a complete request, creates a
