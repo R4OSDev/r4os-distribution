@@ -101,6 +101,12 @@ als auch den erfolgreichen Abschluss des bestehenden Stream-, selektiven
 Commit-, Readback- und Abbruchvertrags; die umfangreiche 14-MB-FSDIAG-Suite
 wird dadurch nicht in jeden Standardlauf aufgenommen.
 
+Standard- und Browser-AUTOEXEC starten ausserdem `REG APITEST`. Die
+Pflichtmarker belegen 64 wiederholte Reads einer unveraenderten residenten
+Hivegeneration, vier konsistente Publikationen und einen erzwungenen
+Commitfehler, bei dem weder Dateigeneration noch sichtbarer Wert teilweise
+wechseln duerfen.
+
 Die Standard-QEMU-Konfiguration bindet das Bootvolume an einen expliziten
 ICH9-AHCI-Controller und das frische Datenimage als NVMe-Namespace ein. Der
 Headless-Markervertrag verlangt beide kanonischen Preloadbesitzer. Das Laden
