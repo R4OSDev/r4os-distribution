@@ -22,6 +22,7 @@ $ErrorActionPreference = 'Stop'
 $required = @(
     'Booted via Limine [OK]',
     'System poweroff.',
+    '[R4D] runtime load EXAMPLE [OK]',
     'dirs=ok',
     'FSDIAG ntfs metadata cache: OK',
     'FSDIAG pagecache policy: OK',
