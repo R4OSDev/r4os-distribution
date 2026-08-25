@@ -398,9 +398,32 @@ function Get-WorkloadId([string]$SuiteName, [object[]]$Records) {
     switch ($SuiteName) {
         'perfdiag-blit' {
             $samples = @(Get-RecordsOfType $Records 'blit_sample')
-            $iterations = Get-UniformPositiveInteger $samples 'iterations' 'blit'
-            $bytes = Get-UniformPositiveInteger $samples 'bytes' 'blit'
-            return ('perfdiag.blit.iterations-' + $iterations + '.bytes-' + $bytes + '.v1')
+            if ($samples.Count -eq 0) { throw 'blit has no records.' }
+            $frameBytes = $null
+            foreach ($sample in $samples) {
+                $iterations = Get-RequiredProperty $sample 'iterations' 'blit'
+                $bytes = Get-RequiredProperty $sample 'bytes' 'blit'
+                Assert-NonNegativeNumber $iterations 'blit.iterations'
+                Assert-NonNegativeNumber $bytes 'blit.bytes'
+                if ([decimal]$iterations -ne [Math]::Floor([decimal]$iterations) -or [decimal]$iterations -le 0) {
+                    throw 'blit.iterations must be a positive integer.'
+                }
+                if ([decimal]$bytes -ne [Math]::Floor([decimal]$bytes) -or [decimal]$bytes -le 0) {
+                    throw 'blit.bytes must be a positive integer.'
+                }
+                if ([long]$bytes % [long]$iterations -ne 0) {
+                    throw 'blit.bytes must contain a whole number of equal frames.'
+                }
+                $currentFrameBytes = [long]([long]$bytes / [long]$iterations)
+                if ($null -eq $frameBytes) { $frameBytes = $currentFrameBytes }
+                if ($currentFrameBytes -ne $frameBytes) {
+                    throw 'blit frame size is not stable across samples.'
+                }
+            }
+            # PERF-DIAG runs this fixed-size frame for a time-bounded 250 ms
+            # window. Iterations and therefore total bytes are measurements,
+            # not workload identity and are expected to vary per sample.
+            return ('perfdiag.blit.window-250ms.frame-bytes-' + $frameBytes + '.v1')
         }
         'perfdiag-clock' {
             $samples = @(Get-RecordsOfType $Records 'clock_sample')
@@ -816,7 +839,8 @@ function Invoke-SelfTest {
 
         $payload = [Collections.Generic.List[object]]::new()
         for ($index = 0; $index -lt $values.Count; $index++) {
-            $payload.Add((New-SelfTestSourceRecord 'blit_sample' @{ sample = $index + 1; iterations = 4; bytes = 4096; kb_per_second = $values[$index] }))
+            $iterations = 4 + $index
+            $payload.Add((New-SelfTestSourceRecord 'blit_sample' @{ sample = $index + 1; iterations = $iterations; bytes = $iterations * 1024; kb_per_second = $values[$index] }))
         }
         $payload.Add((New-SelfTestDistributionRecord 'blit_distribution' 'KB/s' $values))
         $suiteCases.Add([pscustomobject]@{ expected = 1; result = New-SelfTestRunCase $fixture 'perfdiag-blit' 'blit' $payload.ToArray() })
@@ -907,6 +931,10 @@ function Invoke-SelfTest {
             $caseMetrics = @(Get-MetricRecordsFromRunResult $suiteCase.result)
             if ($caseMetrics.Count -ne $suiteCase.expected) {
                 throw ('Suite import produced ' + $caseMetrics.Count + ' metrics; expected ' + $suiteCase.expected + '.')
+            }
+            if ($suiteCase.result.request.suite -eq 'perfdiag-blit' -and
+                $caseMetrics[0].workload_id -ne 'perfdiag.blit.window-250ms.frame-bytes-1024.v1') {
+                throw 'Time-bounded blit workload identity is incorrect.'
             }
         }
 

@@ -67,6 +67,11 @@ only identical suite/workload/environment/metric series. It is never invoked
 automatically by image creation, tests, or QEMU startup. The complete operator
 contract is `Agents/Benchmark.txt` in the workspace root.
 
+The time-bounded blit suite intentionally varies iterations and total bytes
+between samples. Its importer derives and validates a stable frame size from
+`bytes / iterations`, then combines it with the fixed 250 ms window for the
+workload identity.
+
 Every generated image contains legal material under
 `/R4OS/LICENSES`. The same payload is staged in the profile's
 `Legal` directory beside `disk.img` for binary releases.

@@ -155,6 +155,11 @@ zulaessig. Weder Imagebau noch normale Tests importieren Ergebnisse oder
 starten einen Benchmark. Der vollstaendige Bedien- und Fehlervertrag steht in
 `Agents/Benchmark.txt` des Root-Repositories.
 
+Die zeitbegrenzte Blit-Suite laesst Iterationen und Gesamtbytes je Sample
+bewusst schwanken. Ihr Import validiert deshalb eine konstante Framegroesse
+aus `bytes / iterations` und bindet diese zusammen mit dem festen
+250-ms-Fenster in die Workload-ID ein.
+
 Die Quellen fuer die 14 installierten R4OS-Systemfonts liegen unter
 `Assets/SystemFonts`; der Distribution-Build erzeugt daraus Hostartefakte,
 der Workspace nimmt diese explizit in `Common.plan` auf. Der bekannte
