@@ -27,6 +27,7 @@ $required = @(
     'FSDIAG ntfs metadata cache: OK',
     'FSDIAG pagecache policy: OK',
     'FSDIAG result: OK',
+    '[AHCI] canonical preload R4D active; owner=preload',
     '[NVME] canonical preload R4D active; owner=preload',
     'storage D: OK driver=R4D status=mounted-D note=NVME.R4D source=preload; namespace read/write blockdevice',
     'AUDIOD path: upstreamDropped=0 driverUnderruns=0 driverErrors=0 backendFail=0 silencePeriods=0',
