@@ -14,6 +14,17 @@ if ($env:QEMU_TEST_TIMEOUT_SECONDS) {
     }
 }
 
+$cpuCount = 1
+if ($env:R4OS_QEMU_CPUS) {
+    $parsedCpuCount = 0
+    if (-not [int]::TryParse($env:R4OS_QEMU_CPUS, [ref]$parsedCpuCount) -or
+        $parsedCpuCount -lt 1 -or $parsedCpuCount -gt 32) {
+        Write-Host ('Invalid R4OS_QEMU_CPUS: ' + $env:R4OS_QEMU_CPUS)
+        exit 125
+    }
+    $cpuCount = $parsedCpuCount
+}
+
 function Assert-File([string]$Path, [string]$Label) {
     if (-not $Path -or -not (Test-Path -LiteralPath $Path -PathType Leaf)) {
         Write-Host ($Label + ' not found: ' + $Path)
@@ -53,17 +64,17 @@ $argumentLine = @(
     '-readconfig', (Quote-Argument $config),
     '-cpu', 'Haswell',
     '-m', '1G',
-    '-smp', '1',
+    '-smp', ([string]$cpuCount),
     '-nic', 'none',
     '-audiodev', 'driver=none,id=headless-audio',
     '-global', 'hda-duplex.audiodev=headless-audio',
     '-serial', (Quote-Argument ('file:' + $logPath)),
     '-display', 'none',
     '-no-reboot',
-    '-name', (Quote-Argument 'R4OS test standard')
+    '-name', (Quote-Argument ('R4OS test ' + $cpuCount + 'cpu'))
 ) -join ' '
 
-Write-Host ('=== QEMU headless smoke; timeout ' + $timeoutSeconds + 's ===')
+Write-Host ('=== QEMU headless smoke; cpus=' + $cpuCount + ' timeout ' + $timeoutSeconds + 's ===')
 Normalize-StartProcessEnvironment
 $startParameters = @{
     FilePath = $qemu

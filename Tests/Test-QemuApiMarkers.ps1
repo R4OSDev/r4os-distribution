@@ -14,7 +14,17 @@ param(
 
     [Parameter(ParameterSetName = 'Log')]
     [Parameter(ParameterSetName = 'SelfTest')]
-    [switch]$Browser
+    [switch]$Browser,
+
+    [Parameter(ParameterSetName = 'Log')]
+    [Parameter(ParameterSetName = 'SelfTest')]
+    [ValidateRange(0, 32)]
+    [int]$SmpCpuCount = 0,
+
+    [Parameter(ParameterSetName = 'Log')]
+    [Parameter(ParameterSetName = 'SelfTest')]
+    [ValidateRange(0, 31)]
+    [int]$SmpFailedCount = 0
 )
 
 $ErrorActionPreference = 'Stop'
@@ -80,6 +90,8 @@ $forbidden = @(
     'PANIC',
     'FATAL',
     'CPU EXCEPTION',
+    '[SMP] switch boundary violation',
+    '[SMPPROBE] result=FAILED',
     'General Protection Fault',
     'Page Fault',
     'REG: api-selftest',
@@ -120,6 +132,10 @@ function Test-ApiMarkerContract {
     param([string]$Text, [switch]$Quiet)
 
     $failures = 0
+    if ($SmpFailedCount -ge [Math]::Max(1, $SmpCpuCount)) {
+        if (-not $Quiet) { Write-Host 'SMP marker FAILED: failed CPU count must be smaller than configured CPU count.' }
+        return 1
+    }
     foreach ($marker in $required) {
         if ($Text.IndexOf($marker, [StringComparison]::OrdinalIgnoreCase) -lt 0) {
             if (-not $Quiet) { Write-Host ('API diagnostic marker FAILED missing: ' + $marker) }
@@ -133,6 +149,46 @@ function Test-ApiMarkerContract {
             if (-not $Quiet) { Write-Host ('API diagnostic marker FAILED forbidden: ' + $marker) }
             $failures++
         }
+    }
+
+    if ($SmpCpuCount -gt 1) {
+        $expectedOnline = $SmpCpuCount - $SmpFailedCount
+        $expectedStarted = $SmpCpuCount - 1 - $SmpFailedCount
+        $expectedFallback = if ($expectedOnline -eq 1) { '1cpu' } else { 'no' }
+        $activePattern = '(?im)^\[SMP\] stage=active discovered=' + $SmpCpuCount +
+            ' started=' + $expectedStarted + ' online=' + $expectedOnline +
+            ' failed=' + $SmpFailedCount + ' fallback=' + $expectedFallback + '\r?$'
+        if (-not [regex]::IsMatch($Text, $activePattern)) {
+            if (-not $Quiet) { Write-Host ('SMP marker FAILED: expected ' + $expectedOnline + ' of ' + $SmpCpuCount + ' CPUs online.') }
+            $failures++
+        } elseif (-not $Quiet) {
+            Write-Host ('SMP online marker OK: ' + $expectedOnline + ' of ' + $SmpCpuCount + ' CPUs.')
+        }
+        if ($SmpFailedCount -gt 0 -and
+            -not [regex]::IsMatch($Text, '(?im)^\[SMP\] ap=\d+ apic=\d+ failed=diagnostic-injection\r?$')) {
+            if (-not $Quiet) { Write-Host 'SMP marker FAILED: injected AP failure was not reported.' }
+            $failures++
+        }
+        if ($expectedOnline -gt 1 -and
+            -not [regex]::IsMatch($Text, '(?im)^\[SMP\] productive cpu=([1-9]|[12][0-9]|3[01]) task=r4x-')) {
+            if (-not $Quiet) { Write-Host 'SMP marker FAILED: no R4X task executed on an AP.' }
+            $failures++
+        } elseif (-not $Quiet) {
+            Write-Host 'SMP productive AP marker OK.'
+        }
+        $probePattern = '(?im)^\[SMPPROBE\] result=OK cpus=' + $expectedOnline +
+            ' sequential_ns=\d+ parallel_ns=\d+ speedup_milli=(\d+)' +
+            ' expected_mask=0x[0-9A-F]+ observed_mask=0x[0-9A-F]+ failures=0\r?$'
+        $probeMatch = [regex]::Match($Text, $probePattern)
+        if (-not $probeMatch.Success -or [uint64]$probeMatch.Groups[1].Value -lt 1050) {
+            if (-not $Quiet) { Write-Host 'SMP marker FAILED: kernel work scaling probe missing or below 1.050x.' }
+            $failures++
+        } elseif (-not $Quiet) {
+            Write-Host ('SMP kernel scaling marker OK: ' + $probeMatch.Groups[1].Value + ' milli.')
+        }
+    } elseif (-not [regex]::IsMatch($Text, '(?im)^\[SMPPROBE\] result=SKIPPED cpus=1 reason=single-cpu\r?$')) {
+        if (-not $Quiet) { Write-Host 'SMP marker FAILED: one-CPU fallback probe marker missing.' }
+        $failures++
     }
 
     $pattern = '(?im)^APPPARITY lang=(zig|c) domain=(\d+) raw=(-?\d+) payload=(\d+) bytes=(\d+) mutated=(\d+) tail=(\d+) handle_before=(\d+) close=(-?\d+) handle_after=(\d+)\r?$'
@@ -179,6 +235,19 @@ if ($SelfTest) {
     $valid = ($required -join "`r`n") + "`r`n" +
         'APPPARITY lang=zig domain=3 raw=-5 payload=123 bytes=12 mutated=1 tail=1 handle_before=1 close=0 handle_after=0' + "`r`n" +
         'APPPARITY lang=c domain=3 raw=-5 payload=123 bytes=12 mutated=1 tail=1 handle_before=1 close=0 handle_after=0'
+    if ($SmpCpuCount -gt 1) {
+        $expectedOnline = $SmpCpuCount - $SmpFailedCount
+        $valid += "`r`n" + ('[SMP] stage=active discovered=' + $SmpCpuCount + ' started=' +
+            ($SmpCpuCount - 1 - $SmpFailedCount) + ' online=' + $expectedOnline +
+            ' failed=' + $SmpFailedCount + ' fallback=' + $(if ($expectedOnline -eq 1) { '1cpu' } else { 'no' })) +
+            "`r`n[SMP] productive cpu=1 task=r4x-app class=r4x" +
+            "`r`n[SMPPROBE] result=OK cpus=$expectedOnline sequential_ns=200 parallel_ns=100 speedup_milli=2000 expected_mask=0x0000000F observed_mask=0x0000000F failures=0"
+        if ($SmpFailedCount -gt 0) {
+            $valid += "`r`n[SMP] ap=2 apic=2 failed=diagnostic-injection"
+        }
+    } else {
+        $valid += "`r`n[SMPPROBE] result=SKIPPED cpus=1 reason=single-cpu"
+    }
     if ((Test-ApiMarkerContract $valid -Quiet) -ne 0) { throw 'valid marker set did not pass' }
     foreach ($marker in $required) {
         $missing = (($required | Where-Object { $_ -ne $marker }) -join "`r`n")
@@ -189,7 +258,7 @@ if ($SelfTest) {
     }
     $mismatch = $valid.Replace('lang=c domain=3 raw=-5 payload=123', 'lang=c domain=3 raw=-5 payload=124')
     if ((Test-ApiMarkerContract $mismatch -Quiet) -eq 0) { throw 'cross-language parity mismatch was not rejected' }
-    Write-Host ('QEMU API marker self-test OK (' + $(if ($Browser) { 'browser' } else { 'standard' }) + ').')
+    Write-Host ('QEMU API marker self-test OK (' + $(if ($Browser) { 'browser' } elseif ($SmpCpuCount -gt 1) { 'smp' } else { 'standard' }) + ').')
     exit 0
 }
 

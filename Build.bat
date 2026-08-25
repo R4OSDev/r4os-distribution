@@ -293,12 +293,25 @@ if not "%R4OS_TEST_OVERLAY%"=="1" (
     exit /b 1
 )
 set "R4OS_HEADLESS_VARIANT=standard"
+set "R4OS_QEMU_CPUS=1"
+set "R4OS_SMP_FAILED_COUNT=0"
 if defined R4OS_REQUESTED_VARIANT (
-    if /i not "%R4OS_REQUESTED_VARIANT%"=="browser" (
+    if /i "%R4OS_REQUESTED_VARIANT%"=="browser" (
+        set "R4OS_HEADLESS_VARIANT=browser"
+    ) else if /i "%R4OS_REQUESTED_VARIANT%"=="smp2" (
+        set "R4OS_HEADLESS_VARIANT=smp2"
+        set "R4OS_QEMU_CPUS=2"
+    ) else if /i "%R4OS_REQUESTED_VARIANT%"=="smp4" (
+        set "R4OS_HEADLESS_VARIANT=smp4"
+        set "R4OS_QEMU_CPUS=4"
+    ) else if /i "%R4OS_REQUESTED_VARIANT%"=="smpfail4" (
+        set "R4OS_HEADLESS_VARIANT=smpfail4"
+        set "R4OS_QEMU_CPUS=4"
+        set "R4OS_SMP_FAILED_COUNT=1"
+    ) else (
         echo ERROR: Unknown headless variant: %R4OS_REQUESTED_VARIANT%
         exit /b 1
     )
-    set "R4OS_HEADLESS_VARIANT=browser"
 )
 set "R4OS_PROFILE_OUTPUT=%R4OS_OUTPUT_ROOT%\Profiles\%R4OS_PROFILE%"
 if not exist "%R4OS_PROFILE_OUTPUT%\disk.img" (
@@ -631,6 +644,10 @@ echo === QEMU marker evaluator acceptance ===
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_MARKER_TEST%" -SelfTest
 if errorlevel 1 exit /b %ERRORLEVEL%
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_MARKER_TEST%" -SelfTest -Browser
+if errorlevel 1 exit /b %ERRORLEVEL%
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_MARKER_TEST%" -SelfTest -SmpCpuCount 4
+if errorlevel 1 exit /b %ERRORLEVEL%
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_MARKER_TEST%" -SelfTest -SmpCpuCount 4 -SmpFailedCount 1
 exit /b %ERRORLEVEL%
 
 :run_release_acceptance
@@ -645,6 +662,8 @@ echo.
 echo === HEADLESS TEST EVALUATION ===
 if /i "%R4OS_HEADLESS_VARIANT%"=="browser" (
     powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_MARKER_TEST%" -LogPath "%R4OS_QEMU_LOG%" -ErrorPath "%R4OS_QEMU_ERROR_LOG%" -QemuExitCode %R4OS_QEMU_EXIT% -Browser
+) else if %R4OS_QEMU_CPUS% GTR 1 (
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_MARKER_TEST%" -LogPath "%R4OS_QEMU_LOG%" -ErrorPath "%R4OS_QEMU_ERROR_LOG%" -QemuExitCode %R4OS_QEMU_EXIT% -SmpCpuCount %R4OS_QEMU_CPUS% -SmpFailedCount %R4OS_SMP_FAILED_COUNT%
 ) else (
     powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_MARKER_TEST%" -LogPath "%R4OS_QEMU_LOG%" -ErrorPath "%R4OS_QEMU_ERROR_LOG%" -QemuExitCode %R4OS_QEMU_EXIT%
 )
@@ -672,6 +691,6 @@ echo   Build.bat image Slim^|Full^|Test^|Benchmark [browser]
 echo   Build.bat verify Slim^|Full^|Test^|Benchmark
 echo   Build.bat qemu Slim^|Full^|Test^|Benchmark
 echo   Build.bat ssh Full
-echo   Build.bat headless Test [browser]
+echo   Build.bat headless Test [browser^|smp2^|smp4^|smpfail4]
 echo   Build.bat benchmark Benchmark SUITE WORKLOAD_VERSION WARM^|COLD REPETITIONS ENVIRONMENT_ID
 exit /b 1

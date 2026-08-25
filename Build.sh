@@ -488,9 +488,19 @@ ssh_action() {
 headless_action() {
     load_profile "$1"
     headless_variant=${2:-}
-    if [ -n "$headless_variant" ] && [ "$headless_variant" != browser ]; then
+    if [ -n "$headless_variant" ] && [ "$headless_variant" != browser ] && \
+        [ "$headless_variant" != smp2 ] && [ "$headless_variant" != smp4 ] && \
+        [ "$headless_variant" != smpfail4 ]; then
         echo "ERROR: Unknown headless variant: $headless_variant" >&2
         exit 1
+    fi
+    smp_cpu_count=1
+    smp_failed_count=0
+    if [ "$headless_variant" = smp2 ]; then smp_cpu_count=2; fi
+    if [ "$headless_variant" = smp4 ]; then smp_cpu_count=4; fi
+    if [ "$headless_variant" = smpfail4 ]; then
+        smp_cpu_count=4
+        smp_failed_count=1
     fi
     if [ "$profile" != Test ] || [ "$test_overlay" != 1 ]; then
         echo 'ERROR: Headless acceptance requires the Test profile with test overlay.' >&2
@@ -532,6 +542,7 @@ headless_action() {
     export R4OS_QEMU_LOG=$qemu_log
     export R4OS_QEMU_ERROR_LOG=$qemu_error_log
     export R4OS_QEMU_WORKING_DIRECTORY=$profile_output
+    export R4OS_QEMU_CPUS=$smp_cpu_count
     export QEMU_TEST_TIMEOUT_SECONDS=$qemu_timeout
 
     echo '=== Start QEMU Test profile headless ==='
@@ -552,6 +563,11 @@ headless_action() {
         marker_exit=0
         pwsh -NoLogo -NoProfile -File "$qemu_marker_test" \
             -LogPath "$qemu_log" -ErrorPath "$qemu_error_log" -QemuExitCode "$qemu_exit" -Browser || marker_exit=$?
+    elif [ "$smp_cpu_count" -gt 1 ]; then
+        marker_exit=0
+        pwsh -NoLogo -NoProfile -File "$qemu_marker_test" \
+            -LogPath "$qemu_log" -ErrorPath "$qemu_error_log" -QemuExitCode "$qemu_exit" \
+            -SmpCpuCount "$smp_cpu_count" -SmpFailedCount "$smp_failed_count" || marker_exit=$?
     else
         marker_exit=0
         pwsh -NoLogo -NoProfile -File "$qemu_marker_test" \
@@ -612,6 +628,8 @@ case "$action" in
         run_plan_acceptance
         pwsh -NoLogo -NoProfile -File "$qemu_marker_test" -SelfTest
         pwsh -NoLogo -NoProfile -File "$qemu_marker_test" -SelfTest -Browser
+        pwsh -NoLogo -NoProfile -File "$qemu_marker_test" -SelfTest -SmpCpuCount 4
+        pwsh -NoLogo -NoProfile -File "$qemu_marker_test" -SelfTest -SmpCpuCount 4 -SmpFailedCount 1
         pwsh -NoLogo -NoProfile -File "$qemu_runner" -SelfTest
         pwsh -NoLogo -NoProfile -File "$benchmark_runner" -SelfTest
         pwsh -NoLogo -NoProfile -File "$benchmark_history" -Action selftest
@@ -637,7 +655,7 @@ case "$action" in
         benchmark_action "$requested_profile" "$3" "$4" "$5" "$6" "$7"
         ;;
     *)
-        echo 'Usage: Build.sh [tools|test|plan|image|verify|qemu|ssh|headless|benchmark] ...' >&2
+        echo 'Usage: Build.sh [tools|test|plan|image|verify|qemu|ssh|headless|benchmark] ... (headless Test [browser|smp2|smp4|smpfail4])' >&2
         exit 1
         ;;
 esac

@@ -12,4 +12,5 @@ DRIVER=MIDI
 DRIVER=EXAMPLE
 OPTION SID model=8580
 OPTION NET dhcp=on
+OPTION SMP selftest=yes
 LOG=verbose
