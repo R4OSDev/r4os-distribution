@@ -166,6 +166,7 @@ function Test-ApiMarkerContract {
         $runtime = [regex]::Match($Text, '(?im)^R4BASIC runtime: requested_operations=(?<requested>\d+) executed_operations=(?<executed>\d+) slices=(?<slices>\d+) yields=(?<yields>\d+) sleeps=(?<sleeps>\d+) zero_progress_waits=(?<zero_progress_waits>\d+) present_attempts=(?<present_attempts>\d+) presents=(?<presents>\d+) skipped_presents=(?<skipped_presents>\d+)\r?$')
         $adapter = [regex]::Match($Text, '(?im)^R4BASIC adapter: steps=(?<steps>\d+) instructions=(?<instructions>\d+) max_slice=(?<max_slice>\d+) budget_limited=(?<budget_limited>\d+) time_limited=(?<time_limited>\d+) frame_ready=(?<frame_ready>\d+) clock_reads=(?<clock_reads>\d+) max_clock_reads=(?<max_clock_reads>\d+) elapsed_ns=(?<elapsed_ns>\d+) ns_per_instruction=(?<ns_per_instruction>\d+)\r?$')
         $vm = [regex]::Match($Text, '(?im)^R4BASIC vm: cancel_flag_checks=(?<cancel_flag_checks>\d+) cancel_callback_checks=(?<cancel_callback_checks>\d+) group_lookups=(?<group_lookups>\d+) text_sync_checks=(?<text_sync_checks>\d+) text_sync_renders=(?<text_sync_renders>\d+) metadata_reads=(?<metadata_reads>\d+) cell_resolves=(?<cell_resolves>\d+) alias_hops=(?<alias_hops>\d+) same_type_store_moves=(?<same_type_store_moves>\d+) conversions=(?<conversions>\d+) integer_comparisons=(?<integer_comparisons>\d+) floating_comparisons=(?<floating_comparisons>\d+) string_comparisons=(?<string_comparisons>\d+) timer_calls=(?<timer_calls>\d+) timer_waits=(?<timer_waits>\d+) timer_max_wake_lateness_ns=(?<timer_late>\d+)\r?$')
+        $ownership = [regex]::Match($Text, '(?im)^R4BASIC ownership: compile_borrowed=(?<compile_borrowed>\d+) string_clones=(?<string_clones>\d+) string_clone_bytes=(?<string_clone_bytes>\d+) builtin_borrowed=(?<builtin_borrowed>\d+) builtin_owned=(?<builtin_owned>\d+) procedure_calls=(?<procedure_calls>\d+) local_pool_grows=(?<local_pool_grows>\d+) local_pool_reuses=(?<local_pool_reuses>\d+) local_initializations=(?<local_initializations>\d+) local_initialization_bytes=(?<local_initialization_bytes>\d+) local_aggregate_initializations=(?<local_aggregate_initializations>\d+) format_stack_uses=(?<format_stack_uses>\d+) str_result_allocations=(?<str_result_allocations>\d+) val_direct=(?<val_direct>\d+) val_stack=(?<val_stack>\d+) val_scratch=(?<val_scratch>\d+) val_scratch_grows=(?<val_scratch_grows>\d+)\r?$')
         $admission = [regex]::Match($Text, '(?im)^\[R4BASIC-LAUNCH\] id=' + $traceId + ' mode=H phase=admission ns=(\d+)\r?$')
         $loader = [regex]::Match($Text, '(?im)^\[R4BASIC-LAUNCH\] id=' + $traceId + ' mode=H phase=loader-complete ns=(\d+) duration_ns=(\d+) range_reads=(\d+) fs_requests=(\d+) gate_waits=(\d+) fs_ticks=(\d+) sections=(\d+) imports=(\d+) relocations=(\d+)\r?$')
         $r4xstart = [regex]::Match($Text, '(?im)^\[R4BASIC-LAUNCH\] id=' + $traceId + ' mode=H phase=r4xstart ns=(\d+)\r?$')
@@ -255,6 +256,13 @@ function Test-ApiMarkerContract {
             [uint64]$vm.Groups['metadata_reads'].Value -gt 0 -and
             [uint64]$vm.Groups['metadata_reads'].Value -lt [uint64]$vm.Groups['group_lookups'].Value -and
             [uint64]$vm.Groups['cell_resolves'].Value -gt 0
+        $ownershipOk = $ownership.Success -and
+            ([uint64]$ownership.Groups['local_pool_grows'].Value + [uint64]$ownership.Groups['local_pool_reuses'].Value) -eq
+                [uint64]$ownership.Groups['procedure_calls'].Value -and
+            [uint64]$ownership.Groups['local_aggregate_initializations'].Value -le [uint64]$ownership.Groups['local_initializations'].Value -and
+            [uint64]$ownership.Groups['local_initialization_bytes'].Value -ge [uint64]$ownership.Groups['local_initializations'].Value -and
+            [uint64]$ownership.Groups['str_result_allocations'].Value -le [uint64]$ownership.Groups['format_stack_uses'].Value -and
+            [uint64]$ownership.Groups['val_scratch_grows'].Value -le [uint64]$ownership.Groups['val_scratch'].Value
         $kernelOk = $timeline.Success -and $admission.Success -and $loader.Success -and $r4xstart.Success -and
             [uint64]$loader.Groups[3].Value -gt 0 -and
             [uint64]$loader.Groups[7].Value -gt 0 -and
@@ -262,7 +270,7 @@ function Test-ApiMarkerContract {
             [uint64]$admission.Groups[1].Value -le [uint64]$loader.Groups[1].Value -and
             [uint64]$loader.Groups[1].Value -le [uint64]$r4xstart.Groups[1].Value -and
             [uint64]$r4xstart.Groups[1].Value -le [uint64]$timeline.Groups['app'].Value
-        if (-not $timelineOk -or -not $compilerOk -or -not $compilerMemoryOk -or -not $compilerVmOk -or -not $runtimeOk -or -not $adapterOk -or -not $vmOk -or -not $kernelOk) {
+        if (-not $timelineOk -or -not $compilerOk -or -not $compilerMemoryOk -or -not $compilerVmOk -or -not $runtimeOk -or -not $adapterOk -or -not $vmOk -or -not $ownershipOk -or -not $kernelOk) {
             if (-not $Quiet) { Write-Host 'R4BASIC launch timeline FAILED: phase order, real work, or loader evidence invalid.' }
             $failures++
         } elseif (-not $Quiet) {
@@ -363,6 +371,7 @@ if ($SelfTest) {
         'R4BASIC runtime: requested_operations=8192 executed_operations=5000 slices=2 yields=1 sleeps=0 zero_progress_waits=0 present_attempts=1 presents=1 skipped_presents=0' + "`r`n" +
         'R4BASIC adapter: steps=2 instructions=5000 max_slice=4096 budget_limited=1 time_limited=1 frame_ready=1 clock_reads=22 max_clock_reads=17 elapsed_ns=9000000 ns_per_instruction=1800' + "`r`n" +
         'R4BASIC vm: cancel_flag_checks=5020 cancel_callback_checks=20 group_lookups=5000 text_sync_checks=8 text_sync_renders=2 metadata_reads=900 cell_resolves=1200 alias_hops=4 same_type_store_moves=500 conversions=20 integer_comparisons=200 floating_comparisons=40 string_comparisons=0 timer_calls=2 timer_waits=1 timer_max_wake_lateness_ns=200000' + "`r`n" +
+        'R4BASIC ownership: compile_borrowed=12 string_clones=80 string_clone_bytes=327680 builtin_borrowed=120 builtin_owned=30 procedure_calls=40 local_pool_grows=2 local_pool_reuses=38 local_initializations=60 local_initialization_bytes=3360 local_aggregate_initializations=4 format_stack_uses=20 str_result_allocations=5 val_direct=7 val_stack=2 val_scratch=2 val_scratch_grows=1' + "`r`n" +
         '[R4BASIC-LAUNCH] id=0123456789ABCDEF mode=H phase=admission ns=140' + "`r`n" +
         '[R4BASIC-LAUNCH] id=0123456789ABCDEF mode=H phase=loader-complete ns=160 duration_ns=20 range_reads=12 fs_requests=13 gate_waits=0 fs_ticks=2 sections=4 imports=4 relocations=2110' + "`r`n" +
         '[R4BASIC-LAUNCH] id=0123456789ABCDEF mode=H phase=r4xstart ns=170'
