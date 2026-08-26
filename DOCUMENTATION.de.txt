@@ -102,9 +102,12 @@ Headless-Modus, und R4Basic schreibt nach dem ersten tatsaechlich publizierten
 Gastframe `C:\TEMP\R4BASIC.BASELINE`. Der gemeinsame Trace-Identifier verbindet
 Probe, Aufloesung, Desktopgrenze, Kernel-Admission und -Loader sowie Quelle,
 ersten sichtbaren Compileframe, Compilerende, VM, erste Instruktion und ersten
-Gastframe. Der Markerpruefer verlangt dabei Fortschrittsframes, begrenzte
-Keyword-/Namensindexproben und reale Loader-, VM-, Present- und Yield-Arbeit.
-Ein normaler
+Gastframe. Der Markerpruefer verlangt dabei Fortschrittsframes, exakte
+Tokenkapazitaet, begrenzte Keyword-, Namens- und Konstantenindexproben,
+uebernommene statt kopierte Quellbytes, begrenzte Ausdruckstiefe und
+Diagnosen, konsistente Compiler-Peak-/Programmwerte sowie die realen
+VM-Allocatorzaehler vor und nach dem Compiler. Loader-, VM-, Present- und
+Yield-Arbeit muessen ebenfalls real sein. Ein normaler
 GUI-Start derselben Datei verwendet denselben Vertrag, schreibt die letzte
 Momentaufnahme nach `C:\TEMP\R4BASIC.LAST` und laesst die Anwendung weiterlaufen.
 
