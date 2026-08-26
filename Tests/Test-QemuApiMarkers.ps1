@@ -167,6 +167,13 @@ function Test-ApiMarkerContract {
         $adapter = [regex]::Match($Text, '(?im)^R4BASIC adapter: steps=(?<steps>\d+) instructions=(?<instructions>\d+) max_slice=(?<max_slice>\d+) budget_limited=(?<budget_limited>\d+) time_limited=(?<time_limited>\d+) frame_ready=(?<frame_ready>\d+) clock_reads=(?<clock_reads>\d+) max_clock_reads=(?<max_clock_reads>\d+) elapsed_ns=(?<elapsed_ns>\d+) ns_per_instruction=(?<ns_per_instruction>\d+)\r?$')
         $vm = [regex]::Match($Text, '(?im)^R4BASIC vm: cancel_flag_checks=(?<cancel_flag_checks>\d+) cancel_callback_checks=(?<cancel_callback_checks>\d+) group_lookups=(?<group_lookups>\d+) text_sync_checks=(?<text_sync_checks>\d+) text_sync_renders=(?<text_sync_renders>\d+) metadata_reads=(?<metadata_reads>\d+) cell_resolves=(?<cell_resolves>\d+) alias_hops=(?<alias_hops>\d+) same_type_store_moves=(?<same_type_store_moves>\d+) conversions=(?<conversions>\d+) integer_comparisons=(?<integer_comparisons>\d+) floating_comparisons=(?<floating_comparisons>\d+) string_comparisons=(?<string_comparisons>\d+) timer_calls=(?<timer_calls>\d+) timer_waits=(?<timer_waits>\d+) timer_max_wake_lateness_ns=(?<timer_late>\d+)\r?$')
         $ownership = [regex]::Match($Text, '(?im)^R4BASIC ownership: compile_borrowed=(?<compile_borrowed>\d+) string_clones=(?<string_clones>\d+) string_clone_bytes=(?<string_clone_bytes>\d+) builtin_borrowed=(?<builtin_borrowed>\d+) builtin_owned=(?<builtin_owned>\d+) procedure_calls=(?<procedure_calls>\d+) local_pool_grows=(?<local_pool_grows>\d+) local_pool_reuses=(?<local_pool_reuses>\d+) local_initializations=(?<local_initializations>\d+) local_initialization_bytes=(?<local_initialization_bytes>\d+) local_aggregate_initializations=(?<local_aggregate_initializations>\d+) format_stack_uses=(?<format_stack_uses>\d+) str_result_allocations=(?<str_result_allocations>\d+) val_direct=(?<val_direct>\d+) val_stack=(?<val_stack>\d+) val_scratch=(?<val_scratch>\d+) val_scratch_grows=(?<val_scratch_grows>\d+)\r?$')
+        $storage = [regex]::Match($Text, '(?im)^R4BASIC storage: compact_array_resizes=(?<compact_array_resizes>\d+) generic_array_resizes=(?<generic_array_resizes>\d+) compact_array_elements=(?<compact_array_elements>\d+) generic_array_initializations=(?<generic_array_initializations>\d+) array_live_bytes=(?<array_live_bytes>\d+) array_live_peak_bytes=(?<array_live_peak_bytes>\d+) array_resize_live_peak_bytes=(?<array_resize_live_peak_bytes>\d+) array_live_limit_bytes=(?<array_live_limit_bytes>\d+) array_resize_live_limit_bytes=(?<array_resize_live_limit_bytes>\d+) vm_static_bytes=(?<vm_static_bytes>\d+) file_index_bytes=(?<file_index_bytes>\d+) file_capacity_grows=(?<file_capacity_grows>\d+) max_open_files=(?<max_open_files>\d+)\r?$')
+        $stackHighWater = [regex]::Match($Text, '(?im)^\[R4XSTACK\] highwater owner=(?<owner>\d+) thread=0 module=C:\\R4OS\\SUBSYSTEMS\\r4os\.basic\\R4BASIC\.R4X profile=desktop reserve=(?<reserve>\d+) initial=(?<initial>\d+) committed=(?<committed>\d+) highwater=(?<highwater>\d+) create_cycles=(?<create_cycles>\d+)\r?$')
+        $stackRelease = if ($stackHighWater.Success) {
+            [regex]::Match($Text, '(?im)^\[R4XSTACK\] release owner=' + [regex]::Escape($stackHighWater.Groups['owner'].Value) + ' profile=desktop reserve=(?<reserve>\d+) initial=(?<initial>\d+) committed=(?<committed>\d+) highwater=(?<highwater>\d+) creates=(?<creates>\d+) releases=(?<releases>\d+) create_cycles=(?<create_cycles>\d+) create_cycles_max=(?<create_cycles_max>\d+) release_cycles=(?<release_cycles>\d+) release_cycles_max=(?<release_cycles_max>\d+) kernel_highwater_max=(?<kernel_highwater>\d+) kernel_create_cycles_max=(?<kernel_create_cycles>\d+) kernel_release_cycles_max=(?<kernel_release_cycles>\d+) kernel_cache_cached=(?<cache_cached>\d+) kernel_cache_hits=(?<cache_hits>\d+) kernel_cache_misses=(?<cache_misses>\d+) critical_available=(?<critical_available>\d+) critical_in_use=(?<critical_in_use>\d+)\r?$')
+        } else {
+            [System.Text.RegularExpressions.Match]::Empty
+        }
         $admission = [regex]::Match($Text, '(?im)^\[R4BASIC-LAUNCH\] id=' + $traceId + ' mode=H phase=admission ns=(\d+)\r?$')
         $loader = [regex]::Match($Text, '(?im)^\[R4BASIC-LAUNCH\] id=' + $traceId + ' mode=H phase=loader-complete ns=(\d+) duration_ns=(\d+) range_reads=(\d+) fs_requests=(\d+) gate_waits=(\d+) fs_ticks=(\d+) sections=(\d+) imports=(\d+) relocations=(\d+)\r?$')
         $r4xstart = [regex]::Match($Text, '(?im)^\[R4BASIC-LAUNCH\] id=' + $traceId + ' mode=H phase=r4xstart ns=(\d+)\r?$')
@@ -263,6 +270,44 @@ function Test-ApiMarkerContract {
             [uint64]$ownership.Groups['local_initialization_bytes'].Value -ge [uint64]$ownership.Groups['local_initializations'].Value -and
             [uint64]$ownership.Groups['str_result_allocations'].Value -le [uint64]$ownership.Groups['format_stack_uses'].Value -and
             [uint64]$ownership.Groups['val_scratch_grows'].Value -le [uint64]$ownership.Groups['val_scratch'].Value
+        $storageOk = $storage.Success -and
+            [uint64]$storage.Groups['compact_array_resizes'].Value -gt 0 -and
+            [uint64]$storage.Groups['compact_array_elements'].Value -gt 0 -and
+            [uint64]$storage.Groups['array_live_peak_bytes'].Value -ge [uint64]$storage.Groups['array_live_bytes'].Value -and
+            [uint64]$storage.Groups['array_resize_live_peak_bytes'].Value -ge [uint64]$storage.Groups['array_live_peak_bytes'].Value -and
+            [uint64]$storage.Groups['array_live_limit_bytes'].Value -eq 134217728 -and
+            [uint64]$storage.Groups['array_resize_live_limit_bytes'].Value -eq 201326592 -and
+            [uint64]$storage.Groups['array_live_peak_bytes'].Value -le [uint64]$storage.Groups['array_live_limit_bytes'].Value -and
+            [uint64]$storage.Groups['array_resize_live_peak_bytes'].Value -le [uint64]$storage.Groups['array_resize_live_limit_bytes'].Value -and
+            [uint64]$storage.Groups['vm_static_bytes'].Value -lt 16384 -and
+            [uint64]$storage.Groups['file_index_bytes'].Value -eq 256
+        $stackOk = $stackHighWater.Success -and $stackRelease.Success -and
+            [uint64]$stackHighWater.Groups['reserve'].Value -eq 4194304 -and
+            [uint64]$stackHighWater.Groups['initial'].Value -eq 131072 -and
+            [uint64]$stackHighWater.Groups['committed'].Value -ge [uint64]$stackHighWater.Groups['initial'].Value -and
+            [uint64]$stackHighWater.Groups['committed'].Value -lt [uint64]$stackHighWater.Groups['reserve'].Value -and
+            [uint64]$stackHighWater.Groups['highwater'].Value -gt 0 -and
+            [uint64]$stackHighWater.Groups['highwater'].Value -le [uint64]$stackHighWater.Groups['committed'].Value -and
+            [uint64]$stackHighWater.Groups['reserve'].Value -ge ([uint64]$stackHighWater.Groups['highwater'].Value * 16) -and
+            [uint64]$stackHighWater.Groups['create_cycles'].Value -gt 0 -and
+            [uint64]$stackRelease.Groups['reserve'].Value -eq [uint64]$stackHighWater.Groups['reserve'].Value -and
+            [uint64]$stackRelease.Groups['initial'].Value -eq [uint64]$stackHighWater.Groups['initial'].Value -and
+            [uint64]$stackRelease.Groups['committed'].Value -eq [uint64]$stackHighWater.Groups['committed'].Value -and
+            [uint64]$stackRelease.Groups['highwater'].Value -eq [uint64]$stackHighWater.Groups['highwater'].Value -and
+            [uint64]$stackRelease.Groups['creates'].Value -gt 0 -and
+            [uint64]$stackRelease.Groups['releases'].Value -gt 0 -and
+            [uint64]$stackRelease.Groups['create_cycles'].Value -eq [uint64]$stackHighWater.Groups['create_cycles'].Value -and
+            [uint64]$stackRelease.Groups['create_cycles_max'].Value -ge [uint64]$stackRelease.Groups['create_cycles'].Value -and
+            [uint64]$stackRelease.Groups['release_cycles'].Value -gt 0 -and
+            [uint64]$stackRelease.Groups['release_cycles_max'].Value -ge [uint64]$stackRelease.Groups['release_cycles'].Value -and
+            [uint64]$stackRelease.Groups['kernel_highwater'].Value -gt 0 -and
+            [uint64]$stackRelease.Groups['kernel_highwater'].Value -le 65536 -and
+            [uint64]$stackRelease.Groups['kernel_create_cycles'].Value -gt 0 -and
+            [uint64]$stackRelease.Groups['kernel_release_cycles'].Value -gt 0 -and
+            [uint64]$stackRelease.Groups['cache_cached'].Value -le 8 -and
+            [uint64]$stackRelease.Groups['cache_hits'].Value -gt 0 -and
+            [uint64]$stackRelease.Groups['cache_misses'].Value -gt 0 -and
+            ([uint64]$stackRelease.Groups['critical_available'].Value + [uint64]$stackRelease.Groups['critical_in_use'].Value) -eq 4
         $kernelOk = $timeline.Success -and $admission.Success -and $loader.Success -and $r4xstart.Success -and
             [uint64]$loader.Groups[3].Value -gt 0 -and
             [uint64]$loader.Groups[7].Value -gt 0 -and
@@ -270,7 +315,7 @@ function Test-ApiMarkerContract {
             [uint64]$admission.Groups[1].Value -le [uint64]$loader.Groups[1].Value -and
             [uint64]$loader.Groups[1].Value -le [uint64]$r4xstart.Groups[1].Value -and
             [uint64]$r4xstart.Groups[1].Value -le [uint64]$timeline.Groups['app'].Value
-        if (-not $timelineOk -or -not $compilerOk -or -not $compilerMemoryOk -or -not $compilerVmOk -or -not $runtimeOk -or -not $adapterOk -or -not $vmOk -or -not $ownershipOk -or -not $kernelOk) {
+        if (-not $timelineOk -or -not $compilerOk -or -not $compilerMemoryOk -or -not $compilerVmOk -or -not $runtimeOk -or -not $adapterOk -or -not $vmOk -or -not $ownershipOk -or -not $storageOk -or -not $stackOk -or -not $kernelOk) {
             if (-not $Quiet) { Write-Host 'R4BASIC launch timeline FAILED: phase order, real work, or loader evidence invalid.' }
             $failures++
         } elseif (-not $Quiet) {
@@ -372,6 +417,9 @@ if ($SelfTest) {
         'R4BASIC adapter: steps=2 instructions=5000 max_slice=4096 budget_limited=1 time_limited=1 frame_ready=1 clock_reads=22 max_clock_reads=17 elapsed_ns=9000000 ns_per_instruction=1800' + "`r`n" +
         'R4BASIC vm: cancel_flag_checks=5020 cancel_callback_checks=20 group_lookups=5000 text_sync_checks=8 text_sync_renders=2 metadata_reads=900 cell_resolves=1200 alias_hops=4 same_type_store_moves=500 conversions=20 integer_comparisons=200 floating_comparisons=40 string_comparisons=0 timer_calls=2 timer_waits=1 timer_max_wake_lateness_ns=200000' + "`r`n" +
         'R4BASIC ownership: compile_borrowed=12 string_clones=80 string_clone_bytes=327680 builtin_borrowed=120 builtin_owned=30 procedure_calls=40 local_pool_grows=2 local_pool_reuses=38 local_initializations=60 local_initialization_bytes=3360 local_aggregate_initializations=4 format_stack_uses=20 str_result_allocations=5 val_direct=7 val_stack=2 val_scratch=2 val_scratch_grows=1' + "`r`n" +
+        'R4BASIC storage: compact_array_resizes=4 generic_array_resizes=1 compact_array_elements=4096 generic_array_initializations=2 array_live_bytes=16384 array_live_peak_bytes=16384 array_resize_live_peak_bytes=24576 array_live_limit_bytes=134217728 array_resize_live_limit_bytes=201326592 vm_static_bytes=8192 file_index_bytes=256 file_capacity_grows=1 max_open_files=2' + "`r`n" +
+        '[R4XSTACK] highwater owner=42 thread=0 module=C:\R4OS\SUBSYSTEMS\r4os.basic\R4BASIC.R4X profile=desktop reserve=4194304 initial=131072 committed=196608 highwater=154464 create_cycles=2500000' + "`r`n" +
+        '[R4XSTACK] release owner=42 profile=desktop reserve=4194304 initial=131072 committed=196608 highwater=154464 creates=4 releases=3 create_cycles=2500000 create_cycles_max=2700000 release_cycles=1700000 release_cycles_max=1800000 kernel_highwater_max=39800 kernel_create_cycles_max=3500000 kernel_release_cycles_max=2100000 kernel_cache_cached=8 kernel_cache_hits=20 kernel_cache_misses=12 critical_available=4 critical_in_use=0' + "`r`n" +
         '[R4BASIC-LAUNCH] id=0123456789ABCDEF mode=H phase=admission ns=140' + "`r`n" +
         '[R4BASIC-LAUNCH] id=0123456789ABCDEF mode=H phase=loader-complete ns=160 duration_ns=20 range_reads=12 fs_requests=13 gate_waits=0 fs_ticks=2 sections=4 imports=4 relocations=2110' + "`r`n" +
         '[R4BASIC-LAUNCH] id=0123456789ABCDEF mode=H phase=r4xstart ns=170'
