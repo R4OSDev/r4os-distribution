@@ -62,9 +62,9 @@ $required = @(
     'DISPLAYD damage-present: OK regions=2 pixels=8',
     'DISPLAYD result: OK',
     'EXPLORER selftest: OK',
-    'SUBSYSTEM host selftest: OK modes=640x350+320x200+256x224 formats=indexed8+xrgb32 tiles=bounded input=translated idle=no-frame fps>=20',
+    'SUBSYSTEM host selftest: OK modes=640x350+320x200+256x224 formats=indexed8+xrgb32 damage=sparse indexed8=abi tiles=bounded input=translated idle=no-frame fps>=20',
     'SUBSYSTEM runtime selftest: OK instances=2 slices=bounded time=monotonic audio=s16le-buffered lifecycle=pause+resume+reset+complete+close errors=isolated resources=closed',
-    'DESKTOP present selftest: OK regions=2 fence=sync backend=DISPBLIT fallback=armed remote=on-demand',
+    'DESKTOP present selftest: OK regions=2 cursorblink=regional fence=sync backend=DISPBLIT fallback=armed remote=on-demand',
     'APPEARANCE selftest: OK',
     'NOTEPAD font size selftest: OK',
     'Invalid R4M0 entry section',
@@ -168,9 +168,11 @@ function Test-ApiMarkerContract {
         $frameCycle = [regex]::Match($Text, '(?im)^R4BASIC frame-cycle: cadence_deferred=(?<cadence_deferred>\d+) missed_deadlines=(?<missed_deadlines>\d+) max_backlog=(?<max_backlog>\d+) attempts=(?<attempts>\d+) published=(?<published>\d+) unchanged=(?<unchanged>\d+) hidden=(?<hidden>\d+) dropped=(?<dropped>\d+) failed=(?<failed>\d+) present_ns=(?<present_ns>\d+) max_present_ns=(?<max_present_ns>\d+) max_age_start_ns=(?<max_age_start_ns>\d+) max_age_end_ns=(?<max_age_end_ns>\d+)\r?$')
         $vm = [regex]::Match($Text, '(?im)^R4BASIC vm: cancel_flag_checks=(?<cancel_flag_checks>\d+) cancel_callback_checks=(?<cancel_callback_checks>\d+) group_lookups=(?<group_lookups>\d+) text_sync_checks=(?<text_sync_checks>\d+) text_sync_renders=(?<text_sync_renders>\d+) metadata_reads=(?<metadata_reads>\d+) cell_resolves=(?<cell_resolves>\d+) alias_hops=(?<alias_hops>\d+) same_type_store_moves=(?<same_type_store_moves>\d+) conversions=(?<conversions>\d+) integer_comparisons=(?<integer_comparisons>\d+) floating_comparisons=(?<floating_comparisons>\d+) string_comparisons=(?<string_comparisons>\d+) timer_calls=(?<timer_calls>\d+) timer_waits=(?<timer_waits>\d+) timer_max_wake_lateness_ns=(?<timer_late>\d+)\r?$')
         $raster = [regex]::Match($Text, '(?im)^R4BASIC raster: mode_allocations=(?<mode_allocations>\d+) mode_reuses=(?<mode_reuses>\d+) mode_clear_bytes=(?<mode_clear_bytes>\d+) pixel_probes=(?<pixel_probes>\d+) pixel_changes=(?<pixel_changes>\d+) spans=(?<spans>\d+) span_pixels=(?<span_pixels>\d+) damage_commits=(?<damage_commits>\d+) text_cells=(?<text_cells>\d+) text_rows=(?<text_rows>\d+) line_segments=(?<line_segments>\d+) line_pixels=(?<line_pixels>\d+) fill_spans=(?<fill_spans>\d+) paint_spans=(?<paint_spans>\d+) paint_pixels=(?<paint_pixels>\d+) paint_probes=(?<paint_probes>\d+) paint_pushes=(?<paint_pushes>\d+) paint_pops=(?<paint_pops>\d+) paint_duplicate_pops=(?<paint_duplicate_pops>\d+) paint_grows=(?<paint_grows>\d+) paint_queue_max=(?<paint_queue_max>\d+) circle_requested=(?<circle_requested>\d+) circle_segments=(?<circle_segments>\d+) circle_skipped=(?<circle_skipped>\d+) capture_calls=(?<capture_calls>\d+) capture_pixels=(?<capture_pixels>\d+) capture_bytes=(?<capture_bytes>\d+) put_calls=(?<put_calls>\d+) put_pixels=(?<put_pixels>\d+) put_bytes=(?<put_bytes>\d+)\r?$')
+        $damage = [regex]::Match($Text, '(?im)^R4BASIC damage: commits=(?<commits>\d+) regions=(?<regions>\d+) merges=(?<merges>\d+) overflow_merges=(?<overflow_merges>\d+) full_commits=(?<full_commits>\d+)\r?$')
         $ownership = [regex]::Match($Text, '(?im)^R4BASIC ownership: compile_borrowed=(?<compile_borrowed>\d+) string_clones=(?<string_clones>\d+) string_clone_bytes=(?<string_clone_bytes>\d+) builtin_borrowed=(?<builtin_borrowed>\d+) builtin_owned=(?<builtin_owned>\d+) procedure_calls=(?<procedure_calls>\d+) local_pool_grows=(?<local_pool_grows>\d+) local_pool_reuses=(?<local_pool_reuses>\d+) local_initializations=(?<local_initializations>\d+) local_initialization_bytes=(?<local_initialization_bytes>\d+) local_aggregate_initializations=(?<local_aggregate_initializations>\d+) format_stack_uses=(?<format_stack_uses>\d+) str_result_allocations=(?<str_result_allocations>\d+) val_direct=(?<val_direct>\d+) val_stack=(?<val_stack>\d+) val_scratch=(?<val_scratch>\d+) val_scratch_grows=(?<val_scratch_grows>\d+)\r?$')
         $storage = [regex]::Match($Text, '(?im)^R4BASIC storage: compact_array_resizes=(?<compact_array_resizes>\d+) generic_array_resizes=(?<generic_array_resizes>\d+) compact_array_elements=(?<compact_array_elements>\d+) generic_array_initializations=(?<generic_array_initializations>\d+) array_live_bytes=(?<array_live_bytes>\d+) array_live_peak_bytes=(?<array_live_peak_bytes>\d+) array_resize_live_peak_bytes=(?<array_resize_live_peak_bytes>\d+) array_live_limit_bytes=(?<array_live_limit_bytes>\d+) array_resize_live_limit_bytes=(?<array_resize_live_limit_bytes>\d+) vm_static_bytes=(?<vm_static_bytes>\d+) file_index_bytes=(?<file_index_bytes>\d+) file_capacity_grows=(?<file_capacity_grows>\d+) max_open_files=(?<max_open_files>\d+)\r?$')
         $fileHost = [regex]::Match($Text, '(?im)^R4BASIC file-host: reads=(?<reads>\d+) read_bytes=(?<read_bytes>\d+) writes=(?<writes>\d+) write_bytes=(?<write_bytes>\d+) failures=(?<failures>\d+)\r?$')
+        $presenter = [regex]::Match($Text, '(?im)^R4BASIC presenter: published_frames=(?<published_frames>\d+) skipped_frames=(?<skipped_frames>\d+) full_frames=(?<full_frames>\d+) damage_frames=(?<damage_frames>\d+) compacted_frames=(?<compacted_frames>\d+) damage_regions=(?<damage_regions>\d+) indexed8_frames=(?<indexed8_frames>\d+) indexed8_blocks=(?<indexed8_blocks>\d+) indexed8_resource_bytes=(?<indexed8_resource_bytes>\d+) xrgb_fallback_frames=(?<xrgb_fallback_frames>\d+) raster_blocks=(?<raster_blocks>\d+) sampled_pixels=(?<sampled_pixels>\d+)\r?$')
         $stackHighWater = [regex]::Match($Text, '(?im)^\[R4XSTACK\] highwater owner=(?<owner>\d+) thread=0 module=C:\\R4OS\\SUBSYSTEMS\\r4os\.basic\\R4BASIC\.R4X profile=desktop reserve=(?<reserve>\d+) initial=(?<initial>\d+) committed=(?<committed>\d+) highwater=(?<highwater>\d+) create_cycles=(?<create_cycles>\d+)\r?$')
         $stackRelease = if ($stackHighWater.Success) {
             [regex]::Match($Text, '(?im)^\[R4XSTACK\] release owner=' + [regex]::Escape($stackHighWater.Groups['owner'].Value) + ' profile=desktop reserve=(?<reserve>\d+) initial=(?<initial>\d+) committed=(?<committed>\d+) highwater=(?<highwater>\d+) creates=(?<creates>\d+) releases=(?<releases>\d+) create_cycles=(?<create_cycles>\d+) create_cycles_max=(?<create_cycles_max>\d+) release_cycles=(?<release_cycles>\d+) release_cycles_max=(?<release_cycles_max>\d+) kernel_highwater_max=(?<kernel_highwater>\d+) kernel_create_cycles_max=(?<kernel_create_cycles>\d+) kernel_release_cycles_max=(?<kernel_release_cycles>\d+) kernel_cache_cached=(?<cache_cached>\d+) kernel_cache_hits=(?<cache_hits>\d+) kernel_cache_misses=(?<cache_misses>\d+) critical_available=(?<critical_available>\d+) critical_in_use=(?<critical_in_use>\d+)\r?$')
@@ -292,6 +294,11 @@ function Test-ApiMarkerContract {
                 ([uint64]$raster.Groups['circle_segments'].Value + [uint64]$raster.Groups['circle_skipped'].Value) -and
             [uint64]$raster.Groups['capture_pixels'].Value -ge [uint64]$raster.Groups['capture_calls'].Value -and
             [uint64]$raster.Groups['put_pixels'].Value -ge [uint64]$raster.Groups['put_calls'].Value
+        $damageOk = $damage.Success -and
+            [uint64]$damage.Groups['commits'].Value -gt 0 -and
+            [uint64]$damage.Groups['regions'].Value -ge [uint64]$damage.Groups['commits'].Value -and
+            [uint64]$damage.Groups['merges'].Value -ge [uint64]$damage.Groups['overflow_merges'].Value -and
+            [uint64]$damage.Groups['full_commits'].Value -gt 0
         $ownershipOk = $ownership.Success -and
             ([uint64]$ownership.Groups['local_pool_grows'].Value + [uint64]$ownership.Groups['local_pool_reuses'].Value) -eq
                 [uint64]$ownership.Groups['procedure_calls'].Value -and
@@ -312,6 +319,19 @@ function Test-ApiMarkerContract {
             [uint64]$storage.Groups['file_index_bytes'].Value -eq 256
         $fileHostOk = $fileHost.Success -and
             [uint64]$fileHost.Groups['failures'].Value -eq 0
+        $presenterOk = $presenter.Success -and
+            [uint64]$presenter.Groups['published_frames'].Value -gt 0 -and
+            [uint64]$presenter.Groups['full_frames'].Value -gt 0 -and
+            [uint64]$presenter.Groups['damage_frames'].Value -gt 0 -and
+            [uint64]$presenter.Groups['published_frames'].Value -eq
+                ([uint64]$presenter.Groups['full_frames'].Value + [uint64]$presenter.Groups['damage_frames'].Value) -and
+            [uint64]$presenter.Groups['damage_regions'].Value -ge [uint64]$presenter.Groups['published_frames'].Value -and
+            [uint64]$presenter.Groups['indexed8_frames'].Value -eq [uint64]$presenter.Groups['published_frames'].Value -and
+            [uint64]$presenter.Groups['indexed8_blocks'].Value -eq [uint64]$presenter.Groups['raster_blocks'].Value -and
+            [uint64]$presenter.Groups['indexed8_resource_bytes'].Value -gt [uint64]$presenter.Groups['indexed8_blocks'].Value -and
+            [uint64]$presenter.Groups['xrgb_fallback_frames'].Value -eq 0 -and
+            [uint64]$presenter.Groups['sampled_pixels'].Value -gt 0 -and
+            [uint64]$presenter.Groups['compacted_frames'].Value -le [uint64]$presenter.Groups['full_frames'].Value
         $stackOk = $stackHighWater.Success -and $stackRelease.Success -and
             [uint64]$stackHighWater.Groups['reserve'].Value -eq 4194304 -and
             [uint64]$stackHighWater.Groups['initial'].Value -eq 131072 -and
@@ -346,7 +366,7 @@ function Test-ApiMarkerContract {
             [uint64]$admission.Groups[1].Value -le [uint64]$loader.Groups[1].Value -and
             [uint64]$loader.Groups[1].Value -le [uint64]$r4xstart.Groups[1].Value -and
             [uint64]$r4xstart.Groups[1].Value -le [uint64]$timeline.Groups['app'].Value
-        if (-not $timelineOk -or -not $compilerOk -or -not $compilerMemoryOk -or -not $compilerVmOk -or -not $runtimeOk -or -not $adapterOk -or -not $frameCycleOk -or -not $vmOk -or -not $rasterOk -or -not $ownershipOk -or -not $storageOk -or -not $fileHostOk -or -not $stackOk -or -not $kernelOk) {
+        if (-not $timelineOk -or -not $compilerOk -or -not $compilerMemoryOk -or -not $compilerVmOk -or -not $runtimeOk -or -not $adapterOk -or -not $frameCycleOk -or -not $vmOk -or -not $rasterOk -or -not $damageOk -or -not $ownershipOk -or -not $storageOk -or -not $fileHostOk -or -not $presenterOk -or -not $stackOk -or -not $kernelOk) {
             if (-not $Quiet) { Write-Host 'R4BASIC launch timeline FAILED: phase order, real work, or loader evidence invalid.' }
             $failures++
         } elseif (-not $Quiet) {
@@ -449,9 +469,11 @@ if ($SelfTest) {
         'R4BASIC frame-cycle: cadence_deferred=0 missed_deadlines=0 max_backlog=0 attempts=1 published=1 unchanged=0 hidden=0 dropped=0 failed=0 present_ns=2000000 max_present_ns=2000000 max_age_start_ns=1000000 max_age_end_ns=3000000' + "`r`n" +
         'R4BASIC vm: cancel_flag_checks=5020 cancel_callback_checks=20 group_lookups=5000 text_sync_checks=8 text_sync_renders=2 metadata_reads=900 cell_resolves=1200 alias_hops=4 same_type_store_moves=500 conversions=20 integer_comparisons=200 floating_comparisons=40 string_comparisons=0 timer_calls=2 timer_waits=1 timer_max_wake_lateness_ns=200000' + "`r`n" +
         'R4BASIC raster: mode_allocations=1 mode_reuses=0 mode_clear_bytes=224000 pixel_probes=224000 pixel_changes=0 spans=350 span_pixels=224000 damage_commits=2 text_cells=2000 text_rows=350 line_segments=0 line_pixels=0 fill_spans=0 paint_spans=0 paint_pixels=0 paint_probes=0 paint_pushes=0 paint_pops=0 paint_duplicate_pops=0 paint_grows=0 paint_queue_max=0 circle_requested=0 circle_segments=0 circle_skipped=0 capture_calls=0 capture_pixels=0 capture_bytes=0 put_calls=0 put_pixels=0 put_bytes=0' + "`r`n" +
+        'R4BASIC damage: commits=2 regions=3 merges=1 overflow_merges=0 full_commits=1' + "`r`n" +
         'R4BASIC ownership: compile_borrowed=12 string_clones=80 string_clone_bytes=327680 builtin_borrowed=120 builtin_owned=30 procedure_calls=40 local_pool_grows=2 local_pool_reuses=38 local_initializations=60 local_initialization_bytes=3360 local_aggregate_initializations=4 format_stack_uses=20 str_result_allocations=5 val_direct=7 val_stack=2 val_scratch=2 val_scratch_grows=1' + "`r`n" +
         'R4BASIC storage: compact_array_resizes=4 generic_array_resizes=1 compact_array_elements=4096 generic_array_initializations=2 array_live_bytes=16384 array_live_peak_bytes=16384 array_resize_live_peak_bytes=24576 array_live_limit_bytes=134217728 array_resize_live_limit_bytes=201326592 vm_static_bytes=8192 file_index_bytes=256 file_capacity_grows=1 max_open_files=2' + "`r`n" +
         'R4BASIC file-host: reads=0 read_bytes=0 writes=0 write_bytes=0 failures=0' + "`r`n" +
+        'R4BASIC presenter: published_frames=3 skipped_frames=1 full_frames=1 damage_frames=2 compacted_frames=0 damage_regions=4 indexed8_frames=3 indexed8_blocks=9 indexed8_resource_bytes=12000 xrgb_fallback_frames=0 raster_blocks=9 sampled_pixels=224500' + "`r`n" +
         '[R4XSTACK] highwater owner=42 thread=0 module=C:\R4OS\SUBSYSTEMS\r4os.basic\R4BASIC.R4X profile=desktop reserve=4194304 initial=131072 committed=196608 highwater=154464 create_cycles=2500000' + "`r`n" +
         '[R4XSTACK] release owner=42 profile=desktop reserve=4194304 initial=131072 committed=196608 highwater=154464 creates=4 releases=3 create_cycles=2500000 create_cycles_max=2700000 release_cycles=1700000 release_cycles_max=1800000 kernel_highwater_max=39800 kernel_create_cycles_max=3500000 kernel_release_cycles_max=2100000 kernel_cache_cached=8 kernel_cache_hits=20 kernel_cache_misses=12 critical_available=4 critical_in_use=0' + "`r`n" +
         '[R4BASIC-LAUNCH] id=0123456789ABCDEF mode=H phase=admission ns=140' + "`r`n" +
