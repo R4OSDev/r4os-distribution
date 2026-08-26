@@ -175,6 +175,8 @@ function Test-ApiMarkerContract {
         $storage = [regex]::Match($Text, '(?im)^R4BASIC storage: compact_array_resizes=(?<compact_array_resizes>\d+) generic_array_resizes=(?<generic_array_resizes>\d+) compact_array_elements=(?<compact_array_elements>\d+) generic_array_initializations=(?<generic_array_initializations>\d+) array_live_bytes=(?<array_live_bytes>\d+) array_live_peak_bytes=(?<array_live_peak_bytes>\d+) array_resize_live_peak_bytes=(?<array_resize_live_peak_bytes>\d+) array_live_limit_bytes=(?<array_live_limit_bytes>\d+) array_resize_live_limit_bytes=(?<array_resize_live_limit_bytes>\d+) vm_static_bytes=(?<vm_static_bytes>\d+) file_index_bytes=(?<file_index_bytes>\d+) file_capacity_grows=(?<file_capacity_grows>\d+) max_open_files=(?<max_open_files>\d+)\r?$')
         $fileHost = [regex]::Match($Text, '(?im)^R4BASIC file-host: reads=(?<reads>\d+) read_bytes=(?<read_bytes>\d+) writes=(?<writes>\d+) write_bytes=(?<write_bytes>\d+) failures=(?<failures>\d+)\r?$')
         $presenter = [regex]::Match($Text, '(?im)^R4BASIC presenter: published_frames=(?<published_frames>\d+) skipped_frames=(?<skipped_frames>\d+) full_frames=(?<full_frames>\d+) damage_frames=(?<damage_frames>\d+) compacted_frames=(?<compacted_frames>\d+) damage_regions=(?<damage_regions>\d+) indexed8_frames=(?<indexed8_frames>\d+) indexed8_blocks=(?<indexed8_blocks>\d+) indexed8_resource_bytes=(?<indexed8_resource_bytes>\d+) xrgb_fallback_frames=(?<xrgb_fallback_frames>\d+) raster_blocks=(?<raster_blocks>\d+) sampled_pixels=(?<sampled_pixels>\d+)\r?$')
+        $audio = [regex]::Match($Text, '(?im)^R4BASIC audio: state=(?<state>[a-z_]+) muted=(?<muted>[01]) playback=unavailable lazy_opens=(?<lazy_opens>\d+) service_ops=(?<service_ops>\d+) service_ops_cycle_max=(?<service_ops_cycle_max>\d+) opens=(?<opens>\d+) writes=(?<writes>\d+) closes=(?<closes>\d+) active_cycles=(?<active_cycles>\d+) silent_cycles=(?<silent_cycles>\d+) paused_cycles=(?<paused_cycles>\d+) muted_cycles=(?<muted_cycles>\d+) active_quanta=(?<active_quanta>\d+) silent_quanta=(?<silent_quanta>\d+) generated_bytes=(?<generated_bytes>\d+) accepted_bytes=(?<accepted_bytes>\d+) suppressed_bytes=(?<suppressed_bytes>\d+) discarded_bytes=(?<discarded_bytes>\d+) paused_bytes=(?<paused_bytes>\d+) muted_bytes=(?<muted_bytes>\d+) busy=(?<busy>\d+) resyncs=(?<resyncs>\d+)\r?$')
+        $audioGuest = [regex]::Match($Text, '(?im)^R4BASIC audio-guest: scheduled_frames=(?<scheduled_frames>\d+) accepted_frames=(?<accepted_frames>\d+) suppressed_frames=(?<suppressed_frames>\d+) discarded_frames=(?<discarded_frames>\d+) resolved_frames=(?<resolved_frames>\d+) unresolved_frames=(?<unresolved_frames>\d+) foreground_waits=(?<foreground_waits>\d+) foreground_wakes=(?<foreground_wakes>\d+) background=(?<background>\d+) direct_events=(?<direct_events>\d+) reserve_grows=(?<reserve_grows>\d+) phase_lookups=(?<phase_lookups>\d+)\r?$')
         $stackHighWater = [regex]::Match($Text, '(?im)^\[R4XSTACK\] highwater owner=(?<owner>\d+) thread=0 module=C:\\R4OS\\SUBSYSTEMS\\r4os\.basic\\R4BASIC\.R4X profile=desktop reserve=(?<reserve>\d+) initial=(?<initial>\d+) committed=(?<committed>\d+) highwater=(?<highwater>\d+) create_cycles=(?<create_cycles>\d+)\r?$')
         $stackRelease = if ($stackHighWater.Success) {
             [regex]::Match($Text, '(?im)^\[R4XSTACK\] release owner=' + [regex]::Escape($stackHighWater.Groups['owner'].Value) + ' profile=desktop reserve=(?<reserve>\d+) initial=(?<initial>\d+) committed=(?<committed>\d+) highwater=(?<highwater>\d+) creates=(?<creates>\d+) releases=(?<releases>\d+) create_cycles=(?<create_cycles>\d+) create_cycles_max=(?<create_cycles_max>\d+) release_cycles=(?<release_cycles>\d+) release_cycles_max=(?<release_cycles_max>\d+) kernel_highwater_max=(?<kernel_highwater>\d+) kernel_create_cycles_max=(?<kernel_create_cycles>\d+) kernel_release_cycles_max=(?<kernel_release_cycles>\d+) kernel_cache_cached=(?<cache_cached>\d+) kernel_cache_hits=(?<cache_hits>\d+) kernel_cache_misses=(?<cache_misses>\d+) critical_available=(?<critical_available>\d+) critical_in_use=(?<critical_in_use>\d+)\r?$')
@@ -355,6 +357,22 @@ function Test-ApiMarkerContract {
             [uint64]$presenter.Groups['xrgb_fallback_frames'].Value -eq 0 -and
             [uint64]$presenter.Groups['sampled_pixels'].Value -gt 0 -and
             [uint64]$presenter.Groups['compacted_frames'].Value -le [uint64]$presenter.Groups['full_frames'].Value
+        $audioOk = $audio.Success -and
+            [uint64]$audio.Groups['service_ops_cycle_max'].Value -le 1 -and
+            [uint64]$audio.Groups['service_ops'].Value -eq
+                ([uint64]$audio.Groups['opens'].Value + [uint64]$audio.Groups['writes'].Value + [uint64]$audio.Groups['closes'].Value) -and
+            [uint64]$audio.Groups['lazy_opens'].Value -le [uint64]$audio.Groups['opens'].Value -and
+            [uint64]$audio.Groups['active_quanta'].Value -le [uint64]$audio.Groups['writes'].Value -and
+            [uint64]$audio.Groups['accepted_bytes'].Value -le [uint64]$audio.Groups['generated_bytes'].Value -and
+            [uint64]$audio.Groups['suppressed_bytes'].Value -le [uint64]$audio.Groups['generated_bytes'].Value
+        $audioGuestOk = $audioGuest.Success -and
+            [uint64]$audioGuest.Groups['resolved_frames'].Value -eq
+                ([uint64]$audioGuest.Groups['accepted_frames'].Value + [uint64]$audioGuest.Groups['suppressed_frames'].Value + [uint64]$audioGuest.Groups['discarded_frames'].Value) -and
+            [uint64]$audioGuest.Groups['resolved_frames'].Value -le [uint64]$audioGuest.Groups['scheduled_frames'].Value -and
+            [uint64]$audioGuest.Groups['unresolved_frames'].Value -eq
+                ([uint64]$audioGuest.Groups['scheduled_frames'].Value - [uint64]$audioGuest.Groups['resolved_frames'].Value) -and
+            [uint64]$audioGuest.Groups['foreground_wakes'].Value -le [uint64]$audioGuest.Groups['foreground_waits'].Value -and
+            [uint64]$audioGuest.Groups['phase_lookups'].Value -le [uint64]$audioGuest.Groups['direct_events'].Value
         $stackOk = $stackHighWater.Success -and $stackRelease.Success -and
             [uint64]$stackHighWater.Groups['reserve'].Value -eq 4194304 -and
             [uint64]$stackHighWater.Groups['initial'].Value -eq 131072 -and
@@ -389,7 +407,7 @@ function Test-ApiMarkerContract {
             [uint64]$admission.Groups[1].Value -le [uint64]$loader.Groups[1].Value -and
             [uint64]$loader.Groups[1].Value -le [uint64]$r4xstart.Groups[1].Value -and
             [uint64]$r4xstart.Groups[1].Value -le [uint64]$timeline.Groups['app'].Value
-        if (-not $timelineOk -or -not $compilerOk -or -not $compilerMemoryOk -or -not $compilerVmOk -or -not $runtimeOk -or -not $adapterOk -or -not $inputOk -or -not $frameCycleOk -or -not $vmOk -or -not $rasterOk -or -not $damageOk -or -not $ownershipOk -or -not $storageOk -or -not $fileHostOk -or -not $presenterOk -or -not $stackOk -or -not $kernelOk) {
+        if (-not $timelineOk -or -not $compilerOk -or -not $compilerMemoryOk -or -not $compilerVmOk -or -not $runtimeOk -or -not $adapterOk -or -not $inputOk -or -not $frameCycleOk -or -not $vmOk -or -not $rasterOk -or -not $damageOk -or -not $ownershipOk -or -not $storageOk -or -not $fileHostOk -or -not $presenterOk -or -not $audioOk -or -not $audioGuestOk -or -not $stackOk -or -not $kernelOk) {
             if (-not $Quiet) { Write-Host 'R4BASIC launch timeline FAILED: phase order, real work, or loader evidence invalid.' }
             $failures++
         } elseif (-not $Quiet) {
@@ -499,6 +517,8 @@ if ($SelfTest) {
         'R4BASIC storage: compact_array_resizes=4 generic_array_resizes=1 compact_array_elements=4096 generic_array_initializations=2 array_live_bytes=16384 array_live_peak_bytes=16384 array_resize_live_peak_bytes=24576 array_live_limit_bytes=134217728 array_resize_live_limit_bytes=201326592 vm_static_bytes=8192 file_index_bytes=256 file_capacity_grows=1 max_open_files=2' + "`r`n" +
         'R4BASIC file-host: reads=0 read_bytes=0 writes=0 write_bytes=0 failures=0' + "`r`n" +
         'R4BASIC presenter: published_frames=3 skipped_frames=1 full_frames=1 damage_frames=2 compacted_frames=0 damage_regions=4 indexed8_frames=3 indexed8_blocks=9 indexed8_resource_bytes=12000 xrgb_fallback_frames=0 raster_blocks=9 sampled_pixels=224500' + "`r`n" +
+        'R4BASIC audio: state=ready muted=0 playback=unavailable lazy_opens=1 service_ops=4 service_ops_cycle_max=1 opens=1 writes=2 closes=1 active_cycles=4 silent_cycles=2 paused_cycles=0 muted_cycles=0 active_quanta=2 silent_quanta=1 generated_bytes=7680 accepted_bytes=3840 suppressed_bytes=1920 discarded_bytes=1920 paused_bytes=0 muted_bytes=0 busy=0 resyncs=0' + "`r`n" +
+        'R4BASIC audio-guest: scheduled_frames=1920 accepted_frames=960 suppressed_frames=480 discarded_frames=480 resolved_frames=1920 unresolved_frames=0 foreground_waits=2 foreground_wakes=2 background=1 direct_events=4 reserve_grows=1 phase_lookups=3' + "`r`n" +
         '[R4XSTACK] highwater owner=42 thread=0 module=C:\R4OS\SUBSYSTEMS\r4os.basic\R4BASIC.R4X profile=desktop reserve=4194304 initial=131072 committed=196608 highwater=154464 create_cycles=2500000' + "`r`n" +
         '[R4XSTACK] release owner=42 profile=desktop reserve=4194304 initial=131072 committed=196608 highwater=154464 creates=4 releases=3 create_cycles=2500000 create_cycles_max=2700000 release_cycles=1700000 release_cycles_max=1800000 kernel_highwater_max=39800 kernel_create_cycles_max=3500000 kernel_release_cycles_max=2100000 kernel_cache_cached=8 kernel_cache_hits=20 kernel_cache_misses=12 critical_available=4 critical_in_use=0' + "`r`n" +
         '[R4BASIC-LAUNCH] id=0123456789ABCDEF mode=H phase=admission ns=140' + "`r`n" +

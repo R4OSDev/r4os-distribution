@@ -107,7 +107,11 @@ Tokenkapazitaet, begrenzte Keyword-, Namens- und Konstantenindexproben,
 uebernommene statt kopierte Quellbytes, begrenzte Ausdruckstiefe und
 Diagnosen, konsistente Compiler-Peak-/Programmwerte sowie die realen
 VM-Allocatorzaehler vor und nach dem Compiler. Loader-, VM-, Present- und
-Yield-Arbeit muessen ebenfalls real sein. Ein normaler
+Yield-Arbeit muessen ebenfalls real sein. Die beiden Audiozeilen muessen den
+Hardware-Ausspielstand ausdruecklich als unbekannt kennzeichnen, hoechstens
+einen AudioService-Aufruf je Hostzyklus sowie die Identitaet aus geplanten,
+angenommenen, unterdrueckten, verworfenen, aufgeloesten und offenen
+Quellframes einhalten. Ein normaler
 GUI-Start derselben Datei verwendet denselben Vertrag, schreibt die letzte
 Momentaufnahme nach `C:\TEMP\R4BASIC.LAST` und laesst die Anwendung weiterlaufen.
 
