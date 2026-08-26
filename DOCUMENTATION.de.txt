@@ -118,6 +118,11 @@ Die Pflichtmarker `EXPLORER BAS source-probe`, `R4BASIC source-probe` und
 `R4BASIC source-load` verlangen fuer bekannte BAS-Zuordnungen null
 Inhaltslesungen vor dem Start und danach genau einen 29.434-Byte-Quellload im
 R4Basic-Host. Probe- und Loadergrenze stimmen mit 262.144 Byte ueberein.
+Der zusaetzliche Marker `R4BASIC file-io` bindet sequentielle BASIC-Dateien an
+64-KiB-Anfragen, hoechstens eine aktive asynchrone Anfrage, vollstaendig
+geschlossene Abschluesse sowie messbare Pfadcache-, Verdichtungs- und
+Pufferspitzen. GORILLA selbst fuehrt keine sequentielle Dateioperation aus;
+daher muessen seine zugehoerigen Zaehler konsistent null bleiben.
 
 Die Test-AUTOEXEC startet `FSDIAG /PAGECACHE` als gezielte 1-MB-Gastprobe.
 Die Markerauswertung verlangt sowohl autonomen budgetierten Dirty-Fortschritt
