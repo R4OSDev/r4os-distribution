@@ -82,12 +82,13 @@ Detailed German migration notes are preserved in
 ## Releases
 
 Build the required profile images before preparing a release. `Standard`
-packages Slim and Full; `All` additionally packages Test.
+packages Slim and Full; `All` additionally packages Test. Use `Release.bat`
+on Windows or `./Release.sh` on Linux with the same arguments:
 
-    Release.bat selftest
-    Release.bat prepare Standard
-    Release.bat publish Standard
-    Release.bat publish Standard -prerelease
+    <release-starter> selftest
+    <release-starter> prepare Standard
+    <release-starter> publish Standard
+    <release-starter> publish Standard -prerelease
 
 `prepare` verifies every selected image and its legal payload, creates a ZIP
 per profile, calculates SHA-256 checksums, and records the exact repository
@@ -101,8 +102,8 @@ profile data image from the developer workspace is never published.
 `publish` performs the same preparation, creates a draft release in
 `R4OSDev/r4os-distribution`, uploads every asset, and only then publishes the
 release. An interrupted upload remains a draft. It uses the workspace
-credential file created by `Tools/Setup.bat` and requires GitHub Contents
-write permission.
+credential file created by `Tools/Setup.bat` or `./Tools/Setup.sh` and requires
+GitHub Contents write permission.
 
 ## License
 

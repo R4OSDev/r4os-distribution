@@ -16,6 +16,18 @@ $script:GitHubOrganization = 'R4OSDev'
 $script:GitHubRepository = 'r4os-distribution'
 $script:GitHubApiVersion = '2022-11-28'
 $script:MaximumAssetBytes = 2GB
+$script:IsWindowsHost = [Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT
+$script:GitExecutable = if ($script:IsWindowsHost) { 'git.exe' } else { 'git' }
+$script:PathComparison = if ($script:IsWindowsHost) {
+    [StringComparison]::OrdinalIgnoreCase
+}
+else {
+    [StringComparison]::Ordinal
+}
+$script:PathSeparators = [char[]]@(
+    [IO.Path]::DirectorySeparatorChar,
+    [IO.Path]::AltDirectorySeparatorChar
+)
 
 function Write-Utf8NoBom {
     param(
@@ -123,7 +135,7 @@ function Invoke-GitCapture {
     $previousPreference = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
-        $output = @(& git.exe -C $RepositoryPath @Arguments 2>&1 | ForEach-Object { $_.ToString() })
+        $output = @(& $script:GitExecutable -C $RepositoryPath @Arguments 2>&1 | ForEach-Object { $_.ToString() })
         $exitCode = $LASTEXITCODE
     }
     finally {
@@ -151,6 +163,25 @@ function Get-ReleaseContext {
     $artifactsRoot = Resolve-MappedPath -BasePath $workspaceRoot -Value (Require-Setting $settings 'ARTIFACTS_ROOT')
     $distributionOutputRoot = Resolve-MappedPath -BasePath $artifactsRoot -Value (Require-Setting $settings 'DISTRIBUTION_OUTPUT_ROOT')
 
+    if ($script:IsWindowsHost) {
+        $buildScriptName = 'Build.bat'
+        $zigName = 'zig.exe'
+        $limineRelativePath = 'limine-tool-windows-x86/limine.exe'
+        $qemuName = 'qemu-system-x86_64.exe'
+        $imageCreatorName = 'imagecreater.exe'
+    }
+    else {
+        $buildScriptName = 'Build.sh'
+        $zigName = 'zig'
+        $limineRelativePath = 'limine'
+        $qemuName = 'qemu-system-x86_64'
+        $imageCreatorName = 'imagecreater'
+    }
+
+    $zigRoot = Resolve-MappedPath -BasePath $devKitRoot -Value (Require-Setting $settings 'ZIG_ROOT')
+    $limineRoot = Resolve-MappedPath -BasePath $devKitRoot -Value (Require-Setting $settings 'LIMINE_ROOT')
+    $qemuRoot = Resolve-MappedPath -BasePath $devKitRoot -Value (Require-Setting $settings 'QEMU_ROOT')
+
     return [pscustomobject][ordered]@{
         DistributionRoot = $distributionRoot
         WorkspaceRoot = $workspaceRoot
@@ -160,11 +191,12 @@ function Get-ReleaseContext {
         DistributionOutputRoot = $distributionOutputRoot
         ProfileOutputRoot = Join-Path $distributionOutputRoot 'Profiles'
         ReleaseOutputRoot = Join-Path $distributionOutputRoot 'Releases'
-        BuildScript = Join-Path $distributionRoot 'Build.bat'
-        VersionFile = Join-Path $distributionRoot 'Injection\R4OS\CONFIG\VERSION.R4S'
+        BuildScript = Join-Path $distributionRoot $buildScriptName
+        VersionFile = Join-Path $distributionRoot 'Injection/R4OS/CONFIG/VERSION.R4S'
         ProfileSourceRoot = Join-Path $distributionRoot 'Profiles'
-        QemuConfig = Join-Path $distributionRoot 'QEMU\standard.conf'
-        ImageCreator = Join-Path $distributionOutputRoot 'HostTools\bin\imagecreater.exe'
+        QemuConfig = Join-Path $distributionRoot 'QEMU/standard.conf'
+        ImageCreator = Join-Path (Join-Path $distributionOutputRoot 'HostTools/bin') $imageCreatorName
+        CredentialFile = Join-Path $workspaceRoot 'Tools/Credentials/Github.json'
         ContractRoot = Resolve-MappedPath -BasePath $repositoriesRoot -Value (Require-Setting $settings 'CONTRACT_ROOT')
         SdkRoot = Resolve-MappedPath -BasePath $repositoriesRoot -Value (Require-Setting $settings 'SDK_ROOT')
         LibrariesRoot = Resolve-MappedPath -BasePath $repositoriesRoot -Value (Require-Setting $settings 'LIBRARIES_ROOT')
@@ -174,9 +206,14 @@ function Get-ReleaseContext {
         DiagnosticsRoot = Resolve-MappedPath -BasePath $repositoriesRoot -Value (Require-Setting $settings 'DIAGNOSTICS_ROOT')
         DriversRoot = Resolve-MappedPath -BasePath $repositoriesRoot -Value (Require-Setting $settings 'DRIVERS_ROOT')
         ProtocolsRoot = Resolve-MappedPath -BasePath $repositoriesRoot -Value (Require-Setting $settings 'PROTOCOLS_ROOT')
-        ZigExe = Join-Path (Resolve-MappedPath -BasePath $devKitRoot -Value (Require-Setting $settings 'ZIG_ROOT')) 'zig.exe'
-        LimineExe = Join-Path (Resolve-MappedPath -BasePath $devKitRoot -Value (Require-Setting $settings 'LIMINE_ROOT')) 'limine-tool-windows-x86\limine.exe'
-        QemuExe = Join-Path (Resolve-MappedPath -BasePath $devKitRoot -Value (Require-Setting $settings 'QEMU_ROOT')) 'qemu-system-x86_64.exe'
+        SubsystemsRoot = Resolve-MappedPath -BasePath $repositoriesRoot -Value (Require-Setting $settings 'SUBSYSTEMS_ROOT')
+        ZigExe = Join-Path $zigRoot $zigName
+        ZigRecordedPath = 'DevKit/Toolchains/Zig/' + $zigName
+        LimineExe = Join-Path $limineRoot $limineRelativePath
+        LimineRecordedPath = 'DevKit/Boot/Limine/' + $limineRelativePath
+        QemuExe = Join-Path $qemuRoot $qemuName
+        QemuRecordedPath = 'DevKit/Emulation/QEMU/' + $qemuName
+        ImageCreatorRecordedPath = 'Artifacts/Distribution/HostTools/bin/' + $imageCreatorName
     }
 }
 
@@ -261,7 +298,8 @@ function Get-RepositorySpecs {
         [pscustomobject]@{ Label = 'Service'; Root = $Context.ServicesRoot; Slug = 'service' },
         [pscustomobject]@{ Label = 'Diagnostic'; Root = $Context.DiagnosticsRoot; Slug = 'diagnostic' },
         [pscustomobject]@{ Label = 'Driver'; Root = $Context.DriversRoot; Slug = 'driver' },
-        [pscustomobject]@{ Label = 'Protocol'; Root = $Context.ProtocolsRoot; Slug = 'protocol' }
+        [pscustomobject]@{ Label = 'Protocol'; Root = $Context.ProtocolsRoot; Slug = 'protocol' },
+        [pscustomobject]@{ Label = 'Subsystem'; Root = $Context.SubsystemsRoot; Slug = 'subsystem' }
     )
 
     foreach ($role in $roles) {
@@ -287,13 +325,13 @@ function Get-WorkspaceRelativePath {
         [Parameter(Mandatory = $true)][string]$Path
     )
 
-    $root = [IO.Path]::GetFullPath($WorkspaceRoot).TrimEnd('\')
+    $root = [IO.Path]::GetFullPath($WorkspaceRoot).TrimEnd($script:PathSeparators)
     $fullPath = [IO.Path]::GetFullPath($Path)
-    if ($fullPath.Equals($root, [StringComparison]::OrdinalIgnoreCase)) {
+    if ($fullPath.Equals($root, $script:PathComparison)) {
         return '.'
     }
-    $rootPrefix = $root + '\'
-    if (-not $fullPath.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+    $rootPrefix = $root + [IO.Path]::DirectorySeparatorChar
+    if (-not $fullPath.StartsWith($rootPrefix, $script:PathComparison)) {
         throw "Path is outside the workspace: $fullPath"
     }
     return $fullPath.Substring($rootPrefix.Length).Replace('\', '/')
@@ -414,7 +452,8 @@ function Get-PackageFileRecords {
 
     $records = @()
     foreach ($file in Get-ChildItem -LiteralPath $PackageRoot -File -Recurse | Sort-Object FullName) {
-        $relative = $file.FullName.Substring($PackageRoot.TrimEnd('\').Length + 1).Replace('\', '/')
+        $packagePrefixLength = $PackageRoot.TrimEnd($script:PathSeparators).Length + 1
+        $relative = $file.FullName.Substring($packagePrefixLength).Replace('\', '/')
         $records += [pscustomobject][ordered]@{
             path = $relative
             size = $file.Length
@@ -567,10 +606,10 @@ function New-ReleasePreparation {
         $sourceManifestName = "R4OS-SOURCES-$version.json"
         $sourceManifestPath = Join-Path $stagingRoot $sourceManifestName
         $tools = @(
-            Get-ToolRecord 'Zig' $Context.ZigExe 'DevKit/Toolchains/Zig/zig.exe' @('version')
-            Get-ToolRecord 'Limine' $Context.LimineExe 'DevKit/Boot/Limine/limine-tool-windows-x86/limine.exe'
-            Get-ToolRecord 'QEMU' $Context.QemuExe 'DevKit/Emulation/QEMU/qemu-system-x86_64.exe' @('--version')
-            Get-ToolRecord 'ImageCreator' $Context.ImageCreator 'Artifacts/Distribution/HostTools/bin/imagecreater.exe'
+            Get-ToolRecord 'Zig' $Context.ZigExe $Context.ZigRecordedPath @('version')
+            Get-ToolRecord 'Limine' $Context.LimineExe $Context.LimineRecordedPath
+            Get-ToolRecord 'QEMU' $Context.QemuExe $Context.QemuRecordedPath @('--version')
+            Get-ToolRecord 'ImageCreator' $Context.ImageCreator $Context.ImageCreatorRecordedPath
         )
         $sourceManifest = [pscustomobject][ordered]@{
             schema = 1
@@ -782,6 +821,38 @@ function Find-GitHubRelease {
     }
 }
 
+function Get-GitHubToken {
+    param([Parameter(Mandatory = $true)]$Context)
+
+    $token = [Environment]::GetEnvironmentVariable('R4OS_GITHUB_TOKEN')
+    if (-not [string]::IsNullOrWhiteSpace($token)) {
+        if ($token -ceq 'github_pat_DEIN_TOKEN') {
+            throw 'Replace the GitHub token placeholder before publishing.'
+        }
+        return $token
+    }
+
+    if (-not (Test-Path -LiteralPath $Context.CredentialFile -PathType Leaf)) {
+        throw "GitHub credentials are missing: $($Context.CredentialFile). Run Tools/Setup first."
+    }
+    try {
+        $credentials = Get-Content -Raw -LiteralPath $Context.CredentialFile | ConvertFrom-Json
+    }
+    catch {
+        throw "GitHub credentials are not valid JSON: $($Context.CredentialFile)"
+    }
+
+    $tokenProperty = $credentials.PSObject.Properties['token']
+    if ($null -eq $tokenProperty -or [string]::IsNullOrWhiteSpace([string]$tokenProperty.Value)) {
+        throw "GitHub token is missing from $($Context.CredentialFile)."
+    }
+    $token = [string]$tokenProperty.Value
+    if ($token -ceq 'github_pat_DEIN_TOKEN') {
+        throw "Replace the GitHub token placeholder in $($Context.CredentialFile) before publishing."
+    }
+    return $token
+}
+
 function Publish-Release {
     param(
         [Parameter(Mandatory = $true)]$Context,
@@ -789,10 +860,7 @@ function Publish-Release {
         [Parameter(Mandatory = $true)][bool]$IsPrerelease
     )
 
-    $token = [Environment]::GetEnvironmentVariable('R4OS_GITHUB_TOKEN')
-    if ([string]::IsNullOrWhiteSpace($token)) {
-        throw 'R4OS_GITHUB_TOKEN is not available for publishing.'
-    }
+    $token = Get-GitHubToken -Context $Context
 
     Test-RemoteTag -RepositoryPath $Context.DistributionRoot -Tag $Preparation.Tag -ExpectedCommit $Preparation.DistributionCommit
 

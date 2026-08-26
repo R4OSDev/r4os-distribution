@@ -202,15 +202,17 @@ Releases
 
 Vor dem Release werden die benoetigten Profile mit dem Workspace-Build
 erzeugt. `Standard` umfasst Slim und Full; `All` nimmt zusaetzlich das
-Testprofil auf.
+Testprofil auf. Unter Windows wird `Release.bat`, unter Linux `./Release.sh`
+mit denselben Argumenten verwendet.
 
-    Release.bat selftest
-    Release.bat prepare Standard
-    Release.bat publish Standard
-    Release.bat publish Standard -prerelease
+    <Release-Starter> selftest
+    <Release-Starter> prepare Standard
+    <Release-Starter> publish Standard
+    <Release-Starter> publish Standard -prerelease
 
 `prepare` prueft fuer jedes ausgewaehlte Profil das vorhandene `disk.img`
-und die stageierte Rechtsdokumentation ueber `Build.bat verify`. Danach wird
+und die stageierte Rechtsdokumentation ueber den passenden Build-Starter.
+Danach wird
 je Profil ein ZIP erzeugt. Zusaetzlich entstehen `SHA256SUMS.txt`, ein
 Quellenmanifest mit den exakten Git-Commits aller beteiligten Repositories
 und lokale Release-Notes. Die Ausgabe liegt unter
