@@ -114,6 +114,10 @@ angenommenen, unterdrueckten, verworfenen, aufgeloesten und offenen
 Quellframes einhalten. Ein normaler
 GUI-Start derselben Datei verwendet denselben Vertrag, schreibt die letzte
 Momentaufnahme nach `C:\TEMP\R4BASIC.LAST` und laesst die Anwendung weiterlaufen.
+Die Pflichtmarker `EXPLORER BAS source-probe`, `R4BASIC source-probe` und
+`R4BASIC source-load` verlangen fuer bekannte BAS-Zuordnungen null
+Inhaltslesungen vor dem Start und danach genau einen 29.434-Byte-Quellload im
+R4Basic-Host. Probe- und Loadergrenze stimmen mit 262.144 Byte ueberein.
 
 Die Test-AUTOEXEC startet `FSDIAG /PAGECACHE` als gezielte 1-MB-Gastprobe.
 Die Markerauswertung verlangt sowohl autonomen budgetierten Dirty-Fortschritt
