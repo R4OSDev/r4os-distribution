@@ -161,9 +161,11 @@ function Test-ApiMarkerContract {
         $timelinePattern = '(?im)^R4BASIC timeline: start_ns=(?<start>\d+) probe_ns=(?<probe>\d+) resolve_ns=(?<resolve>\d+) desktop_ns=(?<desktop>\d+) app_ns=(?<app>\d+) source_begin_ns=(?<source_begin>\d+) source_end_ns=(?<source_end>\d+) compile_begin_ns=(?<compile_begin>\d+) compile_visible_ns=(?<compile_visible>\d+) compile_end_ns=(?<compile_end>\d+) compile_updates=(?<compile_updates>\d+) vm_begin_ns=(?<vm_begin>\d+) vm_end_ns=(?<vm_end>\d+) host_ready_ns=(?<host_ready>\d+) initial_frame_ns=(?<initial_frame>\d+) runtime_begin_ns=(?<runtime_begin>\d+) first_instruction_ns=(?<first_instruction>\d+) audio_open_ns=(?<audio_open>\d+) first_frame_ns=(?<first_frame>\d+)\r?$'
         $timeline = [regex]::Match($Text, $timelinePattern)
         $compiler = [regex]::Match($Text, '(?im)^R4BASIC compiler: tokens=(?<tokens>\d+) token_capacity=(?<token_capacity>\d+) keyword_lookups=(?<keyword_lookups>\d+) keyword_probes=(?<keyword_probes>\d+) keyword_max_probe=(?<keyword_max_probe>\d+) name_lookups=(?<name_lookups>\d+) name_insertions=(?<name_insertions>\d+) name_probes=(?<name_probes>\d+) name_max_probe=(?<name_max_probe>\d+) index_rebuilds=(?<index_rebuilds>\d+) constant_lookups=(?<constant_lookups>\d+) constant_reuses=(?<constant_reuses>\d+) constant_probes=(?<constant_probes>\d+) constant_max_probe=(?<constant_max_probe>\d+) label_fixups=(?<label_fixups>\d+) data_fixups=(?<data_fixups>\d+) reused_bindings=(?<reused_bindings>\d+) expression_depth=(?<expression_depth>\d+) progress_updates=(?<progress_updates>\d+)\r?$')
-        $compilerMemory = [regex]::Match($Text, '(?im)^R4BASIC compiler-memory: token_bytes=(?<token_bytes>\d+) initial_list_bytes=(?<initial_list_bytes>\d+) allocations=(?<allocations>\d+) reallocations=(?<reallocations>\d+) copy_bytes=(?<copy_bytes>\d+) peak_bytes=(?<peak_bytes>\d+) program_bytes=(?<program_bytes>\d+) adopted_source_bytes=(?<adopted_source_bytes>\d+) diagnostics_total=(?<diagnostics_total>\d+) diagnostics_stored=(?<diagnostics_stored>\d+) diagnostics_truncated=(?<diagnostics_truncated>[01])\r?$')
+        $compilerMemory = [regex]::Match($Text, '(?im)^R4BASIC compiler-memory: token_bytes=(?<token_bytes>\d+) initial_list_bytes=(?<initial_list_bytes>\d+) instruction_hot_bytes=(?<instruction_hot_bytes>\d+) instruction_metadata_bytes=(?<instruction_metadata_bytes>\d+) allocations=(?<allocations>\d+) reallocations=(?<reallocations>\d+) copy_bytes=(?<copy_bytes>\d+) peak_bytes=(?<peak_bytes>\d+) program_bytes=(?<program_bytes>\d+) adopted_source_bytes=(?<adopted_source_bytes>\d+) diagnostics_total=(?<diagnostics_total>\d+) diagnostics_stored=(?<diagnostics_stored>\d+) diagnostics_truncated=(?<diagnostics_truncated>[01])\r?$')
         $compilerVm = [regex]::Match($Text, '(?im)^R4BASIC compiler-vm: allocations=(?<allocations>\d+) frees=(?<frees>\d+) active_before=(?<active_before>\d+) active_after=(?<active_after>\d+) peak_active=(?<peak_active>\d+) reserved_before=(?<reserved_before>\d+) reserved_after=(?<reserved_after>\d+) committed_before=(?<committed_before>\d+) committed_after=(?<committed_after>\d+)\r?$')
-        $runtime = [regex]::Match($Text, '(?im)^R4BASIC runtime: requested_operations=(\d+) executed_operations=(\d+) slices=(\d+) yields=(\d+) sleeps=(\d+) present_attempts=(\d+) presents=(\d+) skipped_presents=(\d+)\r?$')
+        $runtime = [regex]::Match($Text, '(?im)^R4BASIC runtime: requested_operations=(?<requested>\d+) executed_operations=(?<executed>\d+) slices=(?<slices>\d+) yields=(?<yields>\d+) sleeps=(?<sleeps>\d+) zero_progress_waits=(?<zero_progress_waits>\d+) present_attempts=(?<present_attempts>\d+) presents=(?<presents>\d+) skipped_presents=(?<skipped_presents>\d+)\r?$')
+        $adapter = [regex]::Match($Text, '(?im)^R4BASIC adapter: steps=(?<steps>\d+) instructions=(?<instructions>\d+) max_slice=(?<max_slice>\d+) budget_limited=(?<budget_limited>\d+) time_limited=(?<time_limited>\d+) frame_ready=(?<frame_ready>\d+) clock_reads=(?<clock_reads>\d+) max_clock_reads=(?<max_clock_reads>\d+) elapsed_ns=(?<elapsed_ns>\d+) ns_per_instruction=(?<ns_per_instruction>\d+)\r?$')
+        $vm = [regex]::Match($Text, '(?im)^R4BASIC vm: cancel_flag_checks=(?<cancel_flag_checks>\d+) cancel_callback_checks=(?<cancel_callback_checks>\d+) group_lookups=(?<group_lookups>\d+) text_sync_checks=(?<text_sync_checks>\d+) text_sync_renders=(?<text_sync_renders>\d+) metadata_reads=(?<metadata_reads>\d+) cell_resolves=(?<cell_resolves>\d+) alias_hops=(?<alias_hops>\d+) same_type_store_moves=(?<same_type_store_moves>\d+) conversions=(?<conversions>\d+) integer_comparisons=(?<integer_comparisons>\d+) floating_comparisons=(?<floating_comparisons>\d+) string_comparisons=(?<string_comparisons>\d+) timer_calls=(?<timer_calls>\d+) timer_waits=(?<timer_waits>\d+) timer_max_wake_lateness_ns=(?<timer_late>\d+)\r?$')
         $admission = [regex]::Match($Text, '(?im)^\[R4BASIC-LAUNCH\] id=' + $traceId + ' mode=H phase=admission ns=(\d+)\r?$')
         $loader = [regex]::Match($Text, '(?im)^\[R4BASIC-LAUNCH\] id=' + $traceId + ' mode=H phase=loader-complete ns=(\d+) duration_ns=(\d+) range_reads=(\d+) fs_requests=(\d+) gate_waits=(\d+) fs_ticks=(\d+) sections=(\d+) imports=(\d+) relocations=(\d+)\r?$')
         $r4xstart = [regex]::Match($Text, '(?im)^\[R4BASIC-LAUNCH\] id=' + $traceId + ' mode=H phase=r4xstart ns=(\d+)\r?$')
@@ -211,6 +213,9 @@ function Test-ApiMarkerContract {
         $compilerMemoryOk = $compilerMemory.Success -and
             [uint64]$compilerMemory.Groups['token_bytes'].Value -gt 0 -and
             [uint64]$compilerMemory.Groups['initial_list_bytes'].Value -gt 0 -and
+            [uint64]$compilerMemory.Groups['instruction_hot_bytes'].Value -gt 0 -and
+            [uint64]$compilerMemory.Groups['instruction_metadata_bytes'].Value -eq
+                ([uint64]$compilerMemory.Groups['instruction_hot_bytes'].Value * 2) -and
             [uint64]$compilerMemory.Groups['allocations'].Value -gt 0 -and
             [uint64]$compilerMemory.Groups['peak_bytes'].Value -ge [uint64]$compilerMemory.Groups['program_bytes'].Value -and
             [uint64]$compilerMemory.Groups['peak_bytes'].Value -ge [uint64]$compilerMemory.Groups['token_bytes'].Value -and
@@ -228,12 +233,28 @@ function Test-ApiMarkerContract {
             [uint64]$compilerVm.Groups['reserved_after'].Value -ge [uint64]$compilerVm.Groups['committed_after'].Value -and
             [uint64]$compilerVm.Groups['committed_after'].Value -ge [uint64]$compilerVm.Groups['active_after'].Value
         $runtimeOk = $runtime.Success -and
-            [uint64]$runtime.Groups[1].Value -ge [uint64]$runtime.Groups[2].Value -and
-            [uint64]$runtime.Groups[2].Value -gt 0 -and
-            [uint64]$runtime.Groups[3].Value -gt 0 -and
-            ([uint64]$runtime.Groups[4].Value + [uint64]$runtime.Groups[5].Value) -gt 0 -and
-            [uint64]$runtime.Groups[6].Value -ge [uint64]$runtime.Groups[7].Value -and
-            [uint64]$runtime.Groups[7].Value -gt 0
+            [uint64]$runtime.Groups['requested'].Value -ge [uint64]$runtime.Groups['executed'].Value -and
+            [uint64]$runtime.Groups['executed'].Value -gt 0 -and
+            [uint64]$runtime.Groups['slices'].Value -gt 0 -and
+            ([uint64]$runtime.Groups['yields'].Value + [uint64]$runtime.Groups['sleeps'].Value) -gt 0 -and
+            [uint64]$runtime.Groups['present_attempts'].Value -ge [uint64]$runtime.Groups['presents'].Value -and
+            [uint64]$runtime.Groups['presents'].Value -gt 0
+        $adapterOk = $adapter.Success -and
+            [uint64]$adapter.Groups['steps'].Value -gt 0 -and
+            [uint64]$adapter.Groups['instructions'].Value -gt 0 -and
+            [uint64]$adapter.Groups['max_slice'].Value -le 4096 -and
+            [uint64]$adapter.Groups['clock_reads'].Value -gt 0 -and
+            [uint64]$adapter.Groups['max_clock_reads'].Value -le 17 -and
+            [uint64]$adapter.Groups['elapsed_ns'].Value -gt 0 -and
+            [uint64]$adapter.Groups['ns_per_instruction'].Value -gt 0
+        $vmOk = $vm.Success -and
+            [uint64]$vm.Groups['cancel_flag_checks'].Value -gt [uint64]$vm.Groups['group_lookups'].Value -and
+            [uint64]$vm.Groups['cancel_callback_checks'].Value -gt 0 -and
+            [uint64]$vm.Groups['group_lookups'].Value -eq [uint64]$adapter.Groups['instructions'].Value -and
+            [uint64]$vm.Groups['text_sync_checks'].Value -gt 0 -and
+            [uint64]$vm.Groups['metadata_reads'].Value -gt 0 -and
+            [uint64]$vm.Groups['metadata_reads'].Value -lt [uint64]$vm.Groups['group_lookups'].Value -and
+            [uint64]$vm.Groups['cell_resolves'].Value -gt 0
         $kernelOk = $timeline.Success -and $admission.Success -and $loader.Success -and $r4xstart.Success -and
             [uint64]$loader.Groups[3].Value -gt 0 -and
             [uint64]$loader.Groups[7].Value -gt 0 -and
@@ -241,7 +262,7 @@ function Test-ApiMarkerContract {
             [uint64]$admission.Groups[1].Value -le [uint64]$loader.Groups[1].Value -and
             [uint64]$loader.Groups[1].Value -le [uint64]$r4xstart.Groups[1].Value -and
             [uint64]$r4xstart.Groups[1].Value -le [uint64]$timeline.Groups['app'].Value
-        if (-not $timelineOk -or -not $compilerOk -or -not $compilerMemoryOk -or -not $compilerVmOk -or -not $runtimeOk -or -not $kernelOk) {
+        if (-not $timelineOk -or -not $compilerOk -or -not $compilerMemoryOk -or -not $compilerVmOk -or -not $runtimeOk -or -not $adapterOk -or -not $vmOk -or -not $kernelOk) {
             if (-not $Quiet) { Write-Host 'R4BASIC launch timeline FAILED: phase order, real work, or loader evidence invalid.' }
             $failures++
         } elseif (-not $Quiet) {
@@ -337,9 +358,11 @@ if ($SelfTest) {
         'R4BASIC baseline: OK id=0123456789ABCDEF mode=headless guest=C:\TEMP\GORILLA.BAS source_bytes=29434 bytecode=1234' + "`r`n" +
         'R4BASIC timeline: start_ns=100 probe_ns=110 resolve_ns=120 desktop_ns=130 app_ns=180 source_begin_ns=190 source_end_ns=200 compile_begin_ns=210 compile_visible_ns=215 compile_end_ns=220 compile_updates=6 vm_begin_ns=230 vm_end_ns=240 host_ready_ns=250 initial_frame_ns=260 runtime_begin_ns=270 first_instruction_ns=280 audio_open_ns=0 first_frame_ns=300' + "`r`n" +
         'R4BASIC compiler: tokens=4000 token_capacity=4000 keyword_lookups=1000 keyword_probes=1200 keyword_max_probe=4 name_lookups=2000 name_insertions=300 name_probes=2600 name_max_probe=7 index_rebuilds=12 constant_lookups=900 constant_reuses=200 constant_probes=1100 constant_max_probe=5 label_fixups=20 data_fixups=2 reused_bindings=500 expression_depth=8 progress_updates=24' + "`r`n" +
-        'R4BASIC compiler-memory: token_bytes=80000 initial_list_bytes=160000 allocations=40 reallocations=8 copy_bytes=12000 peak_bytes=800000 program_bytes=400000 adopted_source_bytes=29434 diagnostics_total=0 diagnostics_stored=0 diagnostics_truncated=0' + "`r`n" +
+        'R4BASIC compiler-memory: token_bytes=80000 initial_list_bytes=160000 instruction_hot_bytes=14808 instruction_metadata_bytes=29616 allocations=40 reallocations=8 copy_bytes=12000 peak_bytes=800000 program_bytes=400000 adopted_source_bytes=29434 diagnostics_total=0 diagnostics_stored=0 diagnostics_truncated=0' + "`r`n" +
         'R4BASIC compiler-vm: allocations=40 frees=20 active_before=200000 active_after=600000 peak_active=900000 reserved_before=67108864 reserved_after=67108864 committed_before=524288 committed_after=1048576' + "`r`n" +
-        'R4BASIC runtime: requested_operations=8192 executed_operations=5000 slices=2 yields=1 sleeps=0 present_attempts=1 presents=1 skipped_presents=0' + "`r`n" +
+        'R4BASIC runtime: requested_operations=8192 executed_operations=5000 slices=2 yields=1 sleeps=0 zero_progress_waits=0 present_attempts=1 presents=1 skipped_presents=0' + "`r`n" +
+        'R4BASIC adapter: steps=2 instructions=5000 max_slice=4096 budget_limited=1 time_limited=1 frame_ready=1 clock_reads=22 max_clock_reads=17 elapsed_ns=9000000 ns_per_instruction=1800' + "`r`n" +
+        'R4BASIC vm: cancel_flag_checks=5020 cancel_callback_checks=20 group_lookups=5000 text_sync_checks=8 text_sync_renders=2 metadata_reads=900 cell_resolves=1200 alias_hops=4 same_type_store_moves=500 conversions=20 integer_comparisons=200 floating_comparisons=40 string_comparisons=0 timer_calls=2 timer_waits=1 timer_max_wake_lateness_ns=200000' + "`r`n" +
         '[R4BASIC-LAUNCH] id=0123456789ABCDEF mode=H phase=admission ns=140' + "`r`n" +
         '[R4BASIC-LAUNCH] id=0123456789ABCDEF mode=H phase=loader-complete ns=160 duration_ns=20 range_reads=12 fs_requests=13 gate_waits=0 fs_ticks=2 sections=4 imports=4 relocations=2110' + "`r`n" +
         '[R4BASIC-LAUNCH] id=0123456789ABCDEF mode=H phase=r4xstart ns=170'
