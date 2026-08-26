@@ -234,9 +234,10 @@ function Test-ApiMarkerContract {
         $compilerMemoryOk = $compilerMemory.Success -and
             [uint64]$compilerMemory.Groups['token_bytes'].Value -gt 0 -and
             [uint64]$compilerMemory.Groups['initial_list_bytes'].Value -gt 0 -and
-            [uint64]$compilerMemory.Groups['instruction_hot_bytes'].Value -gt 0 -and
+            [uint64]$compilerMemory.Groups['instruction_hot_bytes'].Value -eq
+                ([uint64]$baselineMatch.Groups[2].Value * 12) -and
             [uint64]$compilerMemory.Groups['instruction_metadata_bytes'].Value -eq
-                ([uint64]$compilerMemory.Groups['instruction_hot_bytes'].Value * 2) -and
+                ([uint64]$baselineMatch.Groups[2].Value * 32) -and
             [uint64]$compilerMemory.Groups['allocations'].Value -gt 0 -and
             [uint64]$compilerMemory.Groups['peak_bytes'].Value -ge [uint64]$compilerMemory.Groups['program_bytes'].Value -and
             [uint64]$compilerMemory.Groups['peak_bytes'].Value -ge [uint64]$compilerMemory.Groups['token_bytes'].Value -and
@@ -518,7 +519,7 @@ if ($SelfTest) {
         'R4BASIC baseline: OK id=0123456789ABCDEF mode=headless guest=C:\TEMP\GORILLA.BAS source_bytes=29434 bytecode=1234' + "`r`n" +
         'R4BASIC timeline: start_ns=100 probe_ns=110 resolve_ns=120 desktop_ns=130 app_ns=180 source_begin_ns=190 source_end_ns=200 compile_begin_ns=210 compile_visible_ns=215 compile_end_ns=220 compile_updates=6 vm_begin_ns=230 vm_end_ns=240 host_ready_ns=250 initial_frame_ns=0 runtime_begin_ns=270 first_instruction_ns=280 audio_open_ns=0 first_frame_ns=300' + "`r`n" +
         'R4BASIC compiler: tokens=4000 token_capacity=4000 keyword_lookups=1000 keyword_probes=1200 keyword_max_probe=4 name_lookups=2000 name_insertions=300 name_probes=2600 name_max_probe=7 index_rebuilds=12 constant_lookups=900 constant_reuses=200 constant_probes=1100 constant_max_probe=5 label_fixups=20 data_fixups=2 reused_bindings=500 expression_depth=8 progress_updates=24' + "`r`n" +
-        'R4BASIC compiler-memory: token_bytes=80000 initial_list_bytes=160000 instruction_hot_bytes=14808 instruction_metadata_bytes=29616 allocations=40 reallocations=8 copy_bytes=12000 peak_bytes=800000 program_bytes=400000 adopted_source_bytes=29434 diagnostics_total=0 diagnostics_stored=0 diagnostics_truncated=0' + "`r`n" +
+        'R4BASIC compiler-memory: token_bytes=80000 initial_list_bytes=160000 instruction_hot_bytes=14808 instruction_metadata_bytes=39488 allocations=40 reallocations=8 copy_bytes=12000 peak_bytes=800000 program_bytes=400000 adopted_source_bytes=29434 diagnostics_total=0 diagnostics_stored=0 diagnostics_truncated=0' + "`r`n" +
         'R4BASIC compiler-vm: allocations=40 frees=20 active_before=200000 active_after=600000 peak_active=900000 reserved_before=67108864 reserved_after=67108864 committed_before=524288 committed_after=1048576' + "`r`n" +
         'R4BASIC runtime: cycles=4 close_checks=4 host_polls=5 poll_budget_exhaustions=0 active_cycles=3 waiting_cycles=0 paused_cycles=0 requested_operations=524288 executed_operations=5000 slices=2 active_continues=2 yields=1 sleeps=0 event_waits=0 event_wakes=0 event_timeouts=0 wait_failures=0 zero_progress_waits=0 present_attempts=1 presents=1 unchanged_presents=0 hidden_presents=0 dropped_presents=0' + "`r`n" +
         'R4BASIC adapter: steps=2 instructions=5000 max_slice=4096 budget_limited=1 time_limited=1 frame_ready=1 display_prepares=0 clock_reads=22 max_clock_reads=18 max_clock_chunk=16384 active_vm_ns=9000000 ns_per_instruction=1800' + "`r`n" +
