@@ -374,11 +374,18 @@ function Test-ApiMarkerContract {
             [uint64]$presenter.Groups['sampled_pixels'].Value -gt 0 -and
             [uint64]$presenter.Groups['compacted_frames'].Value -le [uint64]$presenter.Groups['full_frames'].Value
         $audioOk = $audio.Success -and
+            $audio.Groups['state'].Value -eq 'ready' -and
             [uint64]$audio.Groups['service_ops_cycle_max'].Value -le 1 -and
             [uint64]$audio.Groups['service_ops'].Value -eq
                 ([uint64]$audio.Groups['opens'].Value + [uint64]$audio.Groups['writes'].Value + [uint64]$audio.Groups['closes'].Value) -and
+            [uint64]$audio.Groups['lazy_opens'].Value -gt 0 -and
             [uint64]$audio.Groups['lazy_opens'].Value -le [uint64]$audio.Groups['opens'].Value -and
+            [uint64]$audio.Groups['writes'].Value -gt 0 -and
+            [uint64]$audio.Groups['closes'].Value -gt 0 -and
+            [uint64]$audio.Groups['active_quanta'].Value -gt 0 -and
             [uint64]$audio.Groups['active_quanta'].Value -le [uint64]$audio.Groups['writes'].Value -and
+            [uint64]$audio.Groups['generated_bytes'].Value -gt 0 -and
+            [uint64]$audio.Groups['accepted_bytes'].Value -gt 0 -and
             [uint64]$audio.Groups['accepted_bytes'].Value -le [uint64]$audio.Groups['generated_bytes'].Value -and
             [uint64]$audio.Groups['suppressed_bytes'].Value -le [uint64]$audio.Groups['generated_bytes'].Value
         $audioGuestOk = $audioGuest.Success -and
