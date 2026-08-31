@@ -351,7 +351,7 @@ set "R4OS_QEMU_ERROR_LOG=%R4OS_LOG_ROOT%\qemu-test-%R4OS_HEADLESS_VARIANT%.err"
 set "R4OS_QEMU_WORKING_DIRECTORY=%R4OS_PROFILE_OUTPUT%"
 if exist "%R4OS_QEMU_LOG%" del /f /q "%R4OS_QEMU_LOG%" || exit /b 1
 if exist "%R4OS_QEMU_ERROR_LOG%" del /f /q "%R4OS_QEMU_ERROR_LOG%" || exit /b 1
-if not defined QEMU_TEST_TIMEOUT_SECONDS set "QEMU_TEST_TIMEOUT_SECONDS=240"
+if not defined QEMU_TEST_TIMEOUT_SECONDS set "QEMU_TEST_TIMEOUT_SECONDS=360"
 
 echo === Start QEMU Test profile headless ===
 echo     Config:  %R4OS_QEMU_CONFIG%

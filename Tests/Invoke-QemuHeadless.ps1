@@ -6,7 +6,7 @@ $logPath = $env:R4OS_QEMU_LOG
 $errorPath = $env:R4OS_QEMU_ERROR_LOG
 $workingDirectory = $env:R4OS_QEMU_WORKING_DIRECTORY
 
-$timeoutSeconds = 240
+$timeoutSeconds = 360
 if ($env:QEMU_TEST_TIMEOUT_SECONDS) {
     $parsed = 0
     if ([int]::TryParse($env:QEMU_TEST_TIMEOUT_SECONDS, [ref]$parsed) -and $parsed -gt 0) {
@@ -24,6 +24,18 @@ if ($env:R4OS_QEMU_CPUS) {
     }
     $cpuCount = $parsedCpuCount
 }
+
+$kvmAvailable = $IsLinux -and (Test-Path -LiteralPath '/dev/kvm')
+$accelerators = if ($kvmAvailable) {
+    'kvm:tcg'
+} elseif ($IsWindows) {
+    'whpx:tcg'
+} elseif ($IsMacOS) {
+    'hvf:tcg'
+} else {
+    'tcg'
+}
+$cpuModel = if ($kvmAvailable) { 'host' } else { 'Haswell' }
 
 function Assert-File([string]$Path, [string]$Label) {
     if (-not $Path -or -not (Test-Path -LiteralPath $Path -PathType Leaf)) {
@@ -62,9 +74,10 @@ if (-not $workingDirectory -or -not (Test-Path -LiteralPath $workingDirectory -P
 
 $argumentLine = @(
     '-readconfig', (Quote-Argument $config),
-    '-cpu', 'Haswell',
+    '-cpu', $cpuModel,
     '-m', '1G',
     '-smp', ([string]$cpuCount),
+    '-machine', ('accel=' + $accelerators),
     '-nic', 'none',
     '-audiodev', 'driver=none,id=headless-audio',
     '-global', 'hda-duplex.audiodev=headless-audio',

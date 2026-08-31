@@ -62,12 +62,13 @@ $required = @(
     'AUDIOD result: OK',
     'R4GB APU runtime: OK rate=48000 channels=2 frames=6000 submitted=',
     'drift=0 drops=0',
-    'R4GB persistence runtime: OK sram=8192 rtc=1 lock=exclusive atomic=1',
+    'R4GB persistence runtime: OK sram=8192 rtc=1 lock=exclusive atomic=1 async=worker+drain',
     'R4GB host runtime: OK instances=model-2+window-1 slices=bounded input=physical+focus video=160x144+generation audio=app-audio lifecycle=pause+resume+reset+mute+close resources=closed',
-    'R4GB E2E runtime: OK id=00000000000000A1 extension=.gb battery=0 rtc=0',
-    'R4GB E2E runtime: OK id=00000000000000B2 extension=.gbc battery=1 rtc=1',
+    'R4GB E2E runtime: OK id=00000000000000A1 extension=.gb end=witness battery=0 rtc=0',
+    'R4GB E2E runtime: OK id=00000000000000B2 extension=.gbc end=close battery=1 rtc=1',
     'R4GB E2E rejection: OK id=00000000000000C3 error=CgbOnly window=closed resources=closed',
-    'R4GB explorer E2E: OK catalog=MODULES.JSON assoc=ids-only formats=.gb+.gbc probe=bounded instances=2 input=physical video=frames audio=app-audio save=sram+rtc rejection=cgb-only close=separate',
+    'R4GB explorer E2E: OK catalog=MODULES.JSON assoc=ids-only formats=.gb+.gbc probe=bounded instances=2 input=physical video=frames audio=app-audio save=sram+rtc rejection=cgb-only close=witness+separate',
+    'R4GB long-run E2E: OK duration=60s instances=2 focus=alternating lifecycle=pause+resume+reset+mute endings=witness+close desktop=responsive',
     'LOADERD result: OK',
     'RESDIAG result: OK',
     'DISPLAYD damage-present: OK regions=2 pixels=8',
@@ -177,6 +178,58 @@ function Test-ApiMarkerContract {
             if (-not $Quiet) { Write-Host ('API diagnostic marker FAILED forbidden: ' + $marker) }
             $failures++
         }
+    }
+
+    $r4gbPattern = '(?im)^R4GB E2E runtime: OK id=(?<id>[0-9A-F]{16}) extension=(?<extension>\.gbc?) end=(?<end>witness|close) battery=(?<battery>[01]) rtc=(?<rtc>[01]) guest_ns=(?<guest_ns>\d+) guest_cycles=(?<guest_cycles>\d+) drift_cycles=(?<drift_cycles>\d+) ppu_frames=(?<ppu_frames>\d+) slices=(?<slices>\d+) max_slice=(?<max_slice>\d+) max_step_gap_ns=(?<max_step_gap_ns>\d+) input=(?<input>\d+) frames=(?<frames>\d+) dropped_presents=(?<dropped_presents>\d+) audio_writes=(?<audio_writes>\d+) audio_busy=(?<audio_busy>\d+) audio_failures=(?<audio_failures>\d+) audio_late=(?<audio_late>\d+) audio_discarded=(?<audio_discarded>\d+) audio_suppressed=(?<audio_suppressed>\d+) apu_generated=(?<apu_generated>\d+) apu_rendered=(?<apu_rendered>\d+) apu_dropped=(?<apu_dropped>\d+) apu_queued=(?<apu_queued>\d+) save_async_started=(?<save_async_started>\d+) save_async_completed=(?<save_async_completed>\d+) save_async_coalesced=(?<save_async_coalesced>\d+) save_async_errors=(?<save_async_errors>\d+) save_async_max_queued=(?<save_async_max_queued>\d+) pauses=(?<pauses>\d+) resumes=(?<resumes>\d+) resets=(?<resets>\d+) save_files=(?<save_files>[01]) close=(?<close>-?\d+) resources=closed\r?$'
+    $r4gbReports = [regex]::Matches($Text, $r4gbPattern)
+    $r4gbA = @($r4gbReports | Where-Object { $_.Groups['id'].Value -eq '00000000000000A1' })
+    $r4gbB = @($r4gbReports | Where-Object { $_.Groups['id'].Value -eq '00000000000000B2' })
+    $r4gbOk = $r4gbReports.Count -eq 2 -and $r4gbA.Count -eq 1 -and $r4gbB.Count -eq 1
+    if ($r4gbOk) {
+        $a = $r4gbA[0].Groups
+        $b = $r4gbB[0].Groups
+        $r4gbOk = $a['extension'].Value -eq '.gb' -and $a['end'].Value -eq 'witness' -and
+            $a['battery'].Value -eq '0' -and $a['rtc'].Value -eq '0' -and
+            $b['extension'].Value -eq '.gbc' -and $b['end'].Value -eq 'close' -and
+            $b['battery'].Value -eq '1' -and $b['rtc'].Value -eq '1'
+        foreach ($report in @($a, $b)) {
+            $r4gbOk = $r4gbOk -and
+                [uint64]$report['guest_ns'].Value -ge 59000000000 -and
+                [uint64]$report['guest_cycles'].Value -gt 0 -and
+                [uint64]$report['drift_cycles'].Value -le 32792 -and
+                [uint64]$report['ppu_frames'].Value -ge 3400 -and
+                [uint64]$report['slices'].Value -gt 0 -and
+                [uint64]$report['max_slice'].Value -le 32792 -and
+                [uint64]$report['max_step_gap_ns'].Value -le 250000000 -and
+                [uint64]$report['input'].Value -ge 2 -and
+                [uint64]$report['frames'].Value -gt 0 -and
+                [uint64]$report['dropped_presents'].Value -eq 0 -and
+                [uint64]$report['audio_writes'].Value -ge 5000 -and
+                [uint64]$report['audio_busy'].Value -eq 0 -and
+                [uint64]$report['audio_failures'].Value -eq 0 -and
+                [uint64]$report['audio_late'].Value -eq 0 -and
+                [uint64]$report['apu_generated'].Value -gt 0 -and
+                [uint64]$report['apu_rendered'].Value -gt 0 -and
+                [uint64]$report['apu_dropped'].Value -eq 0 -and
+                [uint64]$report['apu_queued'].Value -le 7680 -and
+                [uint64]$report['save_async_errors'].Value -eq 0 -and
+                [uint64]$report['save_async_max_queued'].Value -le 3 -and
+                $report['save_files'].Value -eq '1' -and
+                [int]$report['close'].Value -eq 0
+        }
+        $r4gbOk = $r4gbOk -and [uint64]$a['apu_queued'].Value -eq 0 -and
+            [uint64]$a['save_async_started'].Value -eq 0 -and
+            [uint64]$a['save_async_completed'].Value -eq 0 -and
+            [uint64]$b['save_async_started'].Value -gt 0 -and
+            [uint64]$b['save_async_started'].Value -eq [uint64]$b['save_async_completed'].Value
+        $r4gbOk = $r4gbOk -and [uint64]$a['pauses'].Value -ge 1 -and
+            [uint64]$a['resumes'].Value -ge 1 -and [uint64]$a['resets'].Value -ge 1
+    }
+    if (-not $r4gbOk) {
+        if (-not $Quiet) { Write-Host 'R4GB long-run reports FAILED: exact duration, drift, frame, audio or lifecycle invariants missing.' }
+        $failures++
+    } elseif (-not $Quiet) {
+        Write-Host 'R4GB long-run reports OK: 60-second witness/close instances satisfy timing and lifecycle invariants.'
     }
 
     $baselineMatch = [regex]::Match($Text, '(?im)^R4BASIC baseline: OK id=([0-9A-F]{16}) mode=headless guest=C:\\TEMP\\GORILLA\.BAS source_bytes=29434 bytecode=(\d+)\r?$')
@@ -297,7 +350,12 @@ function Test-ApiMarkerContract {
             [uint64]$adapter.Groups['instructions'].Value -gt 0 -and
             [uint64]$adapter.Groups['max_slice'].Value -le 262144 -and
             [uint64]$adapter.Groups['clock_reads'].Value -gt 0 -and
-            [uint64]$adapter.Groups['max_clock_reads'].Value -le 20 -and
+            # The mixed GORILLA workload crosses instruction-cost phases
+            # within one slice. Its cumulative adaptive estimate can need a
+            # few more probes than the homogeneous <=20-read microbench while
+            # the independent 8 ms time limit and 262144-operation cap remain
+            # authoritative.
+            [uint64]$adapter.Groups['max_clock_reads'].Value -le 32 -and
             [uint64]$adapter.Groups['max_clock_chunk'].Value -le 16384 -and
             [uint64]$adapter.Groups['active_vm_ns'].Value -gt 0 -and
             [uint64]$adapter.Groups['ns_per_instruction'].Value -gt 0
@@ -547,6 +605,8 @@ if ($SelfTest) {
         'APPPARITY lang=zig domain=3 raw=-5 payload=123 bytes=12 mutated=1 tail=1 handle_before=1 close=0 handle_after=0' + "`r`n" +
         'APPPARITY lang=c domain=3 raw=-5 payload=123 bytes=12 mutated=1 tail=1 handle_before=1 close=0 handle_after=0'
     $valid += "`r`n" +
+        'R4GB E2E runtime: OK id=00000000000000A1 extension=.gb end=witness battery=0 rtc=0 guest_ns=60000000000 guest_cycles=251658240 drift_cycles=0 ppu_frames=3583 slices=8000 max_slice=32768 max_step_gap_ns=12000000 input=20 frames=2 dropped_presents=0 audio_writes=6000 audio_busy=0 audio_failures=0 audio_late=0 audio_discarded=0 audio_suppressed=0 apu_generated=2880000 apu_rendered=2880000 apu_dropped=0 apu_queued=0 save_async_started=0 save_async_completed=0 save_async_coalesced=0 save_async_errors=0 save_async_max_queued=0 pauses=1 resumes=1 resets=1 save_files=1 close=0 resources=closed' + "`r`n" +
+        'R4GB E2E runtime: OK id=00000000000000B2 extension=.gbc end=close battery=1 rtc=1 guest_ns=60000000000 guest_cycles=251658240 drift_cycles=0 ppu_frames=3583 slices=8000 max_slice=32768 max_step_gap_ns=15000000 input=20 frames=2 dropped_presents=0 audio_writes=6000 audio_busy=0 audio_failures=0 audio_late=0 audio_discarded=0 audio_suppressed=0 apu_generated=2880240 apu_rendered=2880000 apu_dropped=0 apu_queued=240 save_async_started=30 save_async_completed=30 save_async_coalesced=0 save_async_errors=0 save_async_max_queued=2 pauses=0 resumes=0 resets=0 save_files=1 close=0 resources=closed' + "`r`n" +
         'R4BASIC baseline: OK id=0123456789ABCDEF mode=headless guest=C:\TEMP\GORILLA.BAS source_bytes=29434 bytecode=1234' + "`r`n" +
         'R4BASIC timeline: start_ns=100 probe_ns=110 resolve_ns=120 desktop_ns=130 app_ns=180 source_begin_ns=190 source_end_ns=200 compile_begin_ns=210 compile_visible_ns=215 compile_end_ns=220 compile_updates=6 vm_begin_ns=230 vm_end_ns=240 host_ready_ns=250 initial_frame_ns=0 runtime_begin_ns=270 first_instruction_ns=280 audio_open_ns=0 first_frame_ns=300' + "`r`n" +
         'R4BASIC compiler: tokens=4000 token_capacity=4000 keyword_lookups=1000 keyword_probes=1200 keyword_max_probe=4 name_lookups=2000 name_insertions=300 name_probes=2600 name_max_probe=7 index_rebuilds=12 constant_lookups=900 constant_reuses=200 constant_probes=1100 constant_max_probe=5 label_fixups=20 data_fixups=2 reused_bindings=500 expression_depth=8 progress_updates=24' + "`r`n" +

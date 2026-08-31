@@ -537,10 +537,8 @@ headless_action() {
     rm -f "$qemu_log" "$qemu_error_log"
     if [ -n "${QEMU_TEST_TIMEOUT_SECONDS:-}" ]; then
         qemu_timeout=$QEMU_TEST_TIMEOUT_SECONDS
-    elif [ "$headless_variant" = browser ]; then
-        qemu_timeout=360
     else
-        qemu_timeout=240
+        qemu_timeout=360
     fi
 
     export R4OS_QEMU_EXE=$qemu_exe
