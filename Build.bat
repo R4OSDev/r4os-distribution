@@ -104,6 +104,7 @@ for %%I in ("%R4OS_DISTRIBUTION_OUTPUT_SETTING%") do set "R4OS_OUTPUT_ROOT=%%~fI
 for %%I in ("%R4OS_INPUT_SETTING%") do set "R4OS_INPUT_ROOT=%%~fI"
 for %%I in ("%R4OS_PRIVATE_INJECTION_SETTING%") do set "R4OS_PRIVATE_INJECTION_ROOT=%%~fI"
 popd
+if /i "%R4OS_PUBLIC_IMAGE%"=="1" set "R4OS_PRIVATE_INJECTION_ROOT=%R4OS_OUTPUT_ROOT%\.PublicImageNoPrivateInjection"
 
 set "R4OS_ZIG_EXE=%R4OS_ZIG_ROOT%\zig.exe"
 set "R4OS_LIMINE_EXE=%R4OS_LIMINE_ROOT%\limine-tool-windows-x86\limine.exe"

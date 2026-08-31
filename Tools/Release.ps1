@@ -189,6 +189,7 @@ function Get-ReleaseContext {
         DevKitRoot = $devKitRoot
         ArtifactsRoot = $artifactsRoot
         DistributionOutputRoot = $distributionOutputRoot
+        PrivateInjectionRoot = Resolve-MappedPath -BasePath $artifactsRoot -Value (Require-Setting $settings 'PRIVATE_INJECTION_ROOT')
         ProfileOutputRoot = Join-Path $distributionOutputRoot 'Profiles'
         ReleaseOutputRoot = Join-Path $distributionOutputRoot 'Releases'
         BuildScript = Join-Path $distributionRoot $buildScriptName
@@ -428,8 +429,18 @@ function Test-ProfileImage {
         [Parameter(Mandatory = $true)]$Definition
     )
 
+    Write-Host "=== Build public $($Definition.Name) image ==="
+    $previousPublicImage = [Environment]::GetEnvironmentVariable('R4OS_PUBLIC_IMAGE', 'Process')
+    try {
+        [Environment]::SetEnvironmentVariable('R4OS_PUBLIC_IMAGE', '1', 'Process')
+        Invoke-NativeChecked -FilePath $Context.BuildScript -Arguments @('image', $Definition.Name)
+    }
+    finally {
+        [Environment]::SetEnvironmentVariable('R4OS_PUBLIC_IMAGE', $previousPublicImage, 'Process')
+    }
     Write-Host "=== Verify $($Definition.Name) image ==="
     Invoke-NativeChecked -FilePath $Context.BuildScript -Arguments @('verify', $Definition.Name)
+    Assert-PublicImagePlan -Context $Context -Definition $Definition
 
     $diskImage = Join-Path $Definition.OutputPath 'disk.img'
     $legalRoot = Join-Path $Definition.OutputPath 'Legal'
@@ -821,6 +832,31 @@ function Find-GitHubRelease {
     }
 }
 
+function Assert-PublicImagePlan {
+    param(
+        [Parameter(Mandatory = $true)]$Context,
+        [Parameter(Mandatory = $true)]$Definition
+    )
+
+    $planPath = Join-Path $Definition.OutputPath 'image-adds.txt'
+    if (-not (Test-Path -LiteralPath $planPath -PathType Leaf)) {
+        throw "Public image plan is missing: $planPath"
+    }
+    $privateRoot = [IO.Path]::GetFullPath($Context.PrivateInjectionRoot).TrimEnd($script:PathSeparators)
+    $privatePrefix = $privateRoot + [IO.Path]::DirectorySeparatorChar
+    foreach ($line in [IO.File]::ReadLines($planPath)) {
+        $separator = $line.LastIndexOf(':')
+        if ($separator -le 0) {
+            throw "Malformed public image plan line: $line"
+        }
+        $source = [IO.Path]::GetFullPath($line.Substring(0, $separator))
+        if ($source.Equals($privateRoot, $script:PathComparison) -or
+            $source.StartsWith($privatePrefix, $script:PathComparison)) {
+            throw "Public image plan contains PrivateInjection payload: $source"
+        }
+    }
+}
+
 function Get-GitHubToken {
     param([Parameter(Mandatory = $true)]$Context)
 
@@ -925,6 +961,25 @@ function Invoke-ReleaseSelfTest {
         }
         if ((Get-WorkspaceRelativePath -WorkspaceRoot $tempRoot -Path $tempRoot) -cne '.') {
             throw 'Workspace-root path self-test failed.'
+        }
+        $privateRoot = Join-Path $tempRoot 'PrivateInjection'
+        $profileRoot = Join-Path $tempRoot 'Profile'
+        New-Item -ItemType Directory -Path $privateRoot, $profileRoot -Force | Out-Null
+        $planPath = Join-Path $profileRoot 'image-adds.txt'
+        Write-Utf8NoBom -Path $planPath -Text ((Join-Path $tempRoot 'public.bin') + ':/PUBLIC.BIN' + "`n")
+        $planContext = [pscustomobject]@{ PrivateInjectionRoot = $privateRoot }
+        $planDefinition = [pscustomobject]@{ OutputPath = $profileRoot }
+        Assert-PublicImagePlan -Context $planContext -Definition $planDefinition
+        Write-Utf8NoBom -Path $planPath -Text ((Join-Path $privateRoot 'private.gb') + ':/Temp/private.gb' + "`n")
+        $privateRejected = $false
+        try {
+            Assert-PublicImagePlan -Context $planContext -Definition $planDefinition
+        }
+        catch {
+            $privateRejected = $true
+        }
+        if (-not $privateRejected) {
+            throw 'Private-injection release boundary self-test failed.'
         }
         $emptyApiValue = [pscustomobject][ordered]@{ message = 'empty-list-placeholder' }
         $emptyApiTag = $emptyApiValue.PSObject.Properties['tag_name']

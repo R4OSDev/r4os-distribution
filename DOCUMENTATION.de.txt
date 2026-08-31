@@ -96,6 +96,14 @@ sowie der Inhalt von Slim und Full bleiben dadurch unveraendert. AUTOEXEC gibt
 nach dem katalogbasierten Doppelstart sowohl den Subsystem-Host- als auch den
 Runtime-/Audio-Marker aus.
 
+Die R4GB-Produktabnahme erzeugt im Gast drei freie, deterministische
+Cartridge-Fixtures und oeffnet zwei davon gleichzeitig ueber installierten
+Subsystemkatalog, ID-only-Zuordnung, begrenzten Probe und `R4SUBSYS1`. Die
+Marker binden getrennte Instanzen an physische Tastatureingabe, echte Frames,
+App-Audio, SRAM-/RTC-Persistenz und getrennten kooperativen Close. Die dritte
+Fixture muss als CGB-only-Cartridge in einem sichtbaren Fehlerfenster
+abgewiesen werden. Private kommerzielle ROMs sind kein Testinput.
+
 Der produktive R4Basic-Teil der Test-AUTOEXEC verwendet die lokal injizierte
 kanonische Datei `C:\TEMP\GORILLA.BAS`. Desktop startet sie katalogbasiert im
 Headless-Modus, und R4Basic schreibt nach dem ersten tatsaechlich publizierten
@@ -241,5 +249,12 @@ denselben relativen Pfad aus `Injection` beziehungsweise `TestInjection`.
 Schluesseldateien werden durch `.gitignore` nie versioniert. Das
 Benchmarkprofil ignoriert diese privaten und sonstigen lokalen Overlays fuer
 reproduzierbare Eingaben.
+
+Die Releasevorbereitung baut jedes angeforderte Profil mit
+`R4OS_PUBLIC_IMAGE=1` neu. Dieser Modus laesst `PrivateInjection` aus dem
+Imageplan aus; ein zweites Gate verwirft den Release trotzdem, falls eine
+Quellzeile im erzeugten `image-adds.txt` noch unter dem echten privaten Root
+liegt. Damit koennen lokale ROMs in Entwicklerimages nach `C:\Temp` gelangen,
+aber weder in ein oeffentliches `disk.img` noch in dessen Release-ZIP.
 
 Herkunft und Transfergrenzen stehen in `PROVENANCE.txt`.

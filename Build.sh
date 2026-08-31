@@ -89,6 +89,12 @@ devkit_hosttools_root=$(resolve_path "$devkit_root" "$devkit_hosttools_setting")
 output_root=$(resolve_path "$artifacts_root" "$distribution_output_setting")
 input_root=$(resolve_path "$artifacts_root" "$input_setting")
 private_injection_root=$(resolve_path "$artifacts_root" "$private_injection_setting")
+if [ "${R4OS_PUBLIC_IMAGE:-0}" = 1 ]; then
+    # Public release builds deliberately point the optional overlay at a
+    # reserved absent path. Release.ps1 additionally rejects any plan that
+    # still names the real private root.
+    private_injection_root=$output_root/.PublicImageNoPrivateInjection
+fi
 zig_exe=$zig_root/zig
 limine_exe=$limine_root/limine
 qemu_exe=$qemu_root/qemu-system-x86_64
