@@ -499,6 +499,7 @@ fn kindFromTarget(target: []const u8) []const u8 {
     if (pathHasPrefix(target, "C:\\R4OS\\PROTOCOLS\\") and std.ascii.endsWithIgnoreCase(target, ".R4P")) return "protocol";
     if (pathHasPrefix(target, "C:\\R4OS\\SERVICES\\") and std.ascii.endsWithIgnoreCase(target, ".R4X")) return "service";
     if ((pathHasPrefix(target, "C:\\R4OS\\SOFTWARE\\") or pathHasPrefix(target, "C:\\SOFTWARE\\")) and std.ascii.endsWithIgnoreCase(target, ".R4X")) return "software";
+    if (pathHasPrefix(target, "C:\\R4OS\\SUBSYSTEMS\\") and std.ascii.endsWithIgnoreCase(target, ".R4X")) return "software";
     if (pathHasPrefix(target, "C:\\R4OS\\FONTS\\") and std.ascii.endsWithIgnoreCase(target, ".R4F")) return "font";
     if (pathHasPrefix(target, "C:\\R4OS\\CONFIG\\")) return "config";
     if (pathHasPrefix(target, "C:\\R4OS\\SDK\\")) return "sdk";
@@ -536,6 +537,14 @@ fn componentNameFromTarget(target: []const u8, kind: contract.ComponentKind) []c
 
 fn isBootKernelTarget(target: []const u8) bool {
     return std.mem.eql(u8, kindFromTarget(target), "boot-kernel");
+}
+
+test "subsystem R4X payloads use the software update class" {
+    const target = "C:\\R4OS\\SUBSYSTEMS\\r4os.gb\\R4GB.R4X";
+    try std.testing.expectEqualStrings("software", kindFromTarget(target));
+    try std.testing.expect(kindMatchesTarget("software", target));
+    try std.testing.expect(componentTargetMatchesKind(.r4x, "/R4OS/SUBSYSTEMS/r4os.gb/R4GB.R4X"));
+    try std.testing.expectEqualStrings("unknown", kindFromTarget("C:\\R4OS\\SUBSYSTEMS\\r4os.gb\\README.TXT"));
 }
 
 fn pathHasPrefix(path: []const u8, prefix: []const u8) bool {
