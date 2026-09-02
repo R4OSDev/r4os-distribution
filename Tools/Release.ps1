@@ -119,7 +119,10 @@ function Invoke-NativeChecked {
         [string[]]$Arguments = @()
     )
 
-    & $FilePath @Arguments
+    # Native stdout is diagnostic console output, not a return value of the
+    # surrounding release functions.  Letting it enter PowerShell's success
+    # stream turns New-ReleasePreparation's single result into an array.
+    & $FilePath @Arguments | Out-Host
     $exitCode = $LASTEXITCODE
     if ($exitCode -ne 0) {
         throw "Command failed with exit code ${exitCode}: $FilePath"
@@ -952,6 +955,15 @@ function Invoke-ReleaseSelfTest {
         Write-Utf8NoBom -Path $versionFile -Text "RELEASE_VERSION=1.2.3`n"
         if ((Get-ReleaseVersion -Path $versionFile) -cne '1.2.3') {
             throw 'Version parsing self-test failed.'
+        }
+        $nativeResult = @(Invoke-NativeChecked -FilePath ([Environment]::ProcessPath) -Arguments @(
+            '-NoLogo',
+            '-NoProfile',
+            '-Command',
+            "Write-Output 'native-output-fixture'"
+        ))
+        if ($nativeResult.Count -ne 0) {
+            throw 'Native diagnostic output leaked into the release result stream.'
         }
         if (((Resolve-ProfileNames 'Standard') -join ',') -cne 'Slim,Full') {
             throw 'Standard profile selection self-test failed.'
