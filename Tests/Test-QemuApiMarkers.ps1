@@ -71,12 +71,20 @@ $required = @(
     'R4GB E2E rejection: OK id=00000000000000C3 error=CgbOnly window=closed resources=closed',
     'R4GB explorer E2E: OK catalog=MODULES.JSON assoc=ids-only formats=.gb+.gbc probe=bounded instances=2 input=physical video=frames audio=app-audio save=sram+rtc rejection=cgb-only close=witness+separate',
     'R4GB long-run E2E: OK duration=60s instances=2 focus=alternating lifecycle=pause+resume+reset+mute endings=witness+close desktop=responsive',
+    'R4SNES fixture generation: OK origin=R4OS-original formats=.sfc+.smc cases=rom-only+battery-rtc+invalid+firmware-required private-rom=excluded',
+    'R4SNES E2E runtime: OK id=00000000000000D1 extension=.sfc end=witness battery=0 rtc=0',
+    'R4SNES E2E runtime: OK id=00000000000000D2 extension=.smc end=close battery=1 rtc=1',
+    'R4SNES E2E rejection: OK id=00000000000000D3 class=invalid error=NoValidHeader window=closed resources=closed',
+    'R4SNES E2E rejection: OK id=00000000000000D4 class=firmware error=Missing window=closed resources=closed',
+    'R4SNES explorer E2E: OK catalog=MODULES.JSON assoc=ids-only formats=.sfc+.smc probe=zero-byte instances=2 input=physical video=xrgb32 audio=app-audio save=sram+rtc rejection=invalid+firmware close=witness+separate',
+    'R4SNES long-run E2E: OK duration=60s instances=2 focus=alternating lifecycle=pause+resume+reset+mute endings=witness+close desktop=responsive',
     'LOADERD result: OK',
     'RESDIAG result: OK',
     'DISPLAYD damage-present: OK regions=2 pixels=8',
     'DISPLAYD result: OK',
     'EXPLORER BAS source-probe: cases=3 info_calls=3 read_calls=0 read_bytes=0 limit_bytes=262144',
     'EXPLORER GB source-probe: cases=3 metadata_info_calls=3 metadata_read_calls=0 metadata_read_bytes=0 probe_info_calls=3 probe_read_calls=3 probe_read_bytes=98304 limit_bytes=262144',
+    'EXPLORER SNES source-probe: cases=4 metadata_info_calls=4 metadata_read_calls=0 metadata_read_bytes=0 probe_info_calls=4 probe_read_calls=0 probe_read_bytes=0 limit_bytes=262144',
     'EXPLORER selftest: OK',
     'SUBSYSTEM host selftest: OK modes=640x350+320x200+256x224 formats=indexed8+xrgb32 damage=sparse indexed8=abi tiles=bounded input=sequenced+policy-filtered idle=no-frame fps>=20',
     'SUBSYSTEM runtime selftest: OK instances=2 slices=bounded time=monotonic audio=s16le-buffered lifecycle=pause+resume+reset+complete+close errors=isolated resources=closed',
@@ -135,6 +143,10 @@ $forbidden = @(
     'R4GB host runtime: FAILED',
     'R4GB E2E runtime: FAILED',
     'R4GB E2E rejection: FAILED',
+    'R4SNES fixture generation: FAILED',
+    'R4SNES E2E runtime: FAILED',
+    'R4SNES E2E rejection: FAILED',
+    'R4SNES E2E diagnostic: FAILED',
     'LOADERD result: FAILED',
     'RESDIAG result: FAILED',
     '[R4D] runtime load DISPBLIT [FAILED]',
@@ -233,6 +245,64 @@ function Test-ApiMarkerContract {
         $failures++
     } elseif (-not $Quiet) {
         Write-Host 'R4GB long-run reports OK: 60-second witness/close instances satisfy timing and lifecycle invariants.'
+    }
+
+    $r4snesPattern = '(?im)^R4SNES E2E runtime: OK id=(?<id>[0-9A-F]{16}) extension=(?<extension>\.sfc|\.smc) end=(?<end>witness|close) battery=(?<battery>[01]) rtc=(?<rtc>[01]) guest_ns=(?<guest_ns>\d+) guest_cycles=(?<guest_cycles>\d+) master_hz=(?<master_hz>\d+) drift_cycles=(?<drift_cycles>\d+) pending_cycles=(?<pending_cycles>\d+) ppu_frames=(?<ppu_frames>\d+) slices=(?<slices>\d+) max_slice_grant=(?<max_slice_grant>\d+) max_slice_execution=(?<max_slice_execution>\d+) max_step_gap_ns=(?<max_step_gap_ns>\d+) input=(?<input>\d+) controller=0x(?<controller>[0-9a-fA-F]{4}) completion=(?<completion>[01]) frames=(?<frames>\d+) dropped_presents=(?<dropped_presents>\d+) audio_writes=(?<audio_writes>\d+) audio_busy=(?<audio_busy>\d+) audio_failures=(?<audio_failures>\d+) audio_late=(?<audio_late>\d+) audio_discarded=(?<audio_discarded>\d+) audio_suppressed=(?<audio_suppressed>\d+) dsp_native=(?<dsp_native>\d+) dsp_resampled=(?<dsp_resampled>\d+) dsp_rendered=(?<dsp_rendered>\d+) dsp_non_silent=(?<dsp_non_silent>\d+) dsp_dropped=(?<dsp_dropped>\d+) dsp_queued=(?<dsp_queued>\d+) save_async_started=(?<save_async_started>\d+) save_async_completed=(?<save_async_completed>\d+) save_async_coalesced=(?<save_async_coalesced>\d+) save_async_errors=(?<save_async_errors>\d+) save_async_max_queued=(?<save_async_max_queued>\d+) pauses=(?<pauses>\d+) resumes=(?<resumes>\d+) resets=(?<resets>\d+) save_files=(?<save_files>[01]) close=(?<close>-?\d+) resources=closed\r?$'
+    $r4snesReports = [regex]::Matches($Text, $r4snesPattern)
+    $r4snesA = @($r4snesReports | Where-Object { $_.Groups['id'].Value -eq '00000000000000D1' })
+    $r4snesB = @($r4snesReports | Where-Object { $_.Groups['id'].Value -eq '00000000000000D2' })
+    $r4snesOk = $r4snesReports.Count -eq 2 -and $r4snesA.Count -eq 1 -and $r4snesB.Count -eq 1
+    if ($r4snesOk) {
+        $snesA = $r4snesA[0].Groups
+        $snesB = $r4snesB[0].Groups
+        $r4snesOk = $snesA['extension'].Value -eq '.sfc' -and $snesA['end'].Value -eq 'witness' -and
+            $snesA['battery'].Value -eq '0' -and $snesA['rtc'].Value -eq '0' -and $snesA['completion'].Value -eq '1' -and
+            $snesB['extension'].Value -eq '.smc' -and $snesB['end'].Value -eq 'close' -and
+            $snesB['battery'].Value -eq '1' -and $snesB['rtc'].Value -eq '1'
+        foreach ($report in @($snesA, $snesB)) {
+            $r4snesOk = $r4snesOk -and
+                [uint64]$report['guest_ns'].Value -ge 59000000000 -and
+                [uint64]$report['guest_cycles'].Value -gt 0 -and
+                [uint64]$report['master_hz'].Value -eq 21477272 -and
+                [uint64]$report['drift_cycles'].Value -le 32832 -and
+                [uint64]$report['pending_cycles'].Value -le 32768 -and
+                [uint64]$report['ppu_frames'].Value -ge 3400 -and
+                [uint64]$report['slices'].Value -gt 0 -and
+                [uint64]$report['max_slice_grant'].Value -le 32768 -and
+                [uint64]$report['max_slice_execution'].Value -le 32832 -and
+                [uint64]$report['max_step_gap_ns'].Value -le 250000000 -and
+                [uint64]$report['input'].Value -ge 2 -and
+                [Convert]::ToUInt32($report['controller'].Value, 16) -ne 0 -and
+                [uint64]$report['frames'].Value -gt 0 -and
+                [uint64]$report['dropped_presents'].Value -eq 0 -and
+                [uint64]$report['audio_writes'].Value -ge 5000 -and
+                [uint64]$report['audio_busy'].Value -eq 0 -and
+                [uint64]$report['audio_failures'].Value -eq 0 -and
+                [uint64]$report['audio_late'].Value -eq 0 -and
+                [uint64]$report['audio_discarded'].Value -eq 0 -and
+                [uint64]$report['dsp_native'].Value -gt 0 -and
+                [uint64]$report['dsp_resampled'].Value -gt 0 -and
+                [uint64]$report['dsp_rendered'].Value -gt 0 -and
+                [uint64]$report['dsp_non_silent'].Value -gt 0 -and
+                [uint64]$report['dsp_dropped'].Value -eq 0 -and
+                [uint64]$report['dsp_queued'].Value -le 8192 -and
+                [uint64]$report['save_async_errors'].Value -eq 0 -and
+                [uint64]$report['save_async_max_queued'].Value -le 3 -and
+                $report['save_files'].Value -eq '1' -and [int]$report['close'].Value -eq 0
+        }
+        $r4snesOk = $r4snesOk -and [uint64]$snesA['dsp_queued'].Value -eq 0 -and
+            [uint64]$snesA['save_async_started'].Value -eq 0 -and
+            [uint64]$snesA['save_async_completed'].Value -eq 0 -and
+            [uint64]$snesA['pauses'].Value -ge 1 -and [uint64]$snesA['resumes'].Value -ge 1 -and
+            [uint64]$snesA['resets'].Value -ge 1 -and
+            [uint64]$snesB['save_async_started'].Value -gt 0 -and
+            [uint64]$snesB['save_async_started'].Value -eq [uint64]$snesB['save_async_completed'].Value
+    }
+    if (-not $r4snesOk) {
+        if (-not $Quiet) { Write-Host 'R4SNES long-run reports FAILED: duration, clock debt, frame, audio, persistence or lifecycle invariants missing.' }
+        $failures++
+    } elseif (-not $Quiet) {
+        Write-Host 'R4SNES long-run reports OK: 60-second witness/close instances satisfy timing and lifecycle invariants.'
     }
 
     $baselineMatch = [regex]::Match($Text, '(?im)^R4BASIC baseline: OK id=([0-9A-F]{16}) mode=headless guest=C:\\TEMP\\GORILLA\.BAS source_bytes=29434 bytecode=(\d+)\r?$')
@@ -635,6 +705,9 @@ if ($SelfTest) {
         '[R4BASIC-LAUNCH] id=0123456789ABCDEF mode=H phase=admission ns=140' + "`r`n" +
         '[R4BASIC-LAUNCH] id=0123456789ABCDEF mode=H phase=loader-complete ns=160 duration_ns=20 range_reads=12 fs_requests=13 gate_waits=0 fs_ticks=2 sections=4 imports=4 relocations=2110' + "`r`n" +
         '[R4BASIC-LAUNCH] id=0123456789ABCDEF mode=H phase=r4xstart ns=170'
+    $valid += "`r`n" +
+        'R4SNES E2E runtime: OK id=00000000000000D1 extension=.sfc end=witness battery=0 rtc=0 guest_ns=60000000000 guest_cycles=1288636320 master_hz=21477272 drift_cycles=0 pending_cycles=0 ppu_frames=3596 slices=40000 max_slice_grant=32768 max_slice_execution=32780 max_step_gap_ns=12000000 input=24 controller=0x0fff completion=1 frames=3596 dropped_presents=0 audio_writes=6000 audio_busy=0 audio_failures=0 audio_late=0 audio_discarded=0 audio_suppressed=1920 dsp_native=1920000 dsp_resampled=2880000 dsp_rendered=2880000 dsp_non_silent=2879000 dsp_dropped=0 dsp_queued=0 save_async_started=0 save_async_completed=0 save_async_coalesced=0 save_async_errors=0 save_async_max_queued=0 pauses=1 resumes=1 resets=1 save_files=1 close=0 resources=closed' + "`r`n" +
+        'R4SNES E2E runtime: OK id=00000000000000D2 extension=.smc end=close battery=1 rtc=1 guest_ns=60000000000 guest_cycles=1288636320 master_hz=21477272 drift_cycles=0 pending_cycles=0 ppu_frames=3596 slices=40000 max_slice_grant=32768 max_slice_execution=32780 max_step_gap_ns=15000000 input=24 controller=0x0fff completion=0 frames=3596 dropped_presents=0 audio_writes=6000 audio_busy=0 audio_failures=0 audio_late=0 audio_discarded=0 audio_suppressed=0 dsp_native=1920000 dsp_resampled=2880240 dsp_rendered=2880000 dsp_non_silent=2879000 dsp_dropped=0 dsp_queued=240 save_async_started=30 save_async_completed=30 save_async_coalesced=0 save_async_errors=0 save_async_max_queued=2 pauses=0 resumes=0 resets=0 save_files=1 close=0 resources=closed'
     if ($SmpCpuCount -gt 1) {
         $expectedOnline = $SmpCpuCount - $SmpFailedCount
         $valid += "`r`n" + ('[SMP] stage=active discovered=' + $SmpCpuCount + ' started=' +

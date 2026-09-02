@@ -37,8 +37,9 @@ The optional `browser` variant layers `BrowserTestInjection` over the normal
 Test injection and evaluates the additional offline Klickifax markers. The
 workspace command `-testbrowser` creates the matching component plan; regular
 Test images and marker runs omit the browser bundle. Headless acceptance uses
-a 240-second default timeout for the standard variant and 360 seconds for the
-larger browser variant; `QEMU_TEST_TIMEOUT_SECONDS` overrides either default.
+a 1200-second default timeout. This bound includes the concurrent
+60-guest-second R4GB and R4SNES product runs on both one and four vCPUs;
+`QEMU_TEST_TIMEOUT_SECONDS` overrides it explicitly.
 The standard QEMU configuration keeps the boot volume on ICH9 AHCI and attaches the
 fresh data image as an NVMe namespace. The existing 1-MB FSDIAG guest probe and
 required ownership/mount markers therefore cover canonical NVME.R4D discovery

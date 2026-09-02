@@ -104,6 +104,19 @@ App-Audio, SRAM-/RTC-Persistenz und getrennten kooperativen Close. Die dritte
 Fixture muss als CGB-only-Cartridge in einem sichtbaren Fehlerfenster
 abgewiesen werden. Private kommerzielle ROMs sind kein Testinput.
 
+Die R4SNES-Produktabnahme erzeugt vier freie, deterministische
+Cartridge-Fixtures und oeffnet eine `.sfc` sowie eine `.smc` gleichzeitig
+ueber den installierten Katalog, ID-only-Zuordnung und `R4SUBSYS1`. Beide
+laufen mindestens 60 Sekunden pausenbereinigte Gastzeit mit physischer
+Port-1-Tastatur, nativen XRGB32-Frames, semantischem SPC700-Upload,
+S-DSP/App-Audio und getrenntem Witness-/Close-Ende. Die `.smc` prueft
+zusaetzlich asynchrones SRAM und Epson-RTC. Ein ungueltiger Header und ein
+DSP-1-Board ohne Nutzerfirmware muessen als sichtbare, begrenzt schliessende
+Fehlerfenster enden. Das Test-AUTOEXEC wartet dafuer 900 Sekunden; der
+QEMU-Runner begrenzt den gesamten Standard- oder SMP4-Lauf auf 1200 Sekunden.
+Die private SMW-Cartridge wird von dieser automatischen Abnahme weder gelesen
+noch gestartet.
+
 Der produktive R4Basic-Teil der Test-AUTOEXEC verwendet die lokal injizierte
 kanonische Datei `C:\TEMP\GORILLA.BAS`. Desktop startet sie katalogbasiert im
 Headless-Modus, und R4Basic schreibt nach dem ersten tatsaechlich publizierten

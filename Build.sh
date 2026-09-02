@@ -538,7 +538,7 @@ headless_action() {
     if [ -n "${QEMU_TEST_TIMEOUT_SECONDS:-}" ]; then
         qemu_timeout=$QEMU_TEST_TIMEOUT_SECONDS
     else
-        qemu_timeout=360
+        qemu_timeout=1200
     fi
 
     export R4OS_QEMU_EXE=$qemu_exe

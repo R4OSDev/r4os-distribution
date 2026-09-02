@@ -6,7 +6,7 @@ $logPath = $env:R4OS_QEMU_LOG
 $errorPath = $env:R4OS_QEMU_ERROR_LOG
 $workingDirectory = $env:R4OS_QEMU_WORKING_DIRECTORY
 
-$timeoutSeconds = 360
+$timeoutSeconds = 1200
 if ($env:QEMU_TEST_TIMEOUT_SECONDS) {
     $parsed = 0
     if ([int]::TryParse($env:QEMU_TEST_TIMEOUT_SECONDS, [ref]$parsed) -and $parsed -gt 0) {
