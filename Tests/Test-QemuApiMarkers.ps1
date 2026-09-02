@@ -63,7 +63,7 @@ $required = @(
     'R4GB APU runtime: OK rate=48000 channels=2 frames=6000 submitted=',
     'drift=0 drops=0',
     'R4GB persistence runtime: OK sram=8192 rtc=1 lock=exclusive atomic=1 async=worker+drain',
-    'R4SNES SELFTEST OK: OBC-1/S-RTC/S-DD1/SPC7110/Epson-RTC/Super FX GSU-1/GSU-2/SA-1/CX4/NEC-DSP-1/1A/1B/2/3/4/ST010/ST011/ST018-ARMv3, CPU, timed 5A22, byte-bounded DMA, complete PPU, SPC700/S-SMP and cycle-clocked S-DSP owners isolated; incomplete runtime-machine execution safely rejected.',
+    'R4SNES SELFTEST OK: OBC-1/S-RTC/S-DD1/SPC7110/Epson-RTC/Super FX GSU-1/GSU-2/SA-1/CX4/NEC-DSP-1/1A/1B/2/3/4/ST010/ST011/ST018-ARMv3, CPU, timed 5A22, byte-bounded DMA, complete PPU, SPC700/S-SMP and cycle-clocked S-DSP owners isolated; productive R4SUBSYS1 host uses bounded master-clock slices, physical port-1 input, native XRGB32, App-Audio and idempotent persistence teardown.',
     'R4SNES persistence runtime: OK sav=exact rtc=versioned lock=exclusive atomic=recover async=worker+drain',
     'R4GB host runtime: OK instances=model-2+window-1 slices=bounded input=physical+focus video=160x144+generation audio=app-audio lifecycle=pause+resume+reset+mute+close resources=closed',
     'R4GB E2E runtime: OK id=00000000000000A1 extension=.gb end=witness battery=0 rtc=0',
