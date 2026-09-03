@@ -560,7 +560,7 @@ headless_action() {
     export R4OS_QEMU_CPUS=$smp_cpu_count
     export QEMU_TEST_TIMEOUT_SECONDS=$qemu_timeout
     if [ "$clock_smoke" -eq 1 ]; then
-        export R4OS_QEMU_STOP_MARKER='[CLOCKPROBE] result=OK'
+        export R4OS_QEMU_STOP_MARKER='[QUICKPROBE] result=DONE'
     else
         unset R4OS_QEMU_STOP_MARKER || true
     fi
@@ -607,7 +607,7 @@ headless_action() {
     echo '=== HEADLESS TEST OK ==='
     echo 'Boot: OK'
     if [ "$clock_smoke" -eq 1 ]; then
-        echo 'Stop: CLOCKPROBE marker'
+        echo 'Stop: QUICKPROBE marker'
     else
         echo 'Poweroff: OK'
     fi

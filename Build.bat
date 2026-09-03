@@ -368,7 +368,7 @@ if not defined QEMU_TEST_TIMEOUT_SECONDS (
     )
 )
 set "R4OS_QEMU_STOP_MARKER="
-if "%R4OS_CLOCK_SMOKE%"=="1" set "R4OS_QEMU_STOP_MARKER=[CLOCKPROBE] result=OK"
+if "%R4OS_CLOCK_SMOKE%"=="1" set "R4OS_QEMU_STOP_MARKER=[QUICKPROBE] result=DONE"
 
 echo === Start QEMU Test profile headless ===
 echo     Config:  %R4OS_QEMU_CONFIG%
@@ -697,7 +697,7 @@ if errorlevel 1 (
 echo === HEADLESS TEST OK ===
 echo Boot: OK
 if "%R4OS_CLOCK_SMOKE%"=="1" (
-    echo Stop: CLOCKPROBE marker
+    echo Stop: QUICKPROBE marker
 ) else (
     echo Poweroff: OK
 )

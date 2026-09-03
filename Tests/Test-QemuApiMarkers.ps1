@@ -126,7 +126,8 @@ function Test-ClockSmokeContract {
         'Booted via Limine [OK]',
         'Timer [HPET]',
         'Scheduler [OK]',
-        'SMP foundation [OK]'
+        'SMP foundation [OK]',
+        '[QUICKPROBE] result=DONE'
     )
     foreach ($marker in $requiredClock) {
         if ($Text.IndexOf($marker, [StringComparison]::OrdinalIgnoreCase) -lt 0) {
@@ -139,6 +140,7 @@ function Test-ClockSmokeContract {
     foreach ($marker in @('PANIC', 'FATAL', 'CPU EXCEPTION', 'General Protection Fault', 'Page Fault',
             '[SMP] switch boundary violation', '[SMPPROBE] result=FAILED', '[HEAPPROBE] result=FAILED',
             '[TLBPROBE] result=FAILED', '[LOCKPROBE] result=FAILED', '[SERIALPROBE] result=FAILED',
+            '[NVMEIRQ] result=FAILED', '[NVMEIRQPROBE] result=FAILED',
             '[R4LPREEMPT] result=FAILED', '[CLOCKPROBE] result=FAILED')) {
         if ($Text.IndexOf($marker, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
             if (-not $Quiet) { Write-Host ('Clock-smoke marker FAILED forbidden: ' + $marker) }
@@ -199,6 +201,29 @@ function Test-ClockSmokeContract {
         Write-Host 'Clock-smoke SERIALPROBE OK: strings use bounded bulk UART drains without loss.'
     }
 
+    $nvmeIrqPattern = '(?im)^\[NVMEIRQ\] result=OK mode=(?<mode>msi|msix) irq=nonzero work=nonzero completions=nonzero poll_fallback=0\r?$'
+    $nvmeIrq = [regex]::Match($Text, $nvmeIrqPattern)
+    if (-not $nvmeIrq.Success) {
+        if (-not $Quiet) { Write-Host 'Clock-smoke NVMEIRQ FAILED: MSI/MSI-X IRQ work without polling fallback was not proved.' }
+        $failures++
+    } elseif (-not $Quiet) {
+        Write-Host ('Clock-smoke NVMEIRQ OK: mode=' + $nvmeIrq.Groups['mode'].Value + '.')
+    }
+
+    $nvmePattern = '(?im)^\[NVMEIRQPROBE\] result=OK worker_requests=(?<requests>\d+) worker_completions=(?<worker>\d+) async_submissions=(?<submissions>\d+) async_completions=(?<async>\d+)\r?$'
+    $nvme = [regex]::Match($Text, $nvmePattern)
+    $nvmeOk = $nvme.Success -and
+        [uint64]$nvme.Groups['requests'].Value -gt 0 -and
+        [uint64]$nvme.Groups['worker'].Value -gt 0 -and
+        [uint64]$nvme.Groups['submissions'].Value -gt 0 -and
+        [uint64]$nvme.Groups['async'].Value -gt 0
+    if (-not $nvmeOk) {
+        if (-not $Quiet) { Write-Host 'Clock-smoke NVMEIRQPROBE FAILED: short asynchronous MSI/MSI-X completion proof invalid.' }
+        $failures++
+    } elseif (-not $Quiet) {
+        Write-Host 'Clock-smoke NVMEIRQPROBE OK: one short NVMe runtime read completed through MSI/MSI-X.'
+    }
+
     if (-not (Test-R4lPreemptionContract $Text)) {
         if (-not $Quiet) { Write-Host 'Clock-smoke R4LPREEMPT FAILED: bounded R4L timer/IPI preemption proof invalid.' }
         $failures++
@@ -241,8 +266,11 @@ if ($ClockSmoke) {
             '[TLBPROBE] result=OK cpus=4 ready_mask=0x0000000F updated_mask=0x0000000F stale_failures=0 timeout_rejected=1 frame_retained=1 requests=22 ipis=66 acks=63 timeouts=1 expected_timeouts=1 generation=22 cleanup=yes',
             '[LOCKPROBE] result=OK runtime_acquisitions=40 nested=12 collisions=2 cpu_collisions=2 wait_spins=17 max_wait=9 max_hold_cycles=800 legacy_global=0 runtime_owner_classes=1 owner_classes=10 owner_acquisitions=90 owner_collisions=3 order_violations=0 stress_iterations=256 stress_mask=0x0000000F stress_failures=0',
             '[SERIALPROBE] result=OK write_calls=400 bulk_calls=120 lock_acquisitions=400 status_reads=360 ring_bytes=4000 max_span=80 dropped=0',
+            '[NVMEIRQ] result=OK mode=msix irq=nonzero work=nonzero completions=nonzero poll_fallback=0',
+            '[NVMEIRQPROBE] result=OK worker_requests=1 worker_completions=1 async_submissions=1 async_completions=1',
             '[R4LPREEMPT] result=OK cpu=1 timer_switches=1 ipi_switches=1 timer_exit=0 ipi_exit=0 generation=1',
-            '[CLOCKPROBE] result=OK source=TSC cpus=4 registered_mask=0x0000000F regressions=0 irq_delta=42 generation=2 max_skew_ns=300 calibration_ppm=120 fallback=none'
+            '[CLOCKPROBE] result=OK source=TSC cpus=4 registered_mask=0x0000000F regressions=0 irq_delta=42 generation=2 max_skew_ns=300 calibration_ppm=120 fallback=none',
+            '[QUICKPROBE] result=DONE'
         ) -join "`r`n"
         if ((Test-ClockSmokeContract $validClock -Quiet) -ne 0) { throw 'valid clock-smoke marker set did not pass' }
         foreach ($invalidClock in @(
@@ -253,6 +281,8 @@ if ($ClockSmoke) {
                 $validClock.Replace('timeout_rejected=1', 'timeout_rejected=0'),
                 $validClock.Replace('legacy_global=0', 'legacy_global=1'),
                 $validClock.Replace('dropped=0', 'dropped=1'),
+                $validClock.Replace('async_completions=1', 'async_completions=0'),
+                $validClock.Replace('poll_fallback=0', 'poll_fallback=1'),
                 $validClock.Replace('ipi_switches=1', 'ipi_switches=0'),
                 $validClock.Replace('irq_delta=42', 'irq_delta=0'),
                 ($validClock + "`r`n[CLOCKPROBE] result=FAILED"))) {
