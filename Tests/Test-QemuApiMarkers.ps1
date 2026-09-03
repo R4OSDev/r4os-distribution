@@ -33,6 +33,33 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+function Test-HeapProbeContract {
+    param([string]$Text)
+
+    $pattern = '(?im)^\[HEAPPROBE\] result=OK iterations=(?<iterations>\d+) commit_calls=(?<commits>\d+) commit_pages=(?<pages>\d+) uncommit_calls=(?<uncommits>\d+) release_suppressed=(?<suppressed>\d+) poison_bytes=(?<poison>\d+) retained_pages=(?<retained>\d+) block_claims=(?<claims>\d+) extent_allocations=(?<extents>\d+) map_batches=(?<maps>\d+) unmap_batches=(?<unmaps>\d+) pressure=(?<pressure>yes|no)\r?$'
+    $probe = [regex]::Match($Text, $pattern)
+    if (-not $probe.Success) { return $false }
+    $iterations = [uint64]$probe.Groups['iterations'].Value
+    $commits = [uint64]$probe.Groups['commits'].Value
+    $uncommits = [uint64]$probe.Groups['uncommits'].Value
+    $suppressed = [uint64]$probe.Groups['suppressed'].Value
+    $poison = [uint64]$probe.Groups['poison'].Value
+    $pressure = $probe.Groups['pressure'].Value -eq 'yes'
+    $pages = [uint64]$probe.Groups['pages'].Value
+    $claims = [uint64]$probe.Groups['claims'].Value
+    $extents = [uint64]$probe.Groups['extents'].Value
+    $maps = [uint64]$probe.Groups['maps'].Value
+    $unmaps = [uint64]$probe.Groups['unmaps'].Value
+    if ($iterations -ne 16 -or $poison -lt (16 * 192 * 1024)) { return $false }
+    if (($pages -eq 0 -and ($claims -ne 0 -or $extents -ne 0 -or $maps -ne 0)) -or
+        ($pages -gt 0 -and ($claims -gt $pages -or $extents -eq 0 -or $maps -eq 0))) { return $false }
+    if (($uncommits -eq 0 -and $unmaps -ne 0) -or ($uncommits -gt 0 -and $unmaps -eq 0)) { return $false }
+    if ($pressure) { return $commits -le 16 -and $uncommits -le 16 }
+    return $commits -le 2 -and $uncommits -le 1 -and
+        ($suppressed + $uncommits) -ge $iterations -and
+        [uint64]$probe.Groups['retained'].Value -gt 0
+}
+
 function Test-ClockSmokeContract {
     param([string]$Text, [switch]$Quiet)
 
@@ -52,7 +79,7 @@ function Test-ClockSmokeContract {
         }
     }
     foreach ($marker in @('PANIC', 'FATAL', 'CPU EXCEPTION', 'General Protection Fault', 'Page Fault',
-            '[SMP] switch boundary violation', '[SMPPROBE] result=FAILED', '[CLOCKPROBE] result=FAILED')) {
+            '[SMP] switch boundary violation', '[SMPPROBE] result=FAILED', '[HEAPPROBE] result=FAILED', '[CLOCKPROBE] result=FAILED')) {
         if ($Text.IndexOf($marker, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
             if (-not $Quiet) { Write-Host ('Clock-smoke marker FAILED forbidden: ' + $marker) }
             $failures++
@@ -82,6 +109,13 @@ function Test-ClockSmokeContract {
         $failures++
     } elseif (-not $Quiet) {
         Write-Host ('Clock-smoke SMPPROBE OK: speedup=' + $probe.Groups['speedup'].Value + ' milli.')
+    }
+
+    if (-not (Test-HeapProbeContract $Text)) {
+        if (-not $Quiet) { Write-Host 'Clock-smoke HEAPPROBE FAILED: short churn, retention, or poison proof invalid.' }
+        $failures++
+    } elseif (-not $Quiet) {
+        Write-Host 'Clock-smoke HEAPPROBE OK: 16 short churn iterations.'
     }
 
     $clockPattern = '(?im)^\[CLOCKPROBE\] result=OK source=(?<source>TSC|HPET) cpus=4 registered_mask=0x(?<mask>[0-9A-F]+) regressions=0 irq_delta=(?<irq>\d+) generation=(?<generation>\d+) max_skew_ns=(?<skew>\d+) calibration_ppm=(?<ppm>\d+) fallback=(?<fallback>[a-z0-9-]+)\r?$'
@@ -115,6 +149,7 @@ if ($ClockSmoke) {
             '  SMP foundation [OK]',
             '[SMP] stage=active discovered=4 started=3 online=4 failed=0 fallback=no',
             '[SMPPROBE] result=OK cpus=4 sequential_ns=200 parallel_ns=100 speedup_milli=2000 expected_mask=0x0000000F observed_mask=0x0000000F failures=0',
+            '[HEAPPROBE] result=OK iterations=16 commit_calls=1 commit_pages=49 uncommit_calls=1 release_suppressed=15 poison_bytes=3145728 retained_pages=64 block_claims=1 extent_allocations=1 map_batches=1 unmap_batches=1 pressure=no',
             '[CLOCKPROBE] result=OK source=TSC cpus=4 registered_mask=0x0000000F regressions=0 irq_delta=42 generation=2 max_skew_ns=300 calibration_ppm=120 fallback=none'
         ) -join "`r`n"
         if ((Test-ClockSmokeContract $validClock -Quiet) -ne 0) { throw 'valid clock-smoke marker set did not pass' }
@@ -122,6 +157,7 @@ if ($ClockSmoke) {
                 $validClock.Replace('online=4', 'online=3'),
                 $validClock.Replace('speedup_milli=2000', 'speedup_milli=1049'),
                 $validClock.Replace('observed_mask=0x0000000F', 'observed_mask=0x00000007'),
+                $validClock.Replace('poison_bytes=3145728', 'poison_bytes=0'),
                 $validClock.Replace('irq_delta=42', 'irq_delta=0'),
                 ($validClock + "`r`n[CLOCKPROBE] result=FAILED"))) {
             if ((Test-ClockSmokeContract $invalidClock -Quiet) -eq 0) { throw 'invalid clock-smoke marker set was accepted' }
@@ -254,6 +290,7 @@ $forbidden = @(
     'CPU EXCEPTION',
     '[SMP] switch boundary violation',
     '[SMPPROBE] result=FAILED',
+    '[HEAPPROBE] result=FAILED',
     '[CLOCKPROBE] result=FAILED',
     'General Protection Fault',
     'Page Fault',
@@ -764,6 +801,12 @@ function Test-ApiMarkerContract {
         } elseif (-not $Quiet) {
             Write-Host ('SMP kernel scaling marker OK: ' + $probeMatch.Groups[1].Value + ' milli.')
         }
+        if (-not (Test-HeapProbeContract $Text)) {
+            if (-not $Quiet) { Write-Host 'SMP heap marker FAILED: short churn, retention, or poison proof missing.' }
+            $failures++
+        } elseif (-not $Quiet) {
+            Write-Host 'SMP heap marker OK: 16 short churn iterations.'
+        }
         $clockPattern = '(?im)^\[CLOCKPROBE\] result=OK source=(TSC|HPET) cpus=' + $expectedOnline +
             ' registered_mask=0x[0-9A-F]+ regressions=0 irq_delta=(\d+) generation=(\d+)' +
             ' max_skew_ns=\d+ calibration_ppm=\d+ fallback=[a-z0-9-]+\r?$'
@@ -863,6 +906,7 @@ if ($SelfTest) {
             ' failed=' + $SmpFailedCount + ' fallback=' + $(if ($expectedOnline -eq 1) { '1cpu' } else { 'no' })) +
             "`r`n[SMP] productive cpu=1 task=r4x-app class=r4x" +
             "`r`n[SMPPROBE] result=OK cpus=$expectedOnline sequential_ns=200 parallel_ns=100 speedup_milli=2000 expected_mask=0x0000000F observed_mask=0x0000000F failures=0" +
+            "`r`n[HEAPPROBE] result=OK iterations=16 commit_calls=1 commit_pages=49 uncommit_calls=1 release_suppressed=15 poison_bytes=3145728 retained_pages=64 block_claims=1 extent_allocations=1 map_batches=1 unmap_batches=1 pressure=no" +
             "`r`n[CLOCKPROBE] result=OK source=TSC cpus=$expectedOnline registered_mask=0x0000000F regressions=0 irq_delta=42 generation=2 max_skew_ns=300 calibration_ppm=120 fallback=none"
         if ($SmpFailedCount -gt 0) {
             $valid += "`r`n[SMP] ap=2 apic=2 failed=diagnostic-injection"
