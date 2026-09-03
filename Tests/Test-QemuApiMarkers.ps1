@@ -106,6 +106,18 @@ function Test-SerialProbeContract {
         [uint64]$probe.Groups['reads'].Value -lt [uint64]$probe.Groups['bytes'].Value
 }
 
+function Test-R4lPreemptionContract {
+    param([string]$Text)
+
+    $pattern = '(?im)^\[R4LPREEMPT\] result=OK cpu=(?<cpu>\d+) timer_switches=(?<timer>\d+) ipi_switches=(?<ipi>\d+) timer_exit=0 ipi_exit=0 generation=(?<generation>\d+)\r?$'
+    $probe = [regex]::Match($Text, $pattern)
+    if (-not $probe.Success) { return $false }
+    return [uint64]$probe.Groups['cpu'].Value -gt 0 -and
+        [uint64]$probe.Groups['timer'].Value -gt 0 -and
+        [uint64]$probe.Groups['ipi'].Value -gt 0 -and
+        [uint64]$probe.Groups['generation'].Value -gt 0
+}
+
 function Test-ClockSmokeContract {
     param([string]$Text, [switch]$Quiet)
 
@@ -127,7 +139,7 @@ function Test-ClockSmokeContract {
     foreach ($marker in @('PANIC', 'FATAL', 'CPU EXCEPTION', 'General Protection Fault', 'Page Fault',
             '[SMP] switch boundary violation', '[SMPPROBE] result=FAILED', '[HEAPPROBE] result=FAILED',
             '[TLBPROBE] result=FAILED', '[LOCKPROBE] result=FAILED', '[SERIALPROBE] result=FAILED',
-            '[CLOCKPROBE] result=FAILED')) {
+            '[R4LPREEMPT] result=FAILED', '[CLOCKPROBE] result=FAILED')) {
         if ($Text.IndexOf($marker, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
             if (-not $Quiet) { Write-Host ('Clock-smoke marker FAILED forbidden: ' + $marker) }
             $failures++
@@ -187,6 +199,13 @@ function Test-ClockSmokeContract {
         Write-Host 'Clock-smoke SERIALPROBE OK: strings use bounded bulk UART drains without loss.'
     }
 
+    if (-not (Test-R4lPreemptionContract $Text)) {
+        if (-not $Quiet) { Write-Host 'Clock-smoke R4LPREEMPT FAILED: bounded R4L timer/IPI preemption proof invalid.' }
+        $failures++
+    } elseif (-not $Quiet) {
+        Write-Host 'Clock-smoke R4LPREEMPT OK: bounded AP timer and reschedule-IPI paths proved.'
+    }
+
     $clockPattern = '(?im)^\[CLOCKPROBE\] result=OK source=(?<source>TSC|HPET) cpus=4 registered_mask=0x(?<mask>[0-9A-F]+) regressions=0 irq_delta=(?<irq>\d+) generation=(?<generation>\d+) max_skew_ns=(?<skew>\d+) calibration_ppm=(?<ppm>\d+) fallback=(?<fallback>[a-z0-9-]+)\r?$'
     $clock = [regex]::Match($Text, $clockPattern)
     $clockOk = $clock.Success
@@ -222,6 +241,7 @@ if ($ClockSmoke) {
             '[TLBPROBE] result=OK cpus=4 ready_mask=0x0000000F updated_mask=0x0000000F stale_failures=0 timeout_rejected=1 frame_retained=1 requests=22 ipis=66 acks=63 timeouts=1 expected_timeouts=1 generation=22 cleanup=yes',
             '[LOCKPROBE] result=OK runtime_acquisitions=40 nested=12 collisions=2 cpu_collisions=2 wait_spins=17 max_wait=9 max_hold_cycles=800 legacy_global=0 runtime_owner_classes=1 owner_classes=10 owner_acquisitions=90 owner_collisions=3 order_violations=0 stress_iterations=256 stress_mask=0x0000000F stress_failures=0',
             '[SERIALPROBE] result=OK write_calls=400 bulk_calls=120 lock_acquisitions=400 status_reads=360 ring_bytes=4000 max_span=80 dropped=0',
+            '[R4LPREEMPT] result=OK cpu=1 timer_switches=1 ipi_switches=1 timer_exit=0 ipi_exit=0 generation=1',
             '[CLOCKPROBE] result=OK source=TSC cpus=4 registered_mask=0x0000000F regressions=0 irq_delta=42 generation=2 max_skew_ns=300 calibration_ppm=120 fallback=none'
         ) -join "`r`n"
         if ((Test-ClockSmokeContract $validClock -Quiet) -ne 0) { throw 'valid clock-smoke marker set did not pass' }
@@ -233,6 +253,7 @@ if ($ClockSmoke) {
                 $validClock.Replace('timeout_rejected=1', 'timeout_rejected=0'),
                 $validClock.Replace('legacy_global=0', 'legacy_global=1'),
                 $validClock.Replace('dropped=0', 'dropped=1'),
+                $validClock.Replace('ipi_switches=1', 'ipi_switches=0'),
                 $validClock.Replace('irq_delta=42', 'irq_delta=0'),
                 ($validClock + "`r`n[CLOCKPROBE] result=FAILED"))) {
             if ((Test-ClockSmokeContract $invalidClock -Quiet) -eq 0) { throw 'invalid clock-smoke marker set was accepted' }
@@ -369,6 +390,7 @@ $forbidden = @(
     '[TLBPROBE] result=FAILED',
     '[LOCKPROBE] result=FAILED',
     '[SERIALPROBE] result=FAILED',
+    '[R4LPREEMPT] result=FAILED',
     '[CLOCKPROBE] result=FAILED',
     'General Protection Fault',
     'Page Fault',
@@ -903,6 +925,14 @@ function Test-ApiMarkerContract {
         } elseif (-not $Quiet) {
             Write-Host 'SMP serial marker OK.'
         }
+        if ($expectedOnline -gt 1) {
+            if (-not (Test-R4lPreemptionContract $Text)) {
+                if (-not $Quiet) { Write-Host 'SMP R4L preemption marker FAILED: AP timer/IPI proof missing.' }
+                $failures++
+            } elseif (-not $Quiet) {
+                Write-Host 'SMP R4L preemption marker OK.'
+            }
+        }
         $clockPattern = '(?im)^\[CLOCKPROBE\] result=OK source=(TSC|HPET) cpus=' + $expectedOnline +
             ' registered_mask=0x[0-9A-F]+ regressions=0 irq_delta=(\d+) generation=(\d+)' +
             ' max_skew_ns=\d+ calibration_ppm=\d+ fallback=[a-z0-9-]+\r?$'
@@ -1007,6 +1037,7 @@ if ($SelfTest) {
             "`r`n[TLBPROBE] result=OK cpus=$expectedOnline ready_mask=0x$syntheticMask updated_mask=0x$syntheticMask stale_failures=0 timeout_rejected=1 frame_retained=1 requests=22 ipis=66 acks=63 timeouts=1 expected_timeouts=1 generation=22 cleanup=yes" +
             "`r`n[LOCKPROBE] result=OK runtime_acquisitions=40 nested=12 collisions=2 cpu_collisions=2 wait_spins=17 max_wait=9 max_hold_cycles=800 legacy_global=0 runtime_owner_classes=1 owner_classes=10 owner_acquisitions=90 owner_collisions=3 order_violations=0 stress_iterations=$($expectedOnline * 64) stress_mask=0x$syntheticMask stress_failures=0" +
             "`r`n[SERIALPROBE] result=OK write_calls=400 bulk_calls=120 lock_acquisitions=400 status_reads=360 ring_bytes=4000 max_span=80 dropped=0" +
+            "`r`n[R4LPREEMPT] result=OK cpu=1 timer_switches=1 ipi_switches=1 timer_exit=0 ipi_exit=0 generation=1" +
             "`r`n[CLOCKPROBE] result=OK source=TSC cpus=$expectedOnline registered_mask=0x0000000F regressions=0 irq_delta=42 generation=2 max_skew_ns=300 calibration_ppm=120 fallback=none"
         if ($SmpFailedCount -gt 0) {
             $valid += "`r`n[SMP] ap=2 apic=2 failed=diagnostic-injection"
