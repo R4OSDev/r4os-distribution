@@ -47,9 +47,10 @@ includes the concurrent 60-guest-second R4GB and R4SNES product runs;
 `QEMU_TEST_TIMEOUT_SECONDS` overrides it explicitly.
 The `clock4` variant is a short four-vCPU smoke test: it validates boot, SMP,
 parallel progress, generation-bound TLB shootdowns with safe Ack-timeout
-rollback, memory-lock ordering, and the cross-CPU monotonic clock/IRQ proof, then terminates
+rollback, sharded runtime/owner locks under short four-CPU heap stress, the
+loss-free COM1 bulk path, and the cross-CPU monotonic clock/IRQ proof, then terminates
 QEMU as soon as `[CLOCKPROBE] result=OK` reaches the serial log. It therefore
-does not enter either subsystem long run.
+does not start userland, R4GB, or R4SNES.
 The standard QEMU configuration keeps the boot volume on ICH9 AHCI and attaches the
 fresh data image as an NVMe namespace. The existing 1-MB FSDIAG guest probe and
 required ownership/mount markers therefore cover canonical NVME.R4D discovery

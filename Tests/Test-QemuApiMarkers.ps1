@@ -79,14 +79,31 @@ function Test-TlbProbeContract {
 }
 
 function Test-LockProbeContract {
+    param([string]$Text, [int]$ExpectedCpuCount)
+
+    $pattern = '(?im)^\[LOCKPROBE\] result=OK runtime_acquisitions=(?<runtime>\d+) nested=(?<nested>\d+) collisions=(?<collisions>\d+) cpu_collisions=(?<cpu>\d+) wait_spins=(?<spins>\d+) max_wait=(?<maxwait>\d+) max_hold_cycles=(?<hold>\d+) legacy_global=0 runtime_owner_classes=1 owner_classes=10 owner_acquisitions=(?<owner>\d+) owner_collisions=(?<owner_collisions>\d+) order_violations=0 stress_iterations=(?<iterations>\d+) stress_mask=0x(?<mask>[0-9A-F]+) stress_failures=0\r?$'
+    $probe = [regex]::Match($Text, $pattern)
+    if (-not $probe.Success) { return $false }
+    $mask = [Convert]::ToUInt64($probe.Groups['mask'].Value, 16)
+    $maskCount = ([Convert]::ToString([int64]$mask, 2).Replace('0', '')).Length
+    return $probe.Success -and
+        [uint64]$probe.Groups['runtime'].Value -gt 0 -and
+        [uint64]$probe.Groups['hold'].Value -gt 0 -and
+        [uint64]$probe.Groups['owner'].Value -gt 0 -and
+        [uint64]$probe.Groups['iterations'].Value -ge ([uint64]$ExpectedCpuCount * 64) -and
+        $maskCount -eq $ExpectedCpuCount
+}
+
+function Test-SerialProbeContract {
     param([string]$Text)
 
-    $pattern = '(?im)^\[LOCKPROBE\] result=OK legacy_acquisitions=(?<legacy>\d+) nested=(?<nested>\d+) collisions=(?<collisions>\d+) cpu_collisions=(?<cpu>\d+) wait_spins=(?<spins>\d+) max_wait=(?<maxwait>\d+) max_hold_cycles=(?<hold>\d+) unclassified=0 classified_classes=11 owner_classes=3 owner_acquisitions=(?<owner>\d+) owner_collisions=(?<owner_collisions>\d+) order_violations=0\r?$'
+    $pattern = '(?im)^\[SERIALPROBE\] result=OK write_calls=(?<writes>\d+) bulk_calls=(?<bulk>\d+) lock_acquisitions=(?<locks>\d+) status_reads=(?<reads>\d+) ring_bytes=(?<bytes>\d+) max_span=(?<span>\d+) dropped=0\r?$'
     $probe = [regex]::Match($Text, $pattern)
-    return $probe.Success -and
-        [uint64]$probe.Groups['legacy'].Value -gt 0 -and
-        [uint64]$probe.Groups['hold'].Value -gt 0 -and
-        [uint64]$probe.Groups['owner'].Value -gt 0
+    if (-not $probe.Success) { return $false }
+    return [uint64]$probe.Groups['writes'].Value -eq [uint64]$probe.Groups['locks'].Value -and
+        [uint64]$probe.Groups['bulk'].Value -gt 0 -and
+        [uint64]$probe.Groups['span'].Value -gt 1 -and
+        [uint64]$probe.Groups['reads'].Value -lt [uint64]$probe.Groups['bytes'].Value
 }
 
 function Test-ClockSmokeContract {
@@ -109,7 +126,8 @@ function Test-ClockSmokeContract {
     }
     foreach ($marker in @('PANIC', 'FATAL', 'CPU EXCEPTION', 'General Protection Fault', 'Page Fault',
             '[SMP] switch boundary violation', '[SMPPROBE] result=FAILED', '[HEAPPROBE] result=FAILED',
-            '[TLBPROBE] result=FAILED', '[LOCKPROBE] result=FAILED', '[CLOCKPROBE] result=FAILED')) {
+            '[TLBPROBE] result=FAILED', '[LOCKPROBE] result=FAILED', '[SERIALPROBE] result=FAILED',
+            '[CLOCKPROBE] result=FAILED')) {
         if ($Text.IndexOf($marker, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
             if (-not $Quiet) { Write-Host ('Clock-smoke marker FAILED forbidden: ' + $marker) }
             $failures++
@@ -155,11 +173,18 @@ function Test-ClockSmokeContract {
         Write-Host 'Clock-smoke TLBPROBE OK: cross-CPU invalidation and timeout retention proved.'
     }
 
-    if (-not (Test-LockProbeContract $Text)) {
+    if (-not (Test-LockProbeContract $Text 4)) {
         if (-not $Quiet) { Write-Host 'Clock-smoke LOCKPROBE FAILED: ownership classification or lock order invalid.' }
         $failures++
     } elseif (-not $Quiet) {
-        Write-Host 'Clock-smoke LOCKPROBE OK: all legacy calls classified and owner-lock order clean.'
+        Write-Host 'Clock-smoke LOCKPROBE OK: global BKL retired and owner-lock order clean.'
+    }
+
+    if (-not (Test-SerialProbeContract $Text)) {
+        if (-not $Quiet) { Write-Host 'Clock-smoke SERIALPROBE FAILED: bulk serial span or byte-completeness proof invalid.' }
+        $failures++
+    } elseif (-not $Quiet) {
+        Write-Host 'Clock-smoke SERIALPROBE OK: strings use bounded bulk UART drains without loss.'
     }
 
     $clockPattern = '(?im)^\[CLOCKPROBE\] result=OK source=(?<source>TSC|HPET) cpus=4 registered_mask=0x(?<mask>[0-9A-F]+) regressions=0 irq_delta=(?<irq>\d+) generation=(?<generation>\d+) max_skew_ns=(?<skew>\d+) calibration_ppm=(?<ppm>\d+) fallback=(?<fallback>[a-z0-9-]+)\r?$'
@@ -195,7 +220,8 @@ if ($ClockSmoke) {
             '[SMPPROBE] result=OK cpus=4 sequential_ns=200 parallel_ns=100 speedup_milli=2000 expected_mask=0x0000000F observed_mask=0x0000000F failures=0',
             '[HEAPPROBE] result=OK iterations=16 commit_calls=1 commit_pages=49 uncommit_calls=1 release_suppressed=15 poison_bytes=3145728 retained_pages=64 block_claims=1 extent_allocations=1 map_batches=1 unmap_batches=1 pressure=no',
             '[TLBPROBE] result=OK cpus=4 ready_mask=0x0000000F updated_mask=0x0000000F stale_failures=0 timeout_rejected=1 frame_retained=1 requests=22 ipis=66 acks=63 timeouts=1 expected_timeouts=1 generation=22 cleanup=yes',
-            '[LOCKPROBE] result=OK legacy_acquisitions=40 nested=12 collisions=2 cpu_collisions=2 wait_spins=17 max_wait=9 max_hold_cycles=800 unclassified=0 classified_classes=11 owner_classes=3 owner_acquisitions=90 owner_collisions=3 order_violations=0',
+            '[LOCKPROBE] result=OK runtime_acquisitions=40 nested=12 collisions=2 cpu_collisions=2 wait_spins=17 max_wait=9 max_hold_cycles=800 legacy_global=0 runtime_owner_classes=1 owner_classes=10 owner_acquisitions=90 owner_collisions=3 order_violations=0 stress_iterations=256 stress_mask=0x0000000F stress_failures=0',
+            '[SERIALPROBE] result=OK write_calls=400 bulk_calls=120 lock_acquisitions=400 status_reads=360 ring_bytes=4000 max_span=80 dropped=0',
             '[CLOCKPROBE] result=OK source=TSC cpus=4 registered_mask=0x0000000F regressions=0 irq_delta=42 generation=2 max_skew_ns=300 calibration_ppm=120 fallback=none'
         ) -join "`r`n"
         if ((Test-ClockSmokeContract $validClock -Quiet) -ne 0) { throw 'valid clock-smoke marker set did not pass' }
@@ -205,7 +231,8 @@ if ($ClockSmoke) {
                 $validClock.Replace('observed_mask=0x0000000F', 'observed_mask=0x00000007'),
                 $validClock.Replace('poison_bytes=3145728', 'poison_bytes=0'),
                 $validClock.Replace('timeout_rejected=1', 'timeout_rejected=0'),
-                $validClock.Replace('unclassified=0', 'unclassified=1'),
+                $validClock.Replace('legacy_global=0', 'legacy_global=1'),
+                $validClock.Replace('dropped=0', 'dropped=1'),
                 $validClock.Replace('irq_delta=42', 'irq_delta=0'),
                 ($validClock + "`r`n[CLOCKPROBE] result=FAILED"))) {
             if ((Test-ClockSmokeContract $invalidClock -Quiet) -eq 0) { throw 'invalid clock-smoke marker set was accepted' }
@@ -341,6 +368,7 @@ $forbidden = @(
     '[HEAPPROBE] result=FAILED',
     '[TLBPROBE] result=FAILED',
     '[LOCKPROBE] result=FAILED',
+    '[SERIALPROBE] result=FAILED',
     '[CLOCKPROBE] result=FAILED',
     'General Protection Fault',
     'Page Fault',
@@ -863,11 +891,17 @@ function Test-ApiMarkerContract {
         } elseif (-not $Quiet) {
             Write-Host 'SMP TLB marker OK.'
         }
-        if (-not (Test-LockProbeContract $Text)) {
+        if (-not (Test-LockProbeContract $Text $expectedOnline)) {
             if (-not $Quiet) { Write-Host 'SMP lock marker FAILED: ownership classification or lock order invalid.' }
             $failures++
         } elseif (-not $Quiet) {
             Write-Host 'SMP lock marker OK.'
+        }
+        if (-not (Test-SerialProbeContract $Text)) {
+            if (-not $Quiet) { Write-Host 'SMP serial marker FAILED: bulk serial span or loss-free proof missing.' }
+            $failures++
+        } elseif (-not $Quiet) {
+            Write-Host 'SMP serial marker OK.'
         }
         $clockPattern = '(?im)^\[CLOCKPROBE\] result=OK source=(TSC|HPET) cpus=' + $expectedOnline +
             ' registered_mask=0x[0-9A-F]+ regressions=0 irq_delta=(\d+) generation=(\d+)' +
@@ -971,7 +1005,8 @@ if ($SelfTest) {
             "`r`n[SMPPROBE] result=OK cpus=$expectedOnline sequential_ns=200 parallel_ns=100 speedup_milli=2000 expected_mask=0x0000000F observed_mask=0x0000000F failures=0" +
             "`r`n[HEAPPROBE] result=OK iterations=16 commit_calls=1 commit_pages=49 uncommit_calls=1 release_suppressed=15 poison_bytes=3145728 retained_pages=64 block_claims=1 extent_allocations=1 map_batches=1 unmap_batches=1 pressure=no" +
             "`r`n[TLBPROBE] result=OK cpus=$expectedOnline ready_mask=0x$syntheticMask updated_mask=0x$syntheticMask stale_failures=0 timeout_rejected=1 frame_retained=1 requests=22 ipis=66 acks=63 timeouts=1 expected_timeouts=1 generation=22 cleanup=yes" +
-            "`r`n[LOCKPROBE] result=OK legacy_acquisitions=40 nested=12 collisions=2 cpu_collisions=2 wait_spins=17 max_wait=9 max_hold_cycles=800 unclassified=0 classified_classes=11 owner_classes=3 owner_acquisitions=90 owner_collisions=3 order_violations=0" +
+            "`r`n[LOCKPROBE] result=OK runtime_acquisitions=40 nested=12 collisions=2 cpu_collisions=2 wait_spins=17 max_wait=9 max_hold_cycles=800 legacy_global=0 runtime_owner_classes=1 owner_classes=10 owner_acquisitions=90 owner_collisions=3 order_violations=0 stress_iterations=$($expectedOnline * 64) stress_mask=0x$syntheticMask stress_failures=0" +
+            "`r`n[SERIALPROBE] result=OK write_calls=400 bulk_calls=120 lock_acquisitions=400 status_reads=360 ring_bytes=4000 max_span=80 dropped=0" +
             "`r`n[CLOCKPROBE] result=OK source=TSC cpus=$expectedOnline registered_mask=0x0000000F regressions=0 irq_delta=42 generation=2 max_skew_ns=300 calibration_ppm=120 fallback=none"
         if ($SmpFailedCount -gt 0) {
             $valid += "`r`n[SMP] ap=2 apic=2 failed=diagnostic-injection"

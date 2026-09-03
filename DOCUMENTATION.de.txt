@@ -86,10 +86,11 @@ netzwerklos und unveraendert an seine feste TCG-/Haswell-Umgebung gebunden.
 
 Die Variante `headless Test clock4` ist eine kurze SMP4-Abnahme. Sie prueft
 Boot, vier aktive CPUs, parallelen Fortschritt, generationstreue TLB-
-Shootdowns samt sicherem Ack-Timeout, die Speicher-Lockreihenfolge sowie den
-CPU-uebergreifenden Monotonie-/IRQ-Nachweis und beendet QEMU unmittelbar nach
-`[CLOCKPROBE] result=OK`. Die R4GB- und R4SNES-Langlaeufe werden dabei nicht
-erreicht.
+Shootdowns samt sicherem Ack-Timeout, getrennte Runtime-/Owner-Locks unter
+kurzer Vier-CPU-Heaplast, den verlustfreien COM1-Bulkpfad sowie den CPU-
+uebergreifenden Monotonie-/IRQ-Nachweis und beendet QEMU unmittelbar nach
+`[CLOCKPROBE] result=OK`. Userland, R4GB und R4SNES werden dabei nicht
+gestartet.
 
 Die optionale Variante `browser` legt `BrowserTestInjection` nach
 `TestInjection` ueber das Testimage und verlangt bei der Headless-Auswertung
