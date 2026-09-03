@@ -12,6 +12,7 @@ rebuild the kernel, libraries, or modules.
     Build.bat image Full
     Build.bat verify Full
     Build.bat qemu Full
+    Build.bat qemu Full RTL8139
     Build.bat ssh Full
     Build.bat headless Test
     Build.bat image Test browser
@@ -30,8 +31,11 @@ image persistent, writes serial output to
 `Artifacts/Distribution/Logs/qemu-ssh-debug.log`, and stays in the foreground
 until the guest powers off. Connect with
 `ssh -p 10022 -c chacha20-poly1305@openssh.com r4os@127.0.0.1`. Normal GUI
-launches provide the same local RTL8139/SSH path; automated headless tests and
-benchmarks remain network-disabled.
+and SSH launches use host acceleration when available and select VirtioNet by
+default. Passing `RTL8139` after the profile selects the explicit compatibility
+adapter. Both provide the same loopback-only SSH path; automated headless tests
+and benchmarks remain network-disabled, and the versioned benchmark environment
+stays fixed to single-threaded TCG/Haswell.
 
 The optional `browser` variant layers `BrowserTestInjection` over the normal
 Test injection and evaluates the additional offline Klickifax markers. The

@@ -169,7 +169,7 @@ call :run_plan_acceptance
 if errorlevel 1 exit /b %ERRORLEVEL%
 call :run_marker_acceptance
 if errorlevel 1 exit /b %ERRORLEVEL%
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_RUNNER%" -SelfTest
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_RUNNER%" -SelfTest -QemuPath "%R4OS_QEMU_EXE%"
 if errorlevel 1 exit /b %ERRORLEVEL%
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_BENCHMARK_RUNNER%" -SelfTest
 if errorlevel 1 exit /b %ERRORLEVEL%
@@ -241,6 +241,8 @@ exit /b %ERRORLEVEL%
 :qemu_action
 call :load_profile "%R4OS_REQUESTED_PROFILE%"
 if errorlevel 1 exit /b %ERRORLEVEL%
+set "R4OS_QEMU_NETWORK_ADAPTER=%R4OS_REQUESTED_VARIANT%"
+if not defined R4OS_QEMU_NETWORK_ADAPTER set "R4OS_QEMU_NETWORK_ADAPTER=VirtioNet"
 set "R4OS_PROFILE_OUTPUT=%R4OS_OUTPUT_ROOT%\Profiles\%R4OS_PROFILE%"
 if not exist "%R4OS_PROFILE_OUTPUT%\disk.img" (
     echo ERROR: Image not found: "%R4OS_PROFILE_OUTPUT%\disk.img"
@@ -254,12 +256,14 @@ if not exist "%R4OS_QEMU_RUNNER%" (
     echo ERROR: QEMU runner not found: "%R4OS_QEMU_RUNNER%"
     exit /b 1
 )
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_RUNNER%" -Mode Gui -QemuPath "%R4OS_QEMU_EXE%" -ConfigPath "%R4OS_QEMU_CONFIG%" -WorkingDirectory "%R4OS_PROFILE_OUTPUT%"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_RUNNER%" -Mode Gui -QemuPath "%R4OS_QEMU_EXE%" -ConfigPath "%R4OS_QEMU_CONFIG%" -WorkingDirectory "%R4OS_PROFILE_OUTPUT%" -NetworkAdapter "%R4OS_QEMU_NETWORK_ADAPTER%"
 exit /b %ERRORLEVEL%
 
 :ssh_action
 call :load_profile "%R4OS_REQUESTED_PROFILE%"
 if errorlevel 1 exit /b %ERRORLEVEL%
+set "R4OS_QEMU_NETWORK_ADAPTER=%R4OS_REQUESTED_VARIANT%"
+if not defined R4OS_QEMU_NETWORK_ADAPTER set "R4OS_QEMU_NETWORK_ADAPTER=VirtioNet"
 if /i not "%R4OS_PROFILE%"=="Full" (
     echo ERROR: SSH debugging requires the Full profile.
     exit /b 1
@@ -279,7 +283,7 @@ if not exist "%R4OS_QEMU_RUNNER%" (
 )
 if not exist "%R4OS_LOG_ROOT%" mkdir "%R4OS_LOG_ROOT%" || exit /b 1
 set "R4OS_SSH_LOG=%R4OS_LOG_ROOT%\qemu-ssh-debug.log"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_RUNNER%" -Mode SshDebug -QemuPath "%R4OS_QEMU_EXE%" -ConfigPath "%R4OS_QEMU_CONFIG%" -WorkingDirectory "%R4OS_PROFILE_OUTPUT%" -SerialLogPath "%R4OS_SSH_LOG%"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_RUNNER%" -Mode SshDebug -QemuPath "%R4OS_QEMU_EXE%" -ConfigPath "%R4OS_QEMU_CONFIG%" -WorkingDirectory "%R4OS_PROFILE_OUTPUT%" -SerialLogPath "%R4OS_SSH_LOG%" -NetworkAdapter "%R4OS_QEMU_NETWORK_ADAPTER%"
 exit /b %ERRORLEVEL%
 
 :headless_action
@@ -690,8 +694,8 @@ echo   Build.bat test
 echo   Build.bat plan Slim^|Full^|Test^|Benchmark
 echo   Build.bat image Slim^|Full^|Test^|Benchmark [browser]
 echo   Build.bat verify Slim^|Full^|Test^|Benchmark
-echo   Build.bat qemu Slim^|Full^|Test^|Benchmark
-echo   Build.bat ssh Full
+echo   Build.bat qemu Slim^|Full^|Test^|Benchmark [VirtioNet^|RTL8139]
+echo   Build.bat ssh Full [VirtioNet^|RTL8139]
 echo   Build.bat headless Test [browser^|smp2^|smp4^|smpfail4]
 echo   Build.bat benchmark Benchmark SUITE WORKLOAD_VERSION WARM^|COLD REPETITIONS ENVIRONMENT_ID
 exit /b 1

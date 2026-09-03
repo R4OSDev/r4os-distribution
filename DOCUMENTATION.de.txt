@@ -33,6 +33,7 @@ Unter Windows:
     Build.bat image Full
     Build.bat verify Full
     Build.bat qemu Full
+    Build.bat qemu Full RTL8139
     Build.bat ssh Full
     Build.bat headless Test
     Build.bat image Test browser
@@ -47,6 +48,7 @@ Verfuegung, beispielsweise:
     ./Build.sh image Full
     ./Build.sh verify Full
     ./Build.sh ssh Full
+    ./Build.sh ssh Full RTL8139
     ./Build.sh headless Test
     ./Build.sh image Test browser
     ./Build.sh headless Test browser
@@ -58,8 +60,13 @@ die plattformspezifischen Starter fuer dieselben Distributionsaktionen.
 Die QEMU-Software selbst liegt ausschliesslich im DevKit unter dem durch
 `QEMU_ROOT` gemappten `Emulation/QEMU`. Dieses Repository enthaelt unter
 `QEMU/` nur R4OS-spezifische Konfiguration. `qemu` startet ein Profil mit GUI.
-Der gemeinsame Runner gibt GUI- und SSH-Debuglaeufen einen RTL8139-Adapter und
-die ausschliesslich lokale Weiterleitung
+Der gemeinsame Runner verwendet auf x86_64-Linux bei zugaenglichem `/dev/kvm`
+KVM mit der Host-CPU, auf geeigneten Windows- beziehungsweise Intel-macOS-
+Hosts WHPX oder HVF und sonst TCG mit Haswell; Hardwarepfade behalten TCG als
+Rueckfallebene. GUI- und SSH-Debuglaeufe erhalten standardmaessig VirtioNet.
+Ein drittes Argument `RTL8139` am direkten `qemu`- oder `ssh`-Start waehlt
+den Kompatibilitaetsadapter. Beide Varianten verwenden die ausschliesslich
+lokale Weiterleitung
 `127.0.0.1:10022 -> 10.0.2.15:22`. `ssh Full` startet ein vorhandenes
 Full-Image ohne Anzeige, verwendet dessen persistentes Datenimage, schreibt
 die serielle Ausgabe nach
@@ -73,7 +80,7 @@ Eine externe Port- oder Firewallfreigabe ist dafuer nicht erforderlich.
 deaktiviert das Netzwerk, schreibt serielle Logs unter
 `Artifacts/Distribution/Logs`, wertet die verbindlichen Boot-/API-Marker aus
 und verlangt ein geordnetes Gast-Poweroff. Auch der Benchmark bleibt
-netzwerklos.
+netzwerklos und unveraendert an seine feste TCG-/Haswell-Umgebung gebunden.
 
 Die optionale Variante `browser` legt `BrowserTestInjection` nach
 `TestInjection` ueber das Testimage und verlangt bei der Headless-Auswertung

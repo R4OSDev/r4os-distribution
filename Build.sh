@@ -452,6 +452,7 @@ verify_action() {
 
 qemu_action() {
     load_profile "$1"
+    network_adapter=${2:-VirtioNet}
     profile_output=$output_root/Profiles/$profile
     if [ ! -f "$profile_output/disk.img" ]; then
         echo "ERROR: Image not found: $profile_output/disk.img" >&2
@@ -469,11 +470,12 @@ qemu_action() {
     done
     pwsh -NoLogo -NoProfile -File "$qemu_runner" \
         -Mode Gui -QemuPath "$qemu_exe" -ConfigPath "$qemu_config" \
-        -WorkingDirectory "$profile_output"
+        -WorkingDirectory "$profile_output" -NetworkAdapter "$network_adapter"
 }
 
 ssh_action() {
     load_profile "$1"
+    network_adapter=${2:-VirtioNet}
     if [ "$profile" != Full ]; then
         echo 'ERROR: SSH debugging requires the Full profile.' >&2
         exit 1
@@ -488,7 +490,8 @@ ssh_action() {
     mkdir -p "$log_root"
     pwsh -NoLogo -NoProfile -File "$qemu_runner" \
         -Mode SshDebug -QemuPath "$qemu_exe" -ConfigPath "$qemu_config" \
-        -WorkingDirectory "$profile_output" -SerialLogPath "$log_root/qemu-ssh-debug.log"
+        -WorkingDirectory "$profile_output" -SerialLogPath "$log_root/qemu-ssh-debug.log" \
+        -NetworkAdapter "$network_adapter"
 }
 
 headless_action() {
@@ -634,7 +637,7 @@ case "$action" in
         pwsh -NoLogo -NoProfile -File "$qemu_marker_test" -SelfTest -Browser
         pwsh -NoLogo -NoProfile -File "$qemu_marker_test" -SelfTest -SmpCpuCount 4
         pwsh -NoLogo -NoProfile -File "$qemu_marker_test" -SelfTest -SmpCpuCount 4 -SmpFailedCount 1
-        pwsh -NoLogo -NoProfile -File "$qemu_runner" -SelfTest
+        pwsh -NoLogo -NoProfile -File "$qemu_runner" -SelfTest -QemuPath "$qemu_exe"
         pwsh -NoLogo -NoProfile -File "$benchmark_runner" -SelfTest
         pwsh -NoLogo -NoProfile -File "$benchmark_history" -Action selftest
         pwsh -NoLogo -NoProfile -File "$release_tool" -Action SelfTest
@@ -648,8 +651,8 @@ case "$action" in
         ;;
     image) image_action "$requested_profile" "$requested_variant" ;;
     verify) verify_action "$requested_profile" ;;
-    qemu) qemu_action "$requested_profile" ;;
-    ssh) ssh_action "$requested_profile" ;;
+    qemu) qemu_action "$requested_profile" "$requested_variant" ;;
+    ssh) ssh_action "$requested_profile" "$requested_variant" ;;
     headless) headless_action "$requested_profile" "$requested_variant" ;;
     benchmark)
         if [ "$#" -ne 7 ]; then
@@ -659,7 +662,7 @@ case "$action" in
         benchmark_action "$requested_profile" "$3" "$4" "$5" "$6" "$7"
         ;;
     *)
-        echo 'Usage: Build.sh [tools|test|plan|image|verify|qemu|ssh|headless|benchmark] ... (headless Test [browser|smp2|smp4|smpfail4])' >&2
+        echo 'Usage: Build.sh [tools|test|plan|image|verify|qemu|ssh|headless|benchmark] ... (qemu|ssh PROFILE [VirtioNet|RTL8139]) (headless Test [browser|smp2|smp4|smpfail4])' >&2
         exit 1
         ;;
 esac

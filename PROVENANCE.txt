@@ -36,9 +36,10 @@ Repo-neutrale Grenzanpassungen:
 - Ausgabepfade liegen ausserhalb des Repositorys im gemappten Artefaktbereich.
 - Die QEMU-Standardkonfiguration bezieht `disk.img` und `data.img` relativ zum
   gewaehlt gestarteten Profilordner.
-- `Tools/Invoke-Qemu.ps1` ist eine spaetere R4OS-Ergaenzung, die den
-  hostagnostischen GUI-/SSH-Start und dessen lokale Netzwerkweiterleitung
-  gemeinsam fuer Windows und Linux besitzt.
+- `Tools/Invoke-Qemu.ps1` und `Tools/Qemu-HostProfile.ps1` sind spaetere
+  R4OS-Ergaenzungen. Sie besitzen den hostagnostischen GUI-/SSH-Start, die
+  gemeinsame KVM-/WHPX-/HVF-/TCG-Auswahl und die lokale Netzwerkweiterleitung
+  fuer Windows und Linux.
 - `BrowserTestInjection/` ist eine spaetere R4OS-Ergaenzung fuer den
   ausdruecklichen Klickifax-Gasttest und kein uebernommener Altprojektbestand.
 
