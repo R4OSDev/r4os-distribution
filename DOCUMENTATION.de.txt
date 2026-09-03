@@ -153,10 +153,14 @@ Pufferspitzen. GORILLA selbst fuehrt keine sequentielle Dateioperation aus;
 daher muessen seine zugehoerigen Zaehler konsistent null bleiben.
 
 Die Test-AUTOEXEC startet `FSDIAG /PAGECACHE` als gezielte 1-MB-Gastprobe.
-Die Markerauswertung verlangt sowohl autonomen budgetierten Dirty-Fortschritt
-als auch den erfolgreichen Abschluss des bestehenden Stream-, selektiven
-Commit-, Readback- und Abbruchvertrags; die umfangreiche 14-MB-FSDIAG-Suite
-wird dadurch nicht in jeden Standardlauf aufgenommen.
+Vor dem 8-KB-Readback reduziert sie saubere Cache-Residenz über den vorhandenen
+begrenzten Reclaim-Vertrag auf den Policy-Floor. Die Markerauswertung verlangt
+damit reproduzierbar weniger NVMe-Backendrequests und Fill-Lockabgaben als
+gefüllte 4-KB-Seiten, rohe Seiten-/Sektor-/Byte-/Fehlerzähler, die absichtlich
+beibehaltene sichere Zweifachkopie sowie autonomen budgetierten
+Dirty-Fortschritt. Stream-, selektiver Commit-, Readback- und Abbruchvertrag
+bleiben Teil derselben Probe; die umfangreiche 14-MB-FSDIAG-Suite wird dadurch
+nicht in jeden Standardlauf aufgenommen.
 
 Standard- und Browser-AUTOEXEC starten ausserdem `REG APITEST`,
 `REG MIGRATESELFTEST` und `REGEDIT /SELFTEST`. Die Pflichtmarker belegen 64
@@ -173,7 +177,10 @@ Headless-Markervertrag verlangt beide kanonischen Preloadbesitzer. Das Laden
 des Systemvolumes prueft den IDENTIFY-basierten synchronen AHCI-Bootpfad und
 den spaeteren parallelen Blockworkerpfad; die vorhandene 1-MB-FSDIAG-Probe
 liefert auf dem NVMe-Datenvolume Stream-, Readback-, Flush-, Pagecache- und
-Datenintegritaets-I/O. So deckt ein normaler Gastlauf beide echten emulierten
+Datenintegritaets-I/O. Ein zusaetzlicher kalter 1-MB-Read des installierten
+R4SNES-Moduls belegt auf NTFS, dass Mehrseiten-Demand-Fills Backendanfragen
+zusammenfassen; zugleich muss spekulatives Read-ahead deaktiviert bleiben. So
+deckt ein normaler Gastlauf beide echten emulierten
 Controller ab, ohne ein neues Testgate einzufuehren. Die feste
 Benchmarkumgebung behaelt dagegen ihre versionierte IDE-Konfiguration.
 
