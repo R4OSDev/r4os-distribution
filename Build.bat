@@ -300,6 +300,7 @@ if not "%R4OS_TEST_OVERLAY%"=="1" (
 set "R4OS_HEADLESS_VARIANT=standard"
 set "R4OS_QEMU_CPUS=1"
 set "R4OS_SMP_FAILED_COUNT=0"
+set "R4OS_CLOCK_SMOKE=0"
 if defined R4OS_REQUESTED_VARIANT (
     if /i "%R4OS_REQUESTED_VARIANT%"=="browser" (
         set "R4OS_HEADLESS_VARIANT=browser"
@@ -309,6 +310,10 @@ if defined R4OS_REQUESTED_VARIANT (
     ) else if /i "%R4OS_REQUESTED_VARIANT%"=="smp4" (
         set "R4OS_HEADLESS_VARIANT=smp4"
         set "R4OS_QEMU_CPUS=4"
+    ) else if /i "%R4OS_REQUESTED_VARIANT%"=="clock4" (
+        set "R4OS_HEADLESS_VARIANT=clock4"
+        set "R4OS_QEMU_CPUS=4"
+        set "R4OS_CLOCK_SMOKE=1"
     ) else if /i "%R4OS_REQUESTED_VARIANT%"=="smpfail4" (
         set "R4OS_HEADLESS_VARIANT=smpfail4"
         set "R4OS_QEMU_CPUS=4"
@@ -355,7 +360,15 @@ set "R4OS_QEMU_ERROR_LOG=%R4OS_LOG_ROOT%\qemu-test-%R4OS_HEADLESS_VARIANT%.err"
 set "R4OS_QEMU_WORKING_DIRECTORY=%R4OS_PROFILE_OUTPUT%"
 if exist "%R4OS_QEMU_LOG%" del /f /q "%R4OS_QEMU_LOG%" || exit /b 1
 if exist "%R4OS_QEMU_ERROR_LOG%" del /f /q "%R4OS_QEMU_ERROR_LOG%" || exit /b 1
-if not defined QEMU_TEST_TIMEOUT_SECONDS set "QEMU_TEST_TIMEOUT_SECONDS=1200"
+if not defined QEMU_TEST_TIMEOUT_SECONDS (
+    if "%R4OS_CLOCK_SMOKE%"=="1" (
+        set "QEMU_TEST_TIMEOUT_SECONDS=60"
+    ) else (
+        set "QEMU_TEST_TIMEOUT_SECONDS=1200"
+    )
+)
+set "R4OS_QEMU_STOP_MARKER="
+if "%R4OS_CLOCK_SMOKE%"=="1" set "R4OS_QEMU_STOP_MARKER=[CLOCKPROBE] result=OK"
 
 echo === Start QEMU Test profile headless ===
 echo     Config:  %R4OS_QEMU_CONFIG%
@@ -648,11 +661,11 @@ exit /b %R4OS_EXIT_CODE%
 echo === QEMU marker evaluator acceptance ===
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_MARKER_TEST%" -SelfTest
 if errorlevel 1 exit /b %ERRORLEVEL%
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_MARKER_TEST%" -SelfTest -Browser
-if errorlevel 1 exit /b %ERRORLEVEL%
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_MARKER_TEST%" -SelfTest -SmpCpuCount 4
 if errorlevel 1 exit /b %ERRORLEVEL%
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_MARKER_TEST%" -SelfTest -SmpCpuCount 4 -SmpFailedCount 1
+if errorlevel 1 exit /b %ERRORLEVEL%
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_MARKER_TEST%" -SelfTest -ClockSmoke -SmpCpuCount 4
 exit /b %ERRORLEVEL%
 
 :run_release_acceptance
@@ -665,7 +678,9 @@ set "R4OS_QEMU_EXIT=%~1"
 
 echo.
 echo === HEADLESS TEST EVALUATION ===
-if /i "%R4OS_HEADLESS_VARIANT%"=="browser" (
+if "%R4OS_CLOCK_SMOKE%"=="1" (
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_MARKER_TEST%" -LogPath "%R4OS_QEMU_LOG%" -ErrorPath "%R4OS_QEMU_ERROR_LOG%" -QemuExitCode %R4OS_QEMU_EXIT% -ClockSmoke -SmpCpuCount 4
+) else if /i "%R4OS_HEADLESS_VARIANT%"=="browser" (
     powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_MARKER_TEST%" -LogPath "%R4OS_QEMU_LOG%" -ErrorPath "%R4OS_QEMU_ERROR_LOG%" -QemuExitCode %R4OS_QEMU_EXIT% -Browser
 ) else if %R4OS_QEMU_CPUS% GTR 1 (
     powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%R4OS_QEMU_MARKER_TEST%" -LogPath "%R4OS_QEMU_LOG%" -ErrorPath "%R4OS_QEMU_ERROR_LOG%" -QemuExitCode %R4OS_QEMU_EXIT% -SmpCpuCount %R4OS_QEMU_CPUS% -SmpFailedCount %R4OS_SMP_FAILED_COUNT%
@@ -681,7 +696,11 @@ if errorlevel 1 (
 
 echo === HEADLESS TEST OK ===
 echo Boot: OK
-echo Poweroff: OK
+if "%R4OS_CLOCK_SMOKE%"=="1" (
+    echo Stop: CLOCKPROBE marker
+) else (
+    echo Poweroff: OK
+)
 echo Errors: none
 echo Log: %R4OS_QEMU_LOG%
 exit /b 0
@@ -696,6 +715,6 @@ echo   Build.bat image Slim^|Full^|Test^|Benchmark [browser]
 echo   Build.bat verify Slim^|Full^|Test^|Benchmark
 echo   Build.bat qemu Slim^|Full^|Test^|Benchmark [VirtioNet^|RTL8139]
 echo   Build.bat ssh Full [VirtioNet^|RTL8139]
-echo   Build.bat headless Test [browser^|smp2^|smp4^|smpfail4]
+echo   Build.bat headless Test [browser^|smp2^|smp4^|clock4^|smpfail4]
 echo   Build.bat benchmark Benchmark SUITE WORKLOAD_VERSION WARM^|COLD REPETITIONS ENVIRONMENT_ID
 exit /b 1

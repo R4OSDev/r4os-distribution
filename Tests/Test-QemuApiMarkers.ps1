@@ -18,6 +18,10 @@ param(
 
     [Parameter(ParameterSetName = 'Log')]
     [Parameter(ParameterSetName = 'SelfTest')]
+    [switch]$ClockSmoke,
+
+    [Parameter(ParameterSetName = 'Log')]
+    [Parameter(ParameterSetName = 'SelfTest')]
     [ValidateRange(0, 32)]
     [int]$SmpCpuCount = 0,
 
@@ -28,6 +32,134 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+function Test-ClockSmokeContract {
+    param([string]$Text, [switch]$Quiet)
+
+    $failures = 0
+    $requiredClock = @(
+        'Booted via Limine [OK]',
+        'Timer [HPET]',
+        'Scheduler [OK]',
+        'SMP foundation [OK]'
+    )
+    foreach ($marker in $requiredClock) {
+        if ($Text.IndexOf($marker, [StringComparison]::OrdinalIgnoreCase) -lt 0) {
+            if (-not $Quiet) { Write-Host ('Clock-smoke marker FAILED missing: ' + $marker) }
+            $failures++
+        } elseif (-not $Quiet) {
+            Write-Host ('Clock-smoke marker OK: ' + $marker)
+        }
+    }
+    foreach ($marker in @('PANIC', 'FATAL', 'CPU EXCEPTION', 'General Protection Fault', 'Page Fault',
+            '[SMP] switch boundary violation', '[SMPPROBE] result=FAILED', '[CLOCKPROBE] result=FAILED')) {
+        if ($Text.IndexOf($marker, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+            if (-not $Quiet) { Write-Host ('Clock-smoke marker FAILED forbidden: ' + $marker) }
+            $failures++
+        }
+    }
+
+    $activePattern = '(?im)^\[SMP\] stage=active discovered=4 started=3 online=4 failed=0 fallback=no\r?$'
+    if (-not [regex]::IsMatch($Text, $activePattern)) {
+        if (-not $Quiet) { Write-Host 'Clock-smoke SMP marker FAILED: four CPUs did not become active.' }
+        $failures++
+    } elseif (-not $Quiet) {
+        Write-Host 'Clock-smoke SMP marker OK: 4 of 4 CPUs active.'
+    }
+
+    $probePattern = '(?im)^\[SMPPROBE\] result=OK cpus=4 sequential_ns=(?<sequential>\d+) parallel_ns=(?<parallel>\d+) speedup_milli=(?<speedup>\d+) expected_mask=0x(?<expected>[0-9A-F]+) observed_mask=0x(?<observed>[0-9A-F]+) failures=0\r?$'
+    $probe = [regex]::Match($Text, $probePattern)
+    $probeOk = $probe.Success
+    if ($probeOk) {
+        $probeOk = [uint64]$probe.Groups['sequential'].Value -gt 0 -and
+            [uint64]$probe.Groups['parallel'].Value -gt 0 -and
+            [uint64]$probe.Groups['speedup'].Value -ge 1050 -and
+            [Convert]::ToUInt64($probe.Groups['expected'].Value, 16) -eq 15 -and
+            [Convert]::ToUInt64($probe.Groups['observed'].Value, 16) -eq 15
+    }
+    if (-not $probeOk) {
+        if (-not $Quiet) { Write-Host 'Clock-smoke SMPPROBE FAILED: mask, work progress, or scaling proof invalid.' }
+        $failures++
+    } elseif (-not $Quiet) {
+        Write-Host ('Clock-smoke SMPPROBE OK: speedup=' + $probe.Groups['speedup'].Value + ' milli.')
+    }
+
+    $clockPattern = '(?im)^\[CLOCKPROBE\] result=OK source=(?<source>TSC|HPET) cpus=4 registered_mask=0x(?<mask>[0-9A-F]+) regressions=0 irq_delta=(?<irq>\d+) generation=(?<generation>\d+) max_skew_ns=(?<skew>\d+) calibration_ppm=(?<ppm>\d+) fallback=(?<fallback>[a-z0-9-]+)\r?$'
+    $clock = [regex]::Match($Text, $clockPattern)
+    $clockOk = $clock.Success
+    if ($clockOk) {
+        $clockOk = [Convert]::ToUInt64($clock.Groups['mask'].Value, 16) -eq 15 -and
+            [uint64]$clock.Groups['irq'].Value -gt 0 -and
+            [uint64]$clock.Groups['generation'].Value -gt 0
+    }
+    if (-not $clockOk) {
+        if (-not $Quiet) { Write-Host 'Clock-smoke CLOCKPROBE FAILED: monotonic CPU, IRQ, registration, or generation proof invalid.' }
+        $failures++
+    } elseif (-not $Quiet) {
+        Write-Host ('Clock-smoke CLOCKPROBE OK: source=' + $clock.Groups['source'].Value +
+            ' irq_delta=' + $clock.Groups['irq'].Value + ' skew_ns=' + $clock.Groups['skew'].Value + '.')
+    }
+    return $failures
+}
+
+if ($ClockSmoke) {
+    if ($SmpCpuCount -ne 4 -or $SmpFailedCount -ne 0) {
+        Write-Host 'Clock-smoke marker FAILED: this short acceptance requires exactly four CPUs without injected AP failure.'
+        exit 1
+    }
+    if ($SelfTest) {
+        $validClock = @(
+            'Booted via Limine [OK]',
+            '  Timer [HPET]',
+            '  Scheduler [OK]',
+            '  SMP foundation [OK]',
+            '[SMP] stage=active discovered=4 started=3 online=4 failed=0 fallback=no',
+            '[SMPPROBE] result=OK cpus=4 sequential_ns=200 parallel_ns=100 speedup_milli=2000 expected_mask=0x0000000F observed_mask=0x0000000F failures=0',
+            '[CLOCKPROBE] result=OK source=TSC cpus=4 registered_mask=0x0000000F regressions=0 irq_delta=42 generation=2 max_skew_ns=300 calibration_ppm=120 fallback=none'
+        ) -join "`r`n"
+        if ((Test-ClockSmokeContract $validClock -Quiet) -ne 0) { throw 'valid clock-smoke marker set did not pass' }
+        foreach ($invalidClock in @(
+                $validClock.Replace('online=4', 'online=3'),
+                $validClock.Replace('speedup_milli=2000', 'speedup_milli=1049'),
+                $validClock.Replace('observed_mask=0x0000000F', 'observed_mask=0x00000007'),
+                $validClock.Replace('irq_delta=42', 'irq_delta=0'),
+                ($validClock + "`r`n[CLOCKPROBE] result=FAILED"))) {
+            if ((Test-ClockSmokeContract $invalidClock -Quiet) -eq 0) { throw 'invalid clock-smoke marker set was accepted' }
+        }
+        Write-Host 'QEMU clock-smoke marker self-test OK (smp4).'
+        exit 0
+    }
+
+    $fullClockPath = [IO.Path]::GetFullPath($LogPath)
+    if (-not (Test-Path -LiteralPath $fullClockPath -PathType Leaf)) {
+        Write-Host ('Clock-smoke marker FAILED: log missing: ' + $fullClockPath)
+        exit 1
+    }
+    $clockFailures = Test-ClockSmokeContract ([IO.File]::ReadAllText($fullClockPath))
+    if ($QemuExitCode -ne 0) {
+        Write-Host ('QEMU exit FAILED: ' + $QemuExitCode)
+        $clockFailures++
+    }
+    if ($ErrorPath -and (Test-Path -LiteralPath $ErrorPath -PathType Leaf)) {
+        $errorPatterns = @('Parameter ', 'Could not', 'Invalid', "can't ", 'cannot ', 'failed', 'Unable', 'error:')
+        foreach ($line in [IO.File]::ReadAllLines([IO.Path]::GetFullPath($ErrorPath))) {
+            if ($line.IndexOf('warning: GLib-GIO: Failed to open application manifest', [StringComparison]::OrdinalIgnoreCase) -ge 0) { continue }
+            foreach ($pattern in $errorPatterns) {
+                if ($line.IndexOf($pattern, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+                    Write-Host ('QEMU stderr FAILED: ' + $line)
+                    $clockFailures++
+                    break
+                }
+            }
+        }
+    }
+    if ($clockFailures -ne 0) {
+        Write-Host ('QEMU clock-smoke marker contract FAILED: ' + $clockFailures + ' issue(s).')
+        exit 1
+    }
+    Write-Host 'QEMU clock-smoke marker contract OK.'
+    exit 0
+}
 
 $required = @(
     'Booted via Limine [OK]',
@@ -122,6 +254,7 @@ $forbidden = @(
     'CPU EXCEPTION',
     '[SMP] switch boundary violation',
     '[SMPPROBE] result=FAILED',
+    '[CLOCKPROBE] result=FAILED',
     'General Protection Fault',
     'Page Fault',
     'REG: api-selftest',
@@ -631,6 +764,18 @@ function Test-ApiMarkerContract {
         } elseif (-not $Quiet) {
             Write-Host ('SMP kernel scaling marker OK: ' + $probeMatch.Groups[1].Value + ' milli.')
         }
+        $clockPattern = '(?im)^\[CLOCKPROBE\] result=OK source=(TSC|HPET) cpus=' + $expectedOnline +
+            ' registered_mask=0x[0-9A-F]+ regressions=0 irq_delta=(\d+) generation=(\d+)' +
+            ' max_skew_ns=\d+ calibration_ppm=\d+ fallback=[a-z0-9-]+\r?$'
+        $clockMatch = [regex]::Match($Text, $clockPattern)
+        if (-not $clockMatch.Success -or [uint64]$clockMatch.Groups[2].Value -eq 0 -or
+            [uint64]$clockMatch.Groups[3].Value -eq 0) {
+            if (-not $Quiet) { Write-Host 'SMP clock marker FAILED: monotonic CPU, IRQ, or generation proof missing.' }
+            $failures++
+        } elseif (-not $Quiet) {
+            Write-Host ('SMP clock marker OK: source=' + $clockMatch.Groups[1].Value +
+                ' irq_delta=' + $clockMatch.Groups[2].Value + '.')
+        }
     } elseif (-not [regex]::IsMatch($Text, '(?im)^\[SMPPROBE\] result=SKIPPED cpus=1 reason=single-cpu\r?$')) {
         if (-not $Quiet) { Write-Host 'SMP marker FAILED: one-CPU fallback probe marker missing.' }
         $failures++
@@ -717,7 +862,8 @@ if ($SelfTest) {
             ($SmpCpuCount - 1 - $SmpFailedCount) + ' online=' + $expectedOnline +
             ' failed=' + $SmpFailedCount + ' fallback=' + $(if ($expectedOnline -eq 1) { '1cpu' } else { 'no' })) +
             "`r`n[SMP] productive cpu=1 task=r4x-app class=r4x" +
-            "`r`n[SMPPROBE] result=OK cpus=$expectedOnline sequential_ns=200 parallel_ns=100 speedup_milli=2000 expected_mask=0x0000000F observed_mask=0x0000000F failures=0"
+            "`r`n[SMPPROBE] result=OK cpus=$expectedOnline sequential_ns=200 parallel_ns=100 speedup_milli=2000 expected_mask=0x0000000F observed_mask=0x0000000F failures=0" +
+            "`r`n[CLOCKPROBE] result=OK source=TSC cpus=$expectedOnline registered_mask=0x0000000F regressions=0 irq_delta=42 generation=2 max_skew_ns=300 calibration_ppm=120 fallback=none"
         if ($SmpFailedCount -gt 0) {
             $valid += "`r`n[SMP] ap=2 apic=2 failed=diagnostic-injection"
         }

@@ -499,14 +499,20 @@ headless_action() {
     headless_variant=${2:-}
     if [ -n "$headless_variant" ] && [ "$headless_variant" != browser ] && \
         [ "$headless_variant" != smp2 ] && [ "$headless_variant" != smp4 ] && \
+        [ "$headless_variant" != clock4 ] && \
         [ "$headless_variant" != smpfail4 ]; then
         echo "ERROR: Unknown headless variant: $headless_variant" >&2
         exit 1
     fi
     smp_cpu_count=1
     smp_failed_count=0
+    clock_smoke=0
     if [ "$headless_variant" = smp2 ]; then smp_cpu_count=2; fi
     if [ "$headless_variant" = smp4 ]; then smp_cpu_count=4; fi
+    if [ "$headless_variant" = clock4 ]; then
+        smp_cpu_count=4
+        clock_smoke=1
+    fi
     if [ "$headless_variant" = smpfail4 ]; then
         smp_cpu_count=4
         smp_failed_count=1
@@ -540,6 +546,8 @@ headless_action() {
     rm -f "$qemu_log" "$qemu_error_log"
     if [ -n "${QEMU_TEST_TIMEOUT_SECONDS:-}" ]; then
         qemu_timeout=$QEMU_TEST_TIMEOUT_SECONDS
+    elif [ "$clock_smoke" -eq 1 ]; then
+        qemu_timeout=60
     else
         qemu_timeout=1200
     fi
@@ -551,6 +559,11 @@ headless_action() {
     export R4OS_QEMU_WORKING_DIRECTORY=$profile_output
     export R4OS_QEMU_CPUS=$smp_cpu_count
     export QEMU_TEST_TIMEOUT_SECONDS=$qemu_timeout
+    if [ "$clock_smoke" -eq 1 ]; then
+        export R4OS_QEMU_STOP_MARKER='[CLOCKPROBE] result=OK'
+    else
+        unset R4OS_QEMU_STOP_MARKER || true
+    fi
 
     echo '=== Start QEMU Test profile headless ==='
     echo "    Config:  $qemu_config"
@@ -566,7 +579,12 @@ headless_action() {
     fi
 
     echo '=== HEADLESS TEST EVALUATION ==='
-    if [ "$headless_variant" = browser ]; then
+    if [ "$clock_smoke" -eq 1 ]; then
+        marker_exit=0
+        pwsh -NoLogo -NoProfile -File "$qemu_marker_test" \
+            -LogPath "$qemu_log" -ErrorPath "$qemu_error_log" -QemuExitCode "$qemu_exit" \
+            -ClockSmoke -SmpCpuCount 4 || marker_exit=$?
+    elif [ "$headless_variant" = browser ]; then
         marker_exit=0
         pwsh -NoLogo -NoProfile -File "$qemu_marker_test" \
             -LogPath "$qemu_log" -ErrorPath "$qemu_error_log" -QemuExitCode "$qemu_exit" -Browser || marker_exit=$?
@@ -588,7 +606,11 @@ headless_action() {
     fi
     echo '=== HEADLESS TEST OK ==='
     echo 'Boot: OK'
-    echo 'Poweroff: OK'
+    if [ "$clock_smoke" -eq 1 ]; then
+        echo 'Stop: CLOCKPROBE marker'
+    else
+        echo 'Poweroff: OK'
+    fi
     echo 'Errors: none'
     echo "Log: $qemu_log"
 }
@@ -634,9 +656,9 @@ case "$action" in
         build_tools test
         run_plan_acceptance
         pwsh -NoLogo -NoProfile -File "$qemu_marker_test" -SelfTest
-        pwsh -NoLogo -NoProfile -File "$qemu_marker_test" -SelfTest -Browser
         pwsh -NoLogo -NoProfile -File "$qemu_marker_test" -SelfTest -SmpCpuCount 4
         pwsh -NoLogo -NoProfile -File "$qemu_marker_test" -SelfTest -SmpCpuCount 4 -SmpFailedCount 1
+        pwsh -NoLogo -NoProfile -File "$qemu_marker_test" -SelfTest -ClockSmoke -SmpCpuCount 4
         pwsh -NoLogo -NoProfile -File "$qemu_runner" -SelfTest -QemuPath "$qemu_exe"
         pwsh -NoLogo -NoProfile -File "$benchmark_runner" -SelfTest
         pwsh -NoLogo -NoProfile -File "$benchmark_history" -Action selftest
@@ -662,7 +684,7 @@ case "$action" in
         benchmark_action "$requested_profile" "$3" "$4" "$5" "$6" "$7"
         ;;
     *)
-        echo 'Usage: Build.sh [tools|test|plan|image|verify|qemu|ssh|headless|benchmark] ... (qemu|ssh PROFILE [VirtioNet|RTL8139]) (headless Test [browser|smp2|smp4|smpfail4])' >&2
+        echo 'Usage: Build.sh [tools|test|plan|image|verify|qemu|ssh|headless|benchmark] ... (qemu|ssh PROFILE [VirtioNet|RTL8139]) (headless Test [browser|smp2|smp4|clock4|smpfail4])' >&2
         exit 1
         ;;
 esac

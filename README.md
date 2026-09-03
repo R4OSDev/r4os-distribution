@@ -15,6 +15,7 @@ rebuild the kernel, libraries, or modules.
     Build.bat qemu Full RTL8139
     Build.bat ssh Full
     Build.bat headless Test
+    Build.bat headless Test clock4
     Build.bat image Test browser
     Build.bat headless Test browser
     Build.bat image Benchmark
@@ -44,6 +45,10 @@ Test images and marker runs omit the browser bundle. Regular headless
 acceptance uses four vCPUs and a 1200-second default timeout. This bound
 includes the concurrent 60-guest-second R4GB and R4SNES product runs;
 `QEMU_TEST_TIMEOUT_SECONDS` overrides it explicitly.
+The `clock4` variant is a short four-vCPU smoke test: it validates boot, SMP,
+parallel progress, and the cross-CPU monotonic clock/IRQ proof, then terminates
+QEMU as soon as `[CLOCKPROBE] result=OK` reaches the serial log. It therefore
+does not enter either subsystem long run.
 The standard QEMU configuration keeps the boot volume on ICH9 AHCI and attaches the
 fresh data image as an NVMe namespace. The existing 1-MB FSDIAG guest probe and
 required ownership/mount markers therefore cover canonical NVME.R4D discovery

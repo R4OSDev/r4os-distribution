@@ -36,6 +36,7 @@ Unter Windows:
     Build.bat qemu Full RTL8139
     Build.bat ssh Full
     Build.bat headless Test
+    Build.bat headless Test clock4
     Build.bat image Test browser
     Build.bat headless Test browser
     Build.bat image Benchmark
@@ -50,6 +51,7 @@ Verfuegung, beispielsweise:
     ./Build.sh ssh Full
     ./Build.sh ssh Full RTL8139
     ./Build.sh headless Test
+    ./Build.sh headless Test clock4
     ./Build.sh image Test browser
     ./Build.sh headless Test browser
 
@@ -81,6 +83,12 @@ deaktiviert das Netzwerk, schreibt serielle Logs unter
 `Artifacts/Distribution/Logs`, wertet die verbindlichen Boot-/API-Marker aus
 und verlangt ein geordnetes Gast-Poweroff. Auch der Benchmark bleibt
 netzwerklos und unveraendert an seine feste TCG-/Haswell-Umgebung gebunden.
+
+Die Variante `headless Test clock4` ist eine kurze SMP4-Abnahme. Sie prueft
+Boot, vier aktive CPUs, parallelen Fortschritt sowie den CPU-uebergreifenden
+Monotonie-/IRQ-Nachweis und beendet QEMU unmittelbar nach
+`[CLOCKPROBE] result=OK`. Die R4GB- und R4SNES-Langlaeufe werden dabei nicht
+erreicht.
 
 Die optionale Variante `browser` legt `BrowserTestInjection` nach
 `TestInjection` ueber das Testimage und verlangt bei der Headless-Auswertung
@@ -119,8 +127,9 @@ Port-1-Tastatur, nativen XRGB32-Frames, semantischem SPC700-Upload,
 S-DSP/App-Audio und getrenntem Witness-/Close-Ende. Die `.smc` prueft
 zusaetzlich asynchrones SRAM und Epson-RTC. Ein ungueltiger Header und ein
 DSP-1-Board ohne Nutzerfirmware muessen als sichtbare, begrenzt schliessende
-Fehlerfenster enden. Das Test-AUTOEXEC wartet dafuer 900 Sekunden; der
-QEMU-Runner begrenzt den gesamten Standard- oder SMP4-Lauf auf 1200 Sekunden.
+Fehlerfenster enden. Das Test-AUTOEXEC wartet dafuer hoechstens 600 Sekunden
+auf den Abschlussmarker; der QEMU-Runner begrenzt den gesamten Standard- oder
+SMP4-Lauf auf 1200 Sekunden.
 Die private SMW-Cartridge wird von dieser automatischen Abnahme weder gelesen
 noch gestartet.
 

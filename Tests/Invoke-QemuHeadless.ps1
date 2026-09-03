@@ -5,6 +5,7 @@ $config = $env:R4OS_QEMU_CONFIG
 $logPath = $env:R4OS_QEMU_LOG
 $errorPath = $env:R4OS_QEMU_ERROR_LOG
 $workingDirectory = $env:R4OS_QEMU_WORKING_DIRECTORY
+$stopMarker = $env:R4OS_QEMU_STOP_MARKER
 
 $hostProfileTool = Join-Path $PSScriptRoot '../Tools/Qemu-HostProfile.ps1'
 if (-not (Test-Path -LiteralPath $hostProfileTool -PathType Leaf)) {
@@ -96,7 +97,41 @@ if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) {
     $startParameters.WindowStyle = 'Hidden'
 }
 $process = Start-Process @startParameters
-if ($process.WaitForExit($timeoutSeconds * 1000)) {
+if ($stopMarker) {
+    $deadline = [DateTime]::UtcNow.AddSeconds($timeoutSeconds)
+    while (-not $process.HasExited -and [DateTime]::UtcNow -lt $deadline) {
+        if (Test-Path -LiteralPath $logPath -PathType Leaf) {
+            try {
+                $stream = [IO.File]::Open($logPath, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+                try {
+                    $reader = [IO.StreamReader]::new($stream)
+                    try {
+                        $serialText = $reader.ReadToEnd()
+                    } finally {
+                        $reader.Dispose()
+                    }
+                } finally {
+                    $stream.Dispose()
+                }
+                if ($serialText.IndexOf($stopMarker, [StringComparison]::Ordinal) -ge 0) {
+                    Write-Host ('=== QEMU short-smoke marker reached; terminating process: ' + $stopMarker + ' ===')
+                    if (-not $process.HasExited) {
+                        $process.Kill()
+                        $process.WaitForExit(5000) | Out-Null
+                    }
+                    exit 0
+                }
+            } catch [IO.IOException] {
+                # QEMU may still be creating or flushing the serial file.
+            }
+        }
+        Start-Sleep -Milliseconds 100
+    }
+} elseif ($process.WaitForExit($timeoutSeconds * 1000)) {
+    exit $process.ExitCode
+}
+
+if ($process.HasExited) {
     exit $process.ExitCode
 }
 
