@@ -86,8 +86,8 @@ Die optionale Variante `browser` legt `BrowserTestInjection` nach
 `TestInjection` ueber das Testimage und verlangt bei der Headless-Auswertung
 zusaetzlich die Offline-Klickifax-Marker. Der uebergeordnete Workspace-Modus
 `-testbrowser` erzeugt den dazu passenden Komponentenplan. Der normale
-Testlauf verwendet weiterhin nur `TestInjection` und verlangt keine
-Browsermarker.
+Testlauf verwendet weiterhin nur `TestInjection`, verlangt keine
+Browsermarker und fuehrt seine Gastabnahme ausschliesslich mit vier vCPUs aus.
 
 `Build.bat test` beziehungsweise `./Build.sh test` baut alle sieben Hosttools
 und prueft die Slim-, Full-, Test- und Benchmark-Imageplaene bytegenau, mit
