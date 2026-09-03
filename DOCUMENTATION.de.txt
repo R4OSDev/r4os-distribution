@@ -85,8 +85,9 @@ und verlangt ein geordnetes Gast-Poweroff. Auch der Benchmark bleibt
 netzwerklos und unveraendert an seine feste TCG-/Haswell-Umgebung gebunden.
 
 Die Variante `headless Test clock4` ist eine kurze SMP4-Abnahme. Sie prueft
-Boot, vier aktive CPUs, parallelen Fortschritt sowie den CPU-uebergreifenden
-Monotonie-/IRQ-Nachweis und beendet QEMU unmittelbar nach
+Boot, vier aktive CPUs, parallelen Fortschritt, generationstreue TLB-
+Shootdowns samt sicherem Ack-Timeout, die Speicher-Lockreihenfolge sowie den
+CPU-uebergreifenden Monotonie-/IRQ-Nachweis und beendet QEMU unmittelbar nach
 `[CLOCKPROBE] result=OK`. Die R4GB- und R4SNES-Langlaeufe werden dabei nicht
 erreicht.
 

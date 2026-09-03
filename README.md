@@ -46,7 +46,8 @@ acceptance uses four vCPUs and a 1200-second default timeout. This bound
 includes the concurrent 60-guest-second R4GB and R4SNES product runs;
 `QEMU_TEST_TIMEOUT_SECONDS` overrides it explicitly.
 The `clock4` variant is a short four-vCPU smoke test: it validates boot, SMP,
-parallel progress, and the cross-CPU monotonic clock/IRQ proof, then terminates
+parallel progress, generation-bound TLB shootdowns with safe Ack-timeout
+rollback, memory-lock ordering, and the cross-CPU monotonic clock/IRQ proof, then terminates
 QEMU as soon as `[CLOCKPROBE] result=OK` reaches the serial log. It therefore
 does not enter either subsystem long run.
 The standard QEMU configuration keeps the boot volume on ICH9 AHCI and attaches the

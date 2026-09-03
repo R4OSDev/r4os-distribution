@@ -60,6 +60,35 @@ function Test-HeapProbeContract {
         [uint64]$probe.Groups['retained'].Value -gt 0
 }
 
+function Test-TlbProbeContract {
+    param([string]$Text, [int]$ExpectedCpuCount)
+
+    $pattern = '(?im)^\[TLBPROBE\] result=OK cpus=(?<cpus>\d+) ready_mask=0x(?<ready>[0-9A-F]+) updated_mask=0x(?<updated>[0-9A-F]+) stale_failures=0 timeout_rejected=1 frame_retained=1 requests=(?<requests>\d+) ipis=(?<ipis>\d+) acks=(?<acks>\d+) timeouts=(?<timeouts>\d+) expected_timeouts=(?<expected>\d+) generation=(?<generation>\d+) cleanup=yes\r?$'
+    $probe = [regex]::Match($Text, $pattern)
+    if (-not $probe.Success -or [int]$probe.Groups['cpus'].Value -ne $ExpectedCpuCount) { return $false }
+    $ready = [Convert]::ToUInt64($probe.Groups['ready'].Value, 16)
+    $updated = [Convert]::ToUInt64($probe.Groups['updated'].Value, 16)
+    $readyCount = ([Convert]::ToString([int64]$ready, 2).Replace('0', '')).Length
+    return $ready -eq $updated -and $readyCount -eq $ExpectedCpuCount -and
+        [uint64]$probe.Groups['requests'].Value -ge 4 -and
+        [uint64]$probe.Groups['ipis'].Value -gt 0 -and
+        [uint64]$probe.Groups['acks'].Value -gt 0 -and
+        [uint64]$probe.Groups['timeouts'].Value -eq 1 -and
+        [uint64]$probe.Groups['expected'].Value -eq 1 -and
+        [uint64]$probe.Groups['generation'].Value -gt 0
+}
+
+function Test-LockProbeContract {
+    param([string]$Text)
+
+    $pattern = '(?im)^\[LOCKPROBE\] result=OK legacy_acquisitions=(?<legacy>\d+) nested=(?<nested>\d+) collisions=(?<collisions>\d+) cpu_collisions=(?<cpu>\d+) wait_spins=(?<spins>\d+) max_wait=(?<maxwait>\d+) max_hold_cycles=(?<hold>\d+) unclassified=0 classified_classes=11 owner_classes=3 owner_acquisitions=(?<owner>\d+) owner_collisions=(?<owner_collisions>\d+) order_violations=0\r?$'
+    $probe = [regex]::Match($Text, $pattern)
+    return $probe.Success -and
+        [uint64]$probe.Groups['legacy'].Value -gt 0 -and
+        [uint64]$probe.Groups['hold'].Value -gt 0 -and
+        [uint64]$probe.Groups['owner'].Value -gt 0
+}
+
 function Test-ClockSmokeContract {
     param([string]$Text, [switch]$Quiet)
 
@@ -79,7 +108,8 @@ function Test-ClockSmokeContract {
         }
     }
     foreach ($marker in @('PANIC', 'FATAL', 'CPU EXCEPTION', 'General Protection Fault', 'Page Fault',
-            '[SMP] switch boundary violation', '[SMPPROBE] result=FAILED', '[HEAPPROBE] result=FAILED', '[CLOCKPROBE] result=FAILED')) {
+            '[SMP] switch boundary violation', '[SMPPROBE] result=FAILED', '[HEAPPROBE] result=FAILED',
+            '[TLBPROBE] result=FAILED', '[LOCKPROBE] result=FAILED', '[CLOCKPROBE] result=FAILED')) {
         if ($Text.IndexOf($marker, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
             if (-not $Quiet) { Write-Host ('Clock-smoke marker FAILED forbidden: ' + $marker) }
             $failures++
@@ -118,6 +148,20 @@ function Test-ClockSmokeContract {
         Write-Host 'Clock-smoke HEAPPROBE OK: 16 short churn iterations.'
     }
 
+    if (-not (Test-TlbProbeContract $Text 4)) {
+        if (-not $Quiet) { Write-Host 'Clock-smoke TLBPROBE FAILED: stale translation, Ack timeout, or safe retention proof invalid.' }
+        $failures++
+    } elseif (-not $Quiet) {
+        Write-Host 'Clock-smoke TLBPROBE OK: cross-CPU invalidation and timeout retention proved.'
+    }
+
+    if (-not (Test-LockProbeContract $Text)) {
+        if (-not $Quiet) { Write-Host 'Clock-smoke LOCKPROBE FAILED: ownership classification or lock order invalid.' }
+        $failures++
+    } elseif (-not $Quiet) {
+        Write-Host 'Clock-smoke LOCKPROBE OK: all legacy calls classified and owner-lock order clean.'
+    }
+
     $clockPattern = '(?im)^\[CLOCKPROBE\] result=OK source=(?<source>TSC|HPET) cpus=4 registered_mask=0x(?<mask>[0-9A-F]+) regressions=0 irq_delta=(?<irq>\d+) generation=(?<generation>\d+) max_skew_ns=(?<skew>\d+) calibration_ppm=(?<ppm>\d+) fallback=(?<fallback>[a-z0-9-]+)\r?$'
     $clock = [regex]::Match($Text, $clockPattern)
     $clockOk = $clock.Success
@@ -150,6 +194,8 @@ if ($ClockSmoke) {
             '[SMP] stage=active discovered=4 started=3 online=4 failed=0 fallback=no',
             '[SMPPROBE] result=OK cpus=4 sequential_ns=200 parallel_ns=100 speedup_milli=2000 expected_mask=0x0000000F observed_mask=0x0000000F failures=0',
             '[HEAPPROBE] result=OK iterations=16 commit_calls=1 commit_pages=49 uncommit_calls=1 release_suppressed=15 poison_bytes=3145728 retained_pages=64 block_claims=1 extent_allocations=1 map_batches=1 unmap_batches=1 pressure=no',
+            '[TLBPROBE] result=OK cpus=4 ready_mask=0x0000000F updated_mask=0x0000000F stale_failures=0 timeout_rejected=1 frame_retained=1 requests=22 ipis=66 acks=63 timeouts=1 expected_timeouts=1 generation=22 cleanup=yes',
+            '[LOCKPROBE] result=OK legacy_acquisitions=40 nested=12 collisions=2 cpu_collisions=2 wait_spins=17 max_wait=9 max_hold_cycles=800 unclassified=0 classified_classes=11 owner_classes=3 owner_acquisitions=90 owner_collisions=3 order_violations=0',
             '[CLOCKPROBE] result=OK source=TSC cpus=4 registered_mask=0x0000000F regressions=0 irq_delta=42 generation=2 max_skew_ns=300 calibration_ppm=120 fallback=none'
         ) -join "`r`n"
         if ((Test-ClockSmokeContract $validClock -Quiet) -ne 0) { throw 'valid clock-smoke marker set did not pass' }
@@ -158,6 +204,8 @@ if ($ClockSmoke) {
                 $validClock.Replace('speedup_milli=2000', 'speedup_milli=1049'),
                 $validClock.Replace('observed_mask=0x0000000F', 'observed_mask=0x00000007'),
                 $validClock.Replace('poison_bytes=3145728', 'poison_bytes=0'),
+                $validClock.Replace('timeout_rejected=1', 'timeout_rejected=0'),
+                $validClock.Replace('unclassified=0', 'unclassified=1'),
                 $validClock.Replace('irq_delta=42', 'irq_delta=0'),
                 ($validClock + "`r`n[CLOCKPROBE] result=FAILED"))) {
             if ((Test-ClockSmokeContract $invalidClock -Quiet) -eq 0) { throw 'invalid clock-smoke marker set was accepted' }
@@ -291,6 +339,8 @@ $forbidden = @(
     '[SMP] switch boundary violation',
     '[SMPPROBE] result=FAILED',
     '[HEAPPROBE] result=FAILED',
+    '[TLBPROBE] result=FAILED',
+    '[LOCKPROBE] result=FAILED',
     '[CLOCKPROBE] result=FAILED',
     'General Protection Fault',
     'Page Fault',
@@ -807,6 +857,18 @@ function Test-ApiMarkerContract {
         } elseif (-not $Quiet) {
             Write-Host 'SMP heap marker OK: 16 short churn iterations.'
         }
+        if (-not (Test-TlbProbeContract $Text $expectedOnline)) {
+            if (-not $Quiet) { Write-Host 'SMP TLB marker FAILED: cross-CPU invalidation or timeout retention proof missing.' }
+            $failures++
+        } elseif (-not $Quiet) {
+            Write-Host 'SMP TLB marker OK.'
+        }
+        if (-not (Test-LockProbeContract $Text)) {
+            if (-not $Quiet) { Write-Host 'SMP lock marker FAILED: ownership classification or lock order invalid.' }
+            $failures++
+        } elseif (-not $Quiet) {
+            Write-Host 'SMP lock marker OK.'
+        }
         $clockPattern = '(?im)^\[CLOCKPROBE\] result=OK source=(TSC|HPET) cpus=' + $expectedOnline +
             ' registered_mask=0x[0-9A-F]+ regressions=0 irq_delta=(\d+) generation=(\d+)' +
             ' max_skew_ns=\d+ calibration_ppm=\d+ fallback=[a-z0-9-]+\r?$'
@@ -901,12 +963,15 @@ if ($SelfTest) {
         'R4SNES E2E runtime: OK id=00000000000000D2 extension=.smc end=close battery=1 rtc=1 guest_ns=60000000000 guest_cycles=1288636320 master_hz=21477272 drift_cycles=0 pending_cycles=0 ppu_frames=3596 slices=40000 max_slice_grant=32768 max_slice_execution=32780 max_step_gap_ns=15000000 input=24 controller=0x0fff completion=0 frames=3596 dropped_presents=0 audio_writes=6000 audio_busy=0 audio_failures=0 audio_late=0 audio_discarded=0 audio_suppressed=0 dsp_native=1920000 dsp_resampled=2880240 dsp_rendered=2880000 dsp_non_silent=2879000 dsp_dropped=0 dsp_queued=240 save_async_started=30 save_async_completed=30 save_async_coalesced=0 save_async_errors=0 save_async_max_queued=2 pauses=0 resumes=0 resets=0 save_files=1 close=0 resources=closed'
     if ($SmpCpuCount -gt 1) {
         $expectedOnline = $SmpCpuCount - $SmpFailedCount
+        $syntheticMask = if ($SmpFailedCount -gt 0) { '0000000B' } else { '0000000F' }
         $valid += "`r`n" + ('[SMP] stage=active discovered=' + $SmpCpuCount + ' started=' +
             ($SmpCpuCount - 1 - $SmpFailedCount) + ' online=' + $expectedOnline +
             ' failed=' + $SmpFailedCount + ' fallback=' + $(if ($expectedOnline -eq 1) { '1cpu' } else { 'no' })) +
             "`r`n[SMP] productive cpu=1 task=r4x-app class=r4x" +
             "`r`n[SMPPROBE] result=OK cpus=$expectedOnline sequential_ns=200 parallel_ns=100 speedup_milli=2000 expected_mask=0x0000000F observed_mask=0x0000000F failures=0" +
             "`r`n[HEAPPROBE] result=OK iterations=16 commit_calls=1 commit_pages=49 uncommit_calls=1 release_suppressed=15 poison_bytes=3145728 retained_pages=64 block_claims=1 extent_allocations=1 map_batches=1 unmap_batches=1 pressure=no" +
+            "`r`n[TLBPROBE] result=OK cpus=$expectedOnline ready_mask=0x$syntheticMask updated_mask=0x$syntheticMask stale_failures=0 timeout_rejected=1 frame_retained=1 requests=22 ipis=66 acks=63 timeouts=1 expected_timeouts=1 generation=22 cleanup=yes" +
+            "`r`n[LOCKPROBE] result=OK legacy_acquisitions=40 nested=12 collisions=2 cpu_collisions=2 wait_spins=17 max_wait=9 max_hold_cycles=800 unclassified=0 classified_classes=11 owner_classes=3 owner_acquisitions=90 owner_collisions=3 order_violations=0" +
             "`r`n[CLOCKPROBE] result=OK source=TSC cpus=$expectedOnline registered_mask=0x0000000F regressions=0 irq_delta=42 generation=2 max_skew_ns=300 calibration_ppm=120 fallback=none"
         if ($SmpFailedCount -gt 0) {
             $valid += "`r`n[SMP] ap=2 apic=2 failed=diagnostic-injection"
