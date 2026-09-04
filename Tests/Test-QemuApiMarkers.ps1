@@ -127,6 +127,7 @@ function Test-ClockSmokeContract {
         'Timer [HPET]',
         'Scheduler [OK]',
         'SMP foundation [OK]',
+        '[TCPBURSTPROBE] result=OK write_bytes=4068 segments=3 catalog=48 delayed_ack_ms=40',
         '[QUICKPROBE] result=DONE'
     )
     foreach ($marker in $requiredClock) {
@@ -141,7 +142,8 @@ function Test-ClockSmokeContract {
             '[SMP] switch boundary violation', '[SMPPROBE] result=FAILED', '[HEAPPROBE] result=FAILED',
             '[TLBPROBE] result=FAILED', '[LOCKPROBE] result=FAILED', '[SERIALPROBE] result=FAILED',
             '[NVMEIRQ] result=FAILED', '[NVMEIRQPROBE] result=FAILED',
-            '[R4LPREEMPT] result=FAILED', '[CLOCKPROBE] result=FAILED')) {
+            '[R4LPREEMPT] result=FAILED', '[CLOCKPROBE] result=FAILED',
+            '[TCPBURSTPROBE] result=FAILED')) {
         if ($Text.IndexOf($marker, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
             if (-not $Quiet) { Write-Host ('Clock-smoke marker FAILED forbidden: ' + $marker) }
             $failures++
@@ -270,6 +272,7 @@ if ($ClockSmoke) {
             '[NVMEIRQPROBE] result=OK worker_requests=1 worker_completions=1 async_submissions=1 async_completions=1',
             '[R4LPREEMPT] result=OK cpu=1 timer_switches=1 ipi_switches=1 timer_exit=0 ipi_exit=0 generation=1',
             '[CLOCKPROBE] result=OK source=TSC cpus=4 registered_mask=0x0000000F regressions=0 irq_delta=42 generation=2 max_skew_ns=300 calibration_ppm=120 fallback=none',
+            '[TCPBURSTPROBE] result=OK write_bytes=4068 segments=3 catalog=48 delayed_ack_ms=40',
             '[QUICKPROBE] result=DONE'
         ) -join "`r`n"
         if ((Test-ClockSmokeContract $validClock -Quiet) -ne 0) { throw 'valid clock-smoke marker set did not pass' }
@@ -285,6 +288,7 @@ if ($ClockSmoke) {
                 $validClock.Replace('poll_fallback=0', 'poll_fallback=1'),
                 $validClock.Replace('ipi_switches=1', 'ipi_switches=0'),
                 $validClock.Replace('irq_delta=42', 'irq_delta=0'),
+                $validClock.Replace('segments=3 catalog=48', 'segments=1 catalog=8'),
                 ($validClock + "`r`n[CLOCKPROBE] result=FAILED"))) {
             if ((Test-ClockSmokeContract $invalidClock -Quiet) -eq 0) { throw 'invalid clock-smoke marker set was accepted' }
         }
@@ -422,6 +426,7 @@ $forbidden = @(
     '[SERIALPROBE] result=FAILED',
     '[R4LPREEMPT] result=FAILED',
     '[CLOCKPROBE] result=FAILED',
+    '[TCPBURSTPROBE] result=FAILED',
     'General Protection Fault',
     'Page Fault',
     'REG: api-selftest',
