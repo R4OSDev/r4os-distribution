@@ -8,6 +8,8 @@ set "R4OS_ACTION=%~1"
 if not defined R4OS_ACTION set "R4OS_ACTION=tools"
 set "R4OS_REQUESTED_VARIANT=%~3"
 
+if /i "%R4OS_ACTION%"=="recovery-image" goto recovery_tools
+
 if /i "%R4OS_ACTION%"=="tools" goto resolve_settings
 if /i "%R4OS_ACTION%"=="test" goto resolve_settings
 if /i "%R4OS_ACTION%"=="plan" goto require_profile
@@ -22,6 +24,12 @@ goto usage
 :require_profile
 set "R4OS_REQUESTED_PROFILE=%~2"
 if not defined R4OS_REQUESTED_PROFILE goto usage
+
+goto resolve_settings
+
+:recovery_tools
+pwsh -NoLogo -NoProfile -File "%R4OS_DISTRIBUTION_ROOT%\Build.ps1" %*
+exit /b %errorlevel%
 
 :resolve_settings
 if not exist "%R4OS_SETTINGS%" (

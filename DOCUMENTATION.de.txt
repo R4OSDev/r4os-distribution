@@ -59,6 +59,52 @@ Ein uebergeordneter Workspace-Build darf diese Aktionen aufrufen, erzeugt
 Images oder QEMU-Aufrufe aber nicht selbst. `Build.bat` und `Build.sh` sind
 die plattformspezifischen Starter fuer dieselben Distributionsaktionen.
 
+Technisches Fuenf-Partitionen-Image (0.76.17)
+-------------------------------------------
+
+`Build.sh recovery-image Slim` bzw. `Build.bat recovery-image Slim` starten
+die gemeinsame Build.ps1-/Tools/InstallationImage.ps1-Logik. Full ist ebenso
+waehlbar; die zugehoerigen normalen Komponenten und der Root-Profilplan
+muessen vorher gebaut bzw. erzeugt sein. Der Aufruf regeneriert den lokalen
+Distributionsplan und baut ausschliesslich seine Hosttools. Er konsumiert
+ein konkretes geprueftes Recovery-Paket; ohne -RecoveryPackage wird das
+bereits gebaute Kernel-/Runtime-Paar des Recovery-Repositories paketiert.
+
+ImageCreator create-installation verwendet SDK storage_tools.installation
+und storage_tools.limine fuer GPT, Installationsbeschreibung, Bootverweise
+und BIOS-Stages. Das 2048-MB-Image besitzt BIOSBOOT 1 MB, BOOT 128 MB
+FAT32/ESP, SYSTEM 1024 MB NTFS, RECOVERY 512 MB FAT32 und DATA NTFS im Rest.
+CURRENT und PREVIOUS enthalten bytegleich dasselbe vollstaendige Paket.
+Der normale Kernel, Preload, Boot-R4Ps und UEFI-Bootloader liegen auf BOOT;
+Recovery-Kernel und RAM-Image werden direkt von RECOVERY geladen.
+
+`-Medium local` ist Standard; `-Medium usb` setzt nur die zugehoerige
+Menuevorgabe. Eine Anpassung an echte USB-Geraetegroessen gehoert spaeter
+zum USB-Werkzeug. `-OutputRoot` muss innerhalb der Distributionsartefakte
+liegen. Standardziel ist RecoveryImages/<Profil>-<Medium>/disk.img.
+Die separat implementierte Strukturpruefung kontrolliert GPT/CRC/Geometrie,
+FAT-Allokation, NTFS-Bootkopien, IDs, Limine-Verweise, eingebettete
+Kernelversionen und alle Paketdateien in beiden Recovery-Slots. image.json
+nennt Hashes, reale IDs und technical=true. Erst die spaetere Release-
+Integration pinnt ein veroeffentlichtes Recovery und stellt die produktiven
+Profile um.
+
+Abnahme: `pwsh -NoProfile -File Tests/Test-InstallationImage.ps1` benutzt
+vier vCPUs, QEMU-Snapshots und eigene entbehrliche Images. Sie prueft beide
+Firmwarepfade, alle drei Menueeintraege, zwei Installationen in umgekehrter
+Controllerreihenfolge, defektes SYSTEM, USB-Standard und doppelte IDs.
+Normales R4OS muss Desktop/Terminal per Tastatur bis zum regulären Poweroff
+erreichen; Recovery muss den richtigen Slot und sein R:-Volume ueber SSH
+nachweisen. Die Basisimages muessen unveraendert bleiben. -Cases begrenzt
+gezielte Wiederholungen nach einem Fehler, -Firmware waehlt BIOS/UEFI.
+
+Abnahme 0.76.17: Linux/KVM, vier vCPUs, 2048 MB; alle zehn Faelle bestanden.
+Normales R4OS mit Kernel 0.1.97: BIOS 25.94 s, UEFI 26.76 s. Recovery-Slots,
+SYSTEM-Ausfall, USB-Start und Ablehnung geklonter IDs: 11.96 bis 16.60 s.
+Das unveraendert eingefrorene Recovery/Kernel-Paar bleibt 0.1.14. SDK-Owner
+9/9 Gruppen, Kernel-Storage-Tests, Distribution-Owner-Tests und frisches
+Legacy-Testimage mit SMP4-testquick bestanden. Kein Windows-/Lenovo-Lauf.
+
 Der gebaute ImageCreator kann mit `--volume-only --size 64 --add-list ...`
 ein vollstaendiges FAT32-Volume ohne MBR erzeugen. Der Bootsektor liegt dann
 bei Sektor null; `--size` gibt die gesamte Volumegroesse in R4OS-MB an. Die

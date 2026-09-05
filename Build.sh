@@ -7,6 +7,10 @@ action=${1:-tools}
 requested_profile=${2:-}
 requested_variant=${3:-}
 
+if [ "$action" = recovery-image ]; then
+    exec pwsh -NoLogo -NoProfile -File "$distribution_root/Build.ps1" "$@"
+fi
+
 if [ ! -f "$settings_file" ]; then
     echo "ERROR: Settings file not found: $settings_file" >&2
     exit 1

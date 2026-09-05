@@ -38,7 +38,7 @@ const FAT32_LAST_DATA_CLUSTER: u32 = 0x0FFF_FFF6;
 const ROOT_CLUSTER: u32 = 2;
 
 // --- Input-Struct -------------------------------------------------------
-const AddEntry = struct { src: []const u8, dest: []const u8 };
+const AddEntry = struct { src: []const u8, dest: []const u8, data: ?[]const u8 = null };
 
 fn appendAddList(a: std.mem.Allocator, data: []const u8, entries: *std.ArrayList(AddEntry)) !void {
     var rest = data;
@@ -574,6 +574,9 @@ pub fn main(init: std.process.Init) !void {
     if (args.len >= 2 and std.mem.eql(u8, args[1], "create-system")) {
         return runCreateSystem(a, io, cwd, args[2..]);
     }
+    if (args.len >= 2 and std.mem.eql(u8, args[1], "create-installation")) {
+        return runCreateInstallation(a, io, cwd, args[2..]);
+    }
 
     var output_path: ?[]const u8 = null;
     var size_mb: u32 = 64;
@@ -702,7 +705,7 @@ fn buildFat32PartitionInto(a: std.mem.Allocator, io: anytype, cwd: std.Io.Dir, i
 
     // Read files.
     for (entries) |e| {
-        const data = cwd.readFileAlloc(io, e.src, a, .unlimited) catch |err| {
+        const data = if (e.data) |bytes| try a.dupe(u8, bytes) else cwd.readFileAlloc(io, e.src, a, .unlimited) catch |err| {
             std.debug.print("Cannot read '{s}': {s}\n", .{ e.src, @errorName(err) });
             return err;
         };
@@ -877,4 +880,128 @@ fn runCreateSystem(gpa: std.mem.Allocator, io: anytype, cwd: std.Io.Dir, args: [
         "System image created: {s}\n  Boot partition (FAT32): sector {d}, {d} sectors ({d} boot files)\n  System volume (NTFS): sector {d}, {d} sectors ({d} files)\n",
         .{ out, PART_START_SECTOR, boot_part_sectors, boot_entries.items.len, ntfs_lba, system_sectors, system_entries.items.len },
     );
+}
+
+const ImageDevice = struct {
+    bytes: []u8,
+    fn read(raw: *anyopaque, lba: u64, out: []u8) i32 {
+        const self: *ImageDevice = @ptrCast(@alignCast(raw));
+        @memcpy(out, self.bytes[@intCast(lba * 512)..][0..out.len]);
+        return 0;
+    }
+    fn write(raw: *anyopaque, lba: u64, bytes: []const u8) i32 {
+        const self: *ImageDevice = @ptrCast(@alignCast(raw));
+        @memcpy(self.bytes[@intCast(lba * 512)..][0..bytes.len], bytes);
+        return 0;
+    }
+    fn flush(_: *anyopaque) i32 {
+        return 0;
+    }
+    fn device(self: *ImageDevice) storage_tools.io.Device {
+        return .{ .context = self, .sectors = self.bytes.len / 512, .exclusive = true, .read_fn = read, .write_fn = write, .flush_fn = flush };
+    }
+};
+
+fn runCreateInstallation(gpa: std.mem.Allocator, io: std.Io, cwd: std.Io.Dir, args: []const []const u8) !void {
+    var arena = std.heap.ArenaAllocator.init(gpa);
+    defer arena.deinit();
+    const a = arena.allocator();
+    const common = storage_tools.installation;
+    var output: ?[]const u8 = null;
+    var manifest_output: ?[]const u8 = null;
+    var release: ?[]const u8 = null;
+    var kernel: ?[]const u8 = null;
+    var medium: common.Medium = .local;
+    var entries: std.ArrayList(AddEntry) = .empty;
+    var recovery: std.ArrayList(AddEntry) = .empty;
+    var i: usize = 0;
+    while (i < args.len) : (i += 2) {
+        if (i + 1 >= args.len) return error.BadArgs;
+        const arg = args[i];
+        const value = args[i + 1];
+        if (std.mem.eql(u8, arg, "--output")) output = value else if (std.mem.eql(u8, arg, "--manifest-out")) manifest_output = value else if (std.mem.eql(u8, arg, "--release-version")) release = value else if (std.mem.eql(u8, arg, "--kernel-version")) kernel = value else if (std.mem.eql(u8, arg, "--medium")) {
+            medium = std.meta.stringToEnum(common.Medium, value) orelse return error.BadArgs;
+        } else if (std.mem.eql(u8, arg, "--add-list")) {
+            try appendAddList(a, try cwd.readFileAlloc(io, value, a, .limited(4 * 1024 * 1024)), &entries);
+        } else if (std.mem.eql(u8, arg, "--recovery-list")) {
+            try appendAddList(a, try cwd.readFileAlloc(io, value, a, .limited(4 * 1024 * 1024)), &recovery);
+        } else return error.BadArgs;
+    }
+    const destination = output orelse return error.MissingOutput;
+    const release_version = release orelse return error.MissingVersion;
+    const kernel_version = kernel orelse return error.MissingVersion;
+    var entropy: [7][16]u8 = undefined;
+    std.Io.random(io, std.mem.asBytes(&entropy));
+    const ids = try common.Identifiers.fromEntropy(entropy);
+    const layout = try common.Layout.prepare(common.standard_bytes / 512, 512, ids);
+    var boot_entries: std.ArrayList(AddEntry) = .empty;
+    var system_entries: std.ArrayList(AddEntry) = .empty;
+    var boot_files: std.ArrayList([]const u8) = .empty;
+    for (entries.items) |entry| {
+        if (isBootDest(entry.dest)) {
+            const path = std.mem.trimStart(u8, entry.dest, "/");
+            if (std.ascii.eqlIgnoreCase(path, "boot/limine.conf")) continue;
+            if (std.ascii.eqlIgnoreCase(path, "boot/r4os-installation.json") or !common.bootPath(path)) return error.BootPath;
+            try boot_files.append(a, path);
+            try boot_entries.append(a, entry);
+        } else try system_entries.append(a, entry);
+    }
+    for (common.boot_paths) |required| {
+        var found = false;
+        for (boot_files.items) |path| if (std.mem.eql(u8, path, required)) {
+            found = true;
+            break;
+        };
+        if (!found) return error.MissingBootFile;
+    }
+    for ([_][]const u8{ "/CURRENT/recovery.elf", "/CURRENT/runtime.img", "/CURRENT/manifest.json", "/PREVIOUS/recovery.elf", "/PREVIOUS/runtime.img", "/PREVIOUS/manifest.json" }) |required| {
+        var found = false;
+        for (recovery.items) |entry| if (std.mem.eql(u8, entry.dest, required)) {
+            found = true;
+            break;
+        };
+        if (!found) return error.MissingRecoveryFile;
+    }
+    const manifest = try layout.manifest(a, release_version, kernel_version, boot_files.items);
+    const config = try layout.limineConfig(a, medium);
+    try boot_entries.append(a, .{ .src = "", .dest = "/boot/r4os-installation.json", .data = manifest });
+    try boot_entries.append(a, .{ .src = "", .dest = "/boot/limine.conf", .data = config });
+
+    const bytes = try a.alloc(u8, @intCast(common.standard_bytes));
+    @memset(bytes, 0);
+    var ram = ImageDevice{ .bytes = bytes };
+    const device = ram.device();
+    const work = try a.alloc(u8, storage_tools.io.scratch_bytes);
+    var table = try storage_tools.partition.Plan.read(device, work);
+    try layout.bind(&table);
+    try table.commit(device, work);
+    for ([_]common.Role{ .BOOT, .RECOVERY }) |role| {
+        const region = layout.part(role);
+        _ = try buildFat32PartitionInto(a, io, cwd, bytes, @intCast(region.first), @intCast(layout.sectors), @intCast(region.count), @intCast(region.count / 2048), if (role == .BOOT) boot_entries.items else recovery.items);
+    }
+    for ([_]common.Role{ .SYSTEM, .DATA }) |role| {
+        const region = layout.part(role);
+        const serial = std.mem.readInt(u64, ids.partitions[@intFromEnum(role)][0..8], .little);
+        var builder = try ntfs_mkfs.Builder.init(a, region.count * 512, @tagName(role), @intCast(region.first), storage_tools.standardNtfsMetadata(), 132_000_000_000_000_000, serial);
+        if (role == .SYSTEM) {
+            for (system_entries.items) |entry| {
+                const contents = try cwd.readFileAlloc(io, entry.src, a, .unlimited);
+                try ntfs_cli.addPath(&builder, a, entry.dest, contents);
+            }
+        } else {
+            for ([_][]const u8{ "DOCS", "MEDIA", "TEMP" }) |name| {
+                _ = try builder.addDirectory(builder.root(), name);
+            }
+        }
+        const volume = try builder.finalize();
+        if (volume.len != region.count * 512) return error.NtfsSizeMismatch;
+        @memcpy(bytes[@intCast(region.first * 512)..][0..volume.len], volume);
+    }
+    const committed = try storage_tools.partition.Plan.read(device, work);
+    try storage_tools.limine.installBios(device, &committed, work);
+    // Only complete host files are published. The product guest uses the
+    // same layout/BIOS helper over its explicit device claim, not this CLI.
+    try cwd.writeFile(io, .{ .sub_path = destination, .data = bytes });
+    if (manifest_output) |path| try cwd.writeFile(io, .{ .sub_path = path, .data = manifest });
+    std.debug.print("R4OS five-partition image: {s}, 2048 MB, disk {s}, default {s}\n", .{ destination, common.guid.format(ids.disk), @tagName(medium) });
 }
