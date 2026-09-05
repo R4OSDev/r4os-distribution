@@ -59,6 +59,16 @@ Ein uebergeordneter Workspace-Build darf diese Aktionen aufrufen, erzeugt
 Images oder QEMU-Aufrufe aber nicht selbst. `Build.bat` und `Build.sh` sind
 die plattformspezifischen Starter fuer dieselben Distributionsaktionen.
 
+Der gebaute ImageCreator kann mit `--volume-only --size 64 --add-list ...`
+ein vollstaendiges FAT32-Volume ohne MBR erzeugen. Der Bootsektor liegt dann
+bei Sektor null; `--size` gibt die gesamte Volumegroesse in R4OS-MB an. Die
+regulaere Ausgabe ohne diesen Schalter bleibt ein partitioniertes Image.
+Beide Wege teilen Verzeichnis-, FAT- und BPB-Aufbau. Mehrclusterige
+Hauptverzeichnisse werden vor den Dateiclustern reserviert; Platzmangel
+wird vor der Ausgabedatei abgewiesen. BPB und Hauptverzeichnis enthalten
+dieselbe Datentraegerbezeichnung. Recovery friert diesen Besitzerstand
+fuer runtime.img ausdruecklich ein.
+
 Die QEMU-Software selbst liegt ausschliesslich im DevKit unter dem durch
 `QEMU_ROOT` gemappten `Emulation/QEMU`. Dieses Repository enthaelt unter
 `QEMU/` nur R4OS-spezifische Konfiguration. `qemu` startet ein Profil mit GUI.

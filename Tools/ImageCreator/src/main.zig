@@ -9,6 +9,7 @@
 //   imagecreater --output disk.img [--size 64]
 //                --add <source>:</target-path> [--add ...]
 //                [--add-list add-list.txt]
+//                [--volume-only] (FAT32 volume at sector zero, no MBR)
 //
 // Example:
 //   imagecreater --output disk.img --size 64 \
@@ -194,6 +195,7 @@ const Image = struct {
     allocator: std.mem.Allocator,
     image: []u8,
     total_sectors: u32,
+    part_start_sector: u32,
     part_sectors: u32,
     sectors_per_fat: u32,
     sectors_per_cluster: u32,
@@ -202,8 +204,7 @@ const Image = struct {
     next_free_cluster: u32 = ROOT_CLUSTER + 1,
 
     fn partOffset(self: *const Image, sector_in_part: u32) usize {
-        _ = self;
-        return @as(usize, PART_START_SECTOR + sector_in_part) * SECTOR;
+        return @as(usize, self.part_start_sector + sector_in_part) * SECTOR;
     }
 
     fn clusterOffset(self: *Image, cluster: u32) usize {
@@ -237,10 +238,10 @@ const Image = struct {
                 if (next_free == 0xFFFF_FFFF) next_free = cluster;
             }
         }
-        buildFsInfo(self.image[(PART_START_SECTOR + 1) * SECTOR ..][0..SECTOR], free_count, next_free);
+        buildFsInfo(self.image[self.partOffset(1)..][0..SECTOR], free_count, next_free);
         @memcpy(
-            self.image[(PART_START_SECTOR + 7) * SECTOR ..][0..SECTOR],
-            self.image[(PART_START_SECTOR + 1) * SECTOR ..][0..SECTOR],
+            self.image[self.partOffset(7)..][0..SECTOR],
+            self.image[self.partOffset(1)..][0..SECTOR],
         );
     }
 
@@ -272,6 +273,9 @@ const Image = struct {
         if (count == 0) return;
         if (self.next_free_cluster + count - 1 > FAT32_LAST_DATA_CLUSTER) {
             return error.ImageTooLargeForFat32;
+        }
+        if (@as(u64, self.next_free_cluster) + count > @as(u64, self.dataClusterCount()) + 2) {
+            return error.ImageFull;
         }
     }
 
@@ -332,6 +336,19 @@ const Image = struct {
                 }
             },
             .dir => {
+                // Reserve the whole root chain before any children; otherwise
+                // a root larger than one cluster overlaps the first file.
+                if (node_idx == 0) {
+                    var total_entries: u32 = 1; // volume label
+                    for (n.children.items) |ci| total_entries += entriesForName(self.nodes.items[ci].name);
+                    n.cluster_count = @max(1, (total_entries * 32 + self.clusterSize() - 1) / self.clusterSize());
+                    self.next_free_cluster = ROOT_CLUSTER;
+                    try self.ensureClustersAvailable(n.cluster_count);
+                    n.first_cluster = ROOT_CLUSTER;
+                    self.next_free_cluster += n.cluster_count;
+                    for (n.children.items) |ci| try self.allocateLayout(ci);
+                    return;
+                }
                 // Allocate children first so their cluster numbers are final
                 // before directory entries are written.
                 for (n.children.items) |ci| try self.allocateLayout(ci);
@@ -394,6 +411,11 @@ const Image = struct {
                     // ".." Eintrag (parent-cluster, root = 0)
                     const parent_cluster: u32 = if (n.parent == 0) 0 else self.nodes.items[n.parent].first_cluster;
                     try writeShortDir(&buf, self.allocator, "..         ".*, true, parent_cluster, 0);
+                } else {
+                    var label: [32]u8 = .{0} ** 32;
+                    @memcpy(label[0..11], "R4OS BOOT  ");
+                    label[11] = 0x08;
+                    try buf.appendSlice(self.allocator, &label);
                 }
 
                 for (n.children.items) |ci| {
@@ -507,7 +529,7 @@ fn writeDirEntryWithShort(
 }
 
 // --- Initialisierung ------------------------------------------------------
-fn buildBpb(buf: []u8, total_sectors_part: u32, sectors_per_fat: u32, sectors_per_cluster: u32) void {
+fn buildBpb(buf: []u8, first_sector: u32, total_sectors_part: u32, sectors_per_fat: u32, sectors_per_cluster: u32) void {
     @memset(buf[0..512], 0);
     // Jump
     buf[0] = 0xEB;
@@ -525,7 +547,7 @@ fn buildBpb(buf: []u8, total_sectors_part: u32, sectors_per_fat: u32, sectors_pe
     wU16(buf, 22, 0);
     wU16(buf, 24, 32);
     wU16(buf, 26, 64);
-    wU32(buf, 28, PART_START_SECTOR); // hidden sectors
+    wU32(buf, 28, first_sector); // hidden sectors; zero for a standalone volume
     wU32(buf, 32, total_sectors_part);
     wU32(buf, 36, sectors_per_fat);
     wU16(buf, 40, 0);
@@ -594,6 +616,7 @@ pub fn main(init: std.process.Init) !void {
 
     var output_path: ?[]const u8 = null;
     var size_mb: u32 = 64;
+    var volume_only = false;
     var entries: std.ArrayList(AddEntry) = .empty;
     defer entries.deinit(a);
     var list_buffers: std.ArrayList([]u8) = .empty;
@@ -609,6 +632,8 @@ pub fn main(init: std.process.Init) !void {
             if (i + 1 >= args.len) return error.BadArgs;
             i += 1;
             output_path = args[i];
+        } else if (std.mem.eql(u8, arg, "--volume-only")) {
+            volume_only = true;
         } else if (std.mem.eql(u8, arg, "--size")) {
             if (i + 1 >= args.len) return error.BadArgs;
             i += 1;
@@ -642,8 +667,9 @@ pub fn main(init: std.process.Init) !void {
     const total_sectors_u64 = total_bytes / SECTOR;
     if (total_sectors_u64 > std.math.maxInt(u32)) return error.SizeTooLarge;
     const total_sectors: u32 = @intCast(total_sectors_u64);
-    if (total_sectors <= PART_START_SECTOR) return error.SizeTooSmall;
-    const part_sectors: u32 = total_sectors - PART_START_SECTOR;
+    const first_sector: u32 = if (volume_only) 0 else PART_START_SECTOR;
+    if (total_sectors <= first_sector) return error.SizeTooSmall;
+    const part_sectors: u32 = total_sectors - first_sector;
 
     const image_bytes: usize = @as(usize, total_sectors) * SECTOR;
     const image = try a.alloc(u8, image_bytes);
@@ -651,24 +677,24 @@ pub fn main(init: std.process.Init) !void {
     @memset(image, 0);
 
     // MBR
-    buildMbr(image[0..SECTOR], total_sectors, part_sectors);
-    const stats = try buildFat32PartitionInto(a, io, cwd, image, total_sectors, part_sectors, size_mb, entries.items);
+    if (!volume_only) buildMbr(image[0..SECTOR], total_sectors, part_sectors);
+    const stats = try buildFat32PartitionInto(a, io, cwd, image, first_sector, total_sectors, part_sectors, size_mb, entries.items);
 
     // Output.
     try cwd.writeFile(io, .{ .sub_path = out, .data = image });
 
     std.debug.print(
         "FAT32 image created: {s} ({d} MB)\n  Partition: sector {d}, {d} sectors\n  FAT size: {d} sectors per FAT\n  Cluster: {d} bytes\n",
-        .{ out, size_mb, PART_START_SECTOR, part_sectors, stats.sectors_per_fat, SECTOR * stats.sectors_per_cluster },
+        .{ out, size_mb, first_sector, part_sectors, stats.sectors_per_fat, SECTOR * stats.sectors_per_cluster },
     );
 }
 
 const FatBuildStats = struct { sectors_per_fat: u32, sectors_per_cluster: u32 };
 
 /// Builds the FAT32 partition content (BPB, FATs, tree) into `image` at the
-/// fixed partition offset PART_START_SECTOR.  Shared by the classic single-
-/// partition image and the boot partition of the system layout.
-fn buildFat32PartitionInto(a: std.mem.Allocator, io: anytype, cwd: std.Io.Dir, image: []u8, total_sectors: u32, part_sectors: u32, size_mb: u32, entries: []const AddEntry) !FatBuildStats {
+/// selected partition offset. Shared by standalone volumes, the classic
+/// single-partition image and the boot partition of the system layout.
+fn buildFat32PartitionInto(a: std.mem.Allocator, io: anytype, cwd: std.Io.Dir, image: []u8, first_sector: u32, total_sectors: u32, part_sectors: u32, size_mb: u32, entries: []const AddEntry) !FatBuildStats {
     const sectors_per_cluster = sectorsPerClusterForSize(size_mb);
 
     // Compute FAT size pessimistically, then iterate until stable.
@@ -686,15 +712,15 @@ fn buildFat32PartitionInto(a: std.mem.Allocator, io: anytype, cwd: std.Io.Dir, i
     const data_start_sector = RESERVED_SECTORS + NUM_FATS * sectors_per_fat + ROOT_DIR_SECTORS;
 
     // BPB
-    buildBpb(image[PART_START_SECTOR * SECTOR ..][0..SECTOR], part_sectors, sectors_per_fat, sectors_per_cluster);
-    buildFsInfo(image[(PART_START_SECTOR + 1) * SECTOR ..][0..SECTOR], 0xFFFF_FFFF, 0xFFFF_FFFF);
+    buildBpb(image[first_sector * SECTOR ..][0..SECTOR], first_sector, part_sectors, sectors_per_fat, sectors_per_cluster);
+    buildFsInfo(image[(first_sector + 1) * SECTOR ..][0..SECTOR], 0xFFFF_FFFF, 0xFFFF_FFFF);
     @memcpy(
-        image[(PART_START_SECTOR + 6) * SECTOR ..][0..SECTOR],
-        image[PART_START_SECTOR * SECTOR ..][0..SECTOR],
+        image[(first_sector + 6) * SECTOR ..][0..SECTOR],
+        image[first_sector * SECTOR ..][0..SECTOR],
     );
     @memcpy(
-        image[(PART_START_SECTOR + 7) * SECTOR ..][0..SECTOR],
-        image[(PART_START_SECTOR + 1) * SECTOR ..][0..SECTOR],
+        image[(first_sector + 7) * SECTOR ..][0..SECTOR],
+        image[(first_sector + 1) * SECTOR ..][0..SECTOR],
     );
 
     // Create image builder.
@@ -702,6 +728,7 @@ fn buildFat32PartitionInto(a: std.mem.Allocator, io: anytype, cwd: std.Io.Dir, i
         .allocator = a,
         .image = image,
         .total_sectors = total_sectors,
+        .part_start_sector = first_sector,
         .part_sectors = part_sectors,
         .sectors_per_fat = sectors_per_fat,
         .sectors_per_cluster = sectors_per_cluster,
@@ -848,7 +875,7 @@ fn runCreateSystem(gpa: std.mem.Allocator, io: anytype, cwd: std.Io.Dir, args: [
     @memset(image, 0);
 
     // FAT32 boot partition at the classic offset.
-    _ = try buildFat32PartitionInto(a, io, cwd, image, total_sectors, boot_part_sectors, boot_mb, boot_entries.items);
+    _ = try buildFat32PartitionInto(a, io, cwd, image, PART_START_SECTOR, total_sectors, boot_part_sectors, boot_mb, boot_entries.items);
 
     // NTFS system volume behind it.
     var meta_dir = try cwd.openDir(io, meta_path, .{});
