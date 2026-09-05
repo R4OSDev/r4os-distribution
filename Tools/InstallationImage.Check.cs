@@ -118,7 +118,8 @@ public sealed class InstallationImageCheck : IDisposable {
     public readonly Dictionary<string,Fat> Volumes=new Dictionary<string,Fat>(StringComparer.Ordinal);
     public readonly long Bytes;
     public readonly string DiskGuid;
-    public InstallationImageCheck(string path) {
+    public InstallationImageCheck(string path) : this(path, false) { }
+    public InstallationImageCheck(string path, bool allowNonstandardSystem) {
         file=File.OpenRead(path);
         try {
             Bytes=file.Length; Require(Bytes%512==0 && Bytes>=1740L*1024*1024,"Installation image size");
@@ -140,7 +141,9 @@ public sealed class InstallationImageCheck : IDisposable {
                 if(i>=5){foreach(byte b in entries.AsSpan(at,128))Require(b==0,"Extra GPT partition");continue;}
                 string name=Encoding.Unicode.GetString(entries,at+56,72).TrimEnd('\0');
                 var part=new Partition {Role=name,Type=new Guid(entries.AsSpan(at,16)).ToString(),Guid=new Guid(entries.AsSpan(at+16,16)).ToString(),First=checked((long)U64(entries,at+32)),Count=checked((long)(U64(entries,at+40)-U64(entries,at+32)+1))};
-                Require(name==roles[i] && part.Type==types[Math.Min(i,2)] && part.First==first[i] && part.Count==count[i] && part.Count>0 && part.First%2048==0,"GPT role/geometry "+roles[i]);
+                Require(name==roles[i] && part.Type==types[Math.Min(i,2)] && part.First==first[i] &&
+                    (part.Count==count[i] || (allowNonstandardSystem && i==2 && part.First+part.Count<=first[3])) &&
+                    part.Count>0 && part.First%2048==0,"GPT role/geometry "+roles[i]);
                 Require(part.Guid!=Guid.Empty.ToString() && ids.Add(part.Guid),"Duplicate/zero partition GUID");
                 Partitions.Add(name,part);
             }

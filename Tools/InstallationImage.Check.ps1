@@ -1,7 +1,8 @@
 function Test-R4OSInstallationImage {
-    param([Parameter(Mandatory)][string]$Image,[ValidateSet('local','usb')][string]$Medium='local')
+    param([Parameter(Mandatory)][string]$Image,[ValidateSet('local','usb')][string]$Medium='local',
+          [switch]$AllowNonstandardSystem,[switch]$PreservedMenu)
     if(!('InstallationImageCheck' -as [type])){Add-Type -Path (Join-Path $PSScriptRoot 'InstallationImage.Check.cs')}
-    $imageCheck=[InstallationImageCheck]::new($Image)
+    $imageCheck=[InstallationImageCheck]::new($Image,[bool]$AllowNonstandardSystem)
     try {
         $utf8=[Text.UTF8Encoding]::new($false,$true)
         $boot=$imageCheck.Volumes['BOOT'];$recovery=$imageCheck.Volumes['RECOVERY']
@@ -17,8 +18,8 @@ function Test-R4OSInstallationImage {
         if([Guid]$manifest.installationId -eq [Guid]::Empty -or !$ids.Add($manifest.installationId)){throw 'Invalid installation ID.'}
         $config=$utf8.GetString($boot.ReadFile('boot/limine.conf'))
         $default=if($Medium -eq 'local'){1}else{2}
-        if($config -cnotmatch "^timeout: 5`ndefault_entry: $default`n" -or
-            (@([regex]::Matches($config,'(?m)^/[^\r\n]+')).Value -join '|') -cne '/R4OS|/R4OS Recovery|/R4OS Recovery Previous'){throw 'Limine menu/default differs.'}
+        if(!$PreservedMenu -and ($config -cnotmatch "^timeout: 5`ndefault_entry: $default`n" -or
+            (@([regex]::Matches($config,'(?m)^/[^\r\n]+')).Value -join '|') -cne '/R4OS|/R4OS Recovery|/R4OS Recovery Previous')){throw 'Limine menu/default differs.'}
         $bootGuid=$manifest.partitions.BOOT.partitionGuid;$recoveryGuid=$manifest.partitions.RECOVERY.partitionGuid
         $paths=@([regex]::Matches($config,'(?m)^    (?:module_)?path: guid\(([^)]+)\):/([^\r\n]+)$'))
         $expected=@('boot/r4os.elf','boot/preload.r4i','boot/preload/hidreport.r4p','boot/preload/usbhid.r4p','boot/preload/usbbot.r4p','boot/preload/usbscsi.r4p','CURRENT/recovery.elf','CURRENT/runtime.img','PREVIOUS/recovery.elf','PREVIOUS/runtime.img')
