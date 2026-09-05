@@ -19,7 +19,9 @@
 
 const std = @import("std");
 const ntfs_cli = @import("ntfs_cli.zig");
-const ntfs_mkfs = @import("ntfs_mkfs.zig");
+const storage_tools = @import("storage_tools");
+const ntfs_mkfs = storage_tools.ntfs;
+const fat32_format = storage_tools.fat32;
 
 // --- Layout-Konstanten ----------------------------------------------------
 const SECTOR: u32 = 512;
@@ -529,50 +531,9 @@ fn writeDirEntryWithShort(
 }
 
 // --- Initialisierung ------------------------------------------------------
-fn buildBpb(buf: []u8, first_sector: u32, total_sectors_part: u32, sectors_per_fat: u32, sectors_per_cluster: u32) void {
-    @memset(buf[0..512], 0);
-    // Jump
-    buf[0] = 0xEB;
-    buf[1] = 0x58;
-    buf[2] = 0x90;
-    // OEM
-    @memcpy(buf[3..11], "R4OS    ");
-    wU16(buf, 11, @intCast(SECTOR));
-    buf[13] = @intCast(sectors_per_cluster);
-    wU16(buf, 14, @intCast(RESERVED_SECTORS));
-    buf[16] = @intCast(NUM_FATS);
-    wU16(buf, 17, @intCast(ROOT_ENTRIES));
-    wU16(buf, 19, 0); // total sectors 16: 0 -> use 32-bit field
-    buf[21] = 0xF8;
-    wU16(buf, 22, 0);
-    wU16(buf, 24, 32);
-    wU16(buf, 26, 64);
-    wU32(buf, 28, first_sector); // hidden sectors; zero for a standalone volume
-    wU32(buf, 32, total_sectors_part);
-    wU32(buf, 36, sectors_per_fat);
-    wU16(buf, 40, 0);
-    wU16(buf, 42, 0);
-    wU32(buf, 44, ROOT_CLUSTER);
-    wU16(buf, 48, 1);
-    wU16(buf, 50, 6);
-    buf[64] = 0x80;
-    buf[65] = 0;
-    buf[66] = 0x29;
-    wU32(buf, 67, 0xCAFEBABE);
-    @memcpy(buf[71..82], "R4OS BOOT  ");
-    @memcpy(buf[82..90], "FAT32   ");
-    // Boot sig
-    buf[510] = 0x55;
-    buf[511] = 0xAA;
-}
-
 fn buildFsInfo(buf: []u8, free_count: u32, next_free: u32) void {
-    @memset(buf[0..512], 0);
-    wU32(buf, 0, 0x41615252);
-    wU32(buf, 484, 0x61417272);
-    wU32(buf, 488, free_count);
-    wU32(buf, 492, next_free);
-    wU32(buf, 508, 0xAA55_0000);
+    const info = fat32_format.fsInfo(free_count, next_free);
+    @memcpy(buf[0..512], &info);
 }
 
 fn sectorsPerClusterForSize(size_mb: u32) u32 {
@@ -695,24 +656,12 @@ const FatBuildStats = struct { sectors_per_fat: u32, sectors_per_cluster: u32 };
 /// selected partition offset. Shared by standalone volumes, the classic
 /// single-partition image and the boot partition of the system layout.
 fn buildFat32PartitionInto(a: std.mem.Allocator, io: anytype, cwd: std.Io.Dir, image: []u8, first_sector: u32, total_sectors: u32, part_sectors: u32, size_mb: u32, entries: []const AddEntry) !FatBuildStats {
-    const sectors_per_cluster = sectorsPerClusterForSize(size_mb);
-
-    // Compute FAT size pessimistically, then iterate until stable.
-    var sectors_per_fat: u32 = 1;
-    while (true) {
-        const meta = RESERVED_SECTORS + NUM_FATS * sectors_per_fat + ROOT_DIR_SECTORS;
-        if (meta >= part_sectors) return error.SizeTooSmall;
-        const data_sectors = part_sectors - meta;
-        const cluster_count = data_sectors / sectors_per_cluster + 2; // +2 reserved
-        const needed = (cluster_count * 4 + SECTOR - 1) / SECTOR;
-        if (needed <= sectors_per_fat) break;
-        sectors_per_fat = needed;
-    }
-
-    const data_start_sector = RESERVED_SECTORS + NUM_FATS * sectors_per_fat + ROOT_DIR_SECTORS;
-
-    // BPB
-    buildBpb(image[first_sector * SECTOR ..][0..SECTOR], first_sector, part_sectors, sectors_per_fat, sectors_per_cluster);
+    const geometry = try fat32_format.Geometry.init(part_sectors, first_sector, sectorsPerClusterForSize(size_mb));
+    const sectors_per_cluster = geometry.sectors_per_cluster;
+    const sectors_per_fat = geometry.sectors_per_fat;
+    const data_start_sector = geometry.data_start;
+    const boot = geometry.boot("R4OS BOOT  ".*, 0xCAFEBABE);
+    @memcpy(image[first_sector * SECTOR ..][0..SECTOR], &boot);
     buildFsInfo(image[(first_sector + 1) * SECTOR ..][0..SECTOR], 0xFFFF_FFFF, 0xFFFF_FFFF);
     @memcpy(
         image[(first_sector + 6) * SECTOR ..][0..SECTOR],

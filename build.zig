@@ -42,7 +42,12 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    image_creator_root.addImport("ntfs_format", ntfs_format);
+    const storage_tools = b.createModule(.{
+        .root_source_file = sdk_dependency.path("r4os/storage_tools.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    image_creator_root.addImport("storage_tools", storage_tools);
     const image_creator = b.addExecutable(.{ .name = "imagecreater", .root_module = image_creator_root });
 
     const ntfs_verify_root = b.createModule(.{

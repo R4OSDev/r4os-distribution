@@ -10,12 +10,14 @@
 //     --size <MB>            volume size (default 32)
 //     --label <name>         volume label (default R4OSNTFS)
 //     --partition            wrap in an MBR disk (partition at LBA 2048)
+//     --full                 zero all volume sectors (default: quick)
 //     --serial <hex>         64-bit serial (default derived)
 //     --add SRC:DEST         add a host file at an NTFS path (repeatable)
 //     --add-list <file>      add SRC|DEST or SRC:DEST lines from a file
 
 const std = @import("std");
-const mkfs = @import("ntfs_mkfs.zig");
+const storage_tools = @import("storage_tools");
+const mkfs = storage_tools.ntfs;
 
 const PART_LBA: u32 = 2048;
 
@@ -33,6 +35,7 @@ pub fn run(gpa: std.mem.Allocator, io: anytype, cwd: std.Io.Dir, args: []const [
     var size_mb: u32 = 32;
     var label: []const u8 = "R4OSNTFS";
     var partition = false;
+    var full = false;
     var serial: u64 = 0x5234_4F53_4E54_4653;
     var entries: std.ArrayList(AddEntry) = .empty;
     defer entries.deinit(a);
@@ -57,6 +60,8 @@ pub fn run(gpa: std.mem.Allocator, io: anytype, cwd: std.Io.Dir, args: []const [
             serial = try std.fmt.parseInt(u64, argVal(args, i) orelse return error.BadArgs, 16);
         } else if (std.mem.eql(u8, arg, "--partition")) {
             partition = true;
+        } else if (std.mem.eql(u8, arg, "--full")) {
+            full = true;
         } else if (std.mem.eql(u8, arg, "--add")) {
             i += 1;
             const spec = argVal(args, i) orelse return error.BadArgs;
@@ -91,26 +96,31 @@ pub fn run(gpa: std.mem.Allocator, io: anytype, cwd: std.Io.Dir, args: []const [
         try addPath(&builder, a, entry.dest, data);
     }
 
-    const volume = try builder.finalize();
-
-    if (!partition) {
-        try cwd.writeFile(io, .{ .sub_path = out, .data = volume });
-        std.debug.print("format-ntfs: OK volume={d} bytes\n", .{volume.len});
-        return;
+    var plan = try builder.prepare();
+    defer plan.deinit();
+    const sectors = total_bytes / 512;
+    if (partition and sectors + PART_LBA > @as(u64, std.math.maxInt(u32)) + 1) return error.MbrCapacity;
+    const work = try a.alloc(u8, 128 * 1024);
+    // Geometry, templates, records and buffers are ready before the output
+    // may change. Open without truncation and acquire the host file lock.
+    const output = try cwd.createFile(io, out, .{ .read = true, .truncate = false });
+    defer output.close(io);
+    var target = storage_tools.host_file.File{ .file = output, .io = io, .sectors = 0 };
+    try target.acquire();
+    defer target.release();
+    try target.resize(@as(u64, part_lba) + sectors);
+    var progress = storage_tools.io.Progress{};
+    const device = target.device(&progress);
+    if (partition) {
+        try storage_tools.partition.clean(device, false, work);
+        var layout = try storage_tools.partition.Plan.read(device, work);
+        try layout.initializeMbr(@max(@as(u32, 1), @as(u32, @truncate(serial))));
+        _ = try layout.add(.{ .present = true, .first = PART_LBA, .count = sectors, .mbr_type = 0x07 });
+        try layout.commit(device, work);
     }
-
-    const disk = try a.alloc(u8, @as(usize, PART_LBA) * 512 + volume.len);
-    @memset(disk[0 .. PART_LBA * 512], 0);
-    std.mem.writeInt(u32, disk[0x1B8..][0..4], @truncate(serial), .little);
-    disk[446] = 0x00;
-    disk[446 + 4] = 0x07; // NTFS partition type
-    std.mem.writeInt(u32, disk[446 + 8 ..][0..4], PART_LBA, .little);
-    std.mem.writeInt(u32, disk[446 + 12 ..][0..4], @intCast(volume.len / 512), .little);
-    disk[510] = 0x55;
-    disk[511] = 0xAA;
-    @memcpy(disk[PART_LBA * 512 ..], volume);
-    try cwd.writeFile(io, .{ .sub_path = out, .data = disk });
-    std.debug.print("format-ntfs: OK disk={d} bytes (partition at LBA {d})\n", .{ disk.len, PART_LBA });
+    var region = storage_tools.io.Region{ .parent = device, .first = part_lba, .count = sectors };
+    try plan.execute(try region.device(), full, work);
+    std.debug.print("format-ntfs: OK bytes={d} partition_lba={d} mode={s} streamed=yes\n", .{ total_bytes, part_lba, if (full) "full" else "quick" });
 }
 
 fn argVal(args: []const []const u8, i: usize) ?[]const u8 {

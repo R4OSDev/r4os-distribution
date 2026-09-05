@@ -309,3 +309,16 @@ liegt. Damit koennen lokale ROMs in Entwicklerimages nach `C:\Temp` gelangen,
 aber weder in ein oeffentliches `disk.img` noch in dessen Release-ZIP.
 
 Herkunft und Transfergrenzen stehen in `PROVENANCE.txt`.
+
+0.76.9: Gemeinsamer Formatter im SDK
+----------------------------------
+ImageCreator importiert storage_tools aus dem kanonischen SDK. Die bisherige
+lokale NTFS-Builderdatei ist nach SDK/r4os/ntfs_builder.zig uebernommen;
+FAT32-Geometrie, BPB und FSInfo kommen ebenfalls aus dem gemeinsamen Baustein.
+Bestehende Dateibaum-Images behalten ihren RAM-Aufbau bis zur Umstellung des
+Releaseimageplans. Der Unterbefehl format-ntfs schreibt bereits blockweise:
+Metadaten/Dateibaum vorab planen, Datei ohne Truncation oeffnen, exklusiv
+sperren, Groesse setzen und Quick-Format ausfuehren; --full nullt alle
+Sektoren. --partition erzeugt die MBR-Tabelle ueber denselben SDK-Writer.
+Metadatenauswahl und --add/--add-list bleiben kompatibel. FAT32-Images nutzen
+die bisherige konservative FAT-Groessenberechnung bytegleich.
