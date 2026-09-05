@@ -259,6 +259,15 @@ keinen privaten Schluessel aus dem Repository.
 Releases
 --------
 
+Seit 0.76.15 besitzt Tools/ReleasePackage.ps1 zusaetzlich den neuen
+Recovery-lesbaren Schema-1-Paketerzeuger New-R4OSReleasePackage. Er erhaelt
+ein einzelnes 2048-MB-GPT-Image, verwaltete BOOT-Dateien, Legal und ein
+bereits gebautes eigenstaendiges Recovery-ZIP. Das Manifest bindet Version,
+Architektur, Slim/Full-Profil, Assetname, Layout, Recovery-Version und jeden
+Nutzpfad mit SHA256; limine.conf wird nicht als verwalteter Bootpfad aufgenommen.
+Die unten beschriebenen bisherigen Release-Starter werden erst mit der
+gemeinsamen Image-/Releaseumstellung an diesen Erzeuger angeschlossen.
+
 Vor dem Release werden die benoetigten Profile mit dem Workspace-Build
 erzeugt. `Standard` umfasst Slim und Full; `All` nimmt zusaetzlich das
 Testprofil auf. Unter Windows wird `Release.bat`, unter Linux `./Release.sh`
