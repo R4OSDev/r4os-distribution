@@ -23,13 +23,26 @@ binary release images.
 ## Root certificates
 
 The system trust store contains public root certificates issued by DigiCert,
-GlobalSign, and ISRG, plus the R4OS development root. The external certificate
+GlobalSign, ISRG, and Sectigo, plus the R4OS development root. The external certificate
 identities are:
 
 - DigiCert Global Root G2
 - GlobalSign ECC Root CA - R4
 - GlobalSign Root CA
 - ISRG Root X1
+- USERTrust RSA Certification Authority (Sectigo): DER SHA-256
+  `e793c9b02fd8aa13e21c31228accb08119643b749c898964b1746d46c3d4cbd2`.
+  Obtained from the [issuer repository](http://crt.sectigo.com/USERTrustRSACertificationAuthority.crt)
+  on 2026-09-05 and matched byte-for-byte against the Debian/Mozilla root.
+- USERTrust ECC Certification Authority (Sectigo): DER SHA-256
+  `4ff460d54b9c86dabfbcfc5712e0400d2bed3fbc4d4fbdaa86e06adcd2a9ad7a`.
+  Obtained from the [issuer repository](http://crt.sectigo.com/USERTrustECCCertificationAuthority.crt)
+  on 2026-09-05 and matched byte-for-byte against the Debian/Mozilla root.
+
+The GitHub API chains observed on 2026-09-05 ended in these USERTrust
+cross-signatures for RSA and ECDSA respectively. The actual R4TLS guest
+handshake selected ECDSA. See the
+[issuer's explanation of cross-signing](https://www.sectigo.com/knowledge-base/detail/Sectigo-Root-Certificates).
 
 The certificates are public trust anchors, not private keys. Consult each
 certificate authority's repository and policy documents for current terms and
