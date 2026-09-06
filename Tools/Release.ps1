@@ -6,12 +6,14 @@ param(
     [string]$Profiles = 'Standard',
 
     [switch]$Prerelease,
+    [switch]$Prepared,
     [switch]$TechnicalCandidate,
     [string]$RecoveryCandidate=''
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'PreparedRelease.ps1')
 
 $script:Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 $script:GitHubOrganization = 'R4OSDev'
@@ -923,7 +925,7 @@ function Publish-Release {
 }
 
 function Invoke-ReleaseSelfTest {
-    $tempRoot = Join-Path ([IO.Path]::GetTempPath()) ('R4OS-Release-SelfTest-' + [Guid]::NewGuid().ToString('N'))
+    $tempRoot = Join-Path ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../../Temp'))) ('R4OS-Release-SelfTest-' + [Guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $tempRoot | Out-Null
     try {
         $versionFile = Join-Path $tempRoot 'VERSION.R4S'
@@ -1020,6 +1022,7 @@ function Invoke-ReleaseSelfTest {
         finally {
             $client.Dispose()
         }
+        Test-R4PreparedRelease (Join-Path $tempRoot 'prepared')
         Write-Host '[OK] Release tool self-test passed.'
     }
     finally {
@@ -1042,7 +1045,8 @@ try {
     if($RecoveryCandidate){[Environment]::SetEnvironmentVariable('R4OS_RECOVERY_CANDIDATE',[IO.Path]::GetFullPath($RecoveryCandidate))}
     if([Environment]::GetEnvironmentVariable('R4OS_RECOVERY_CANDIDATE') -and !$TechnicalCandidate){throw 'A local Recovery candidate requires -TechnicalCandidate.'}
     $profileNames = @(Resolve-ProfileNames -Selection $Profiles)
-    $preparation = New-ReleasePreparation -Context $context -ProfileNames $profileNames
+    if($Prepared -and $Action -cne 'Publish'){throw '-Prepared is only valid for Publish.'}
+    $preparation = if($Prepared){Get-R4PreparedRelease -Context $context -ProfileNames $profileNames}else{New-ReleasePreparation -Context $context -ProfileNames $profileNames}
 
     if ($Action -eq 'Publish') {
         Publish-Release -Context $context -Preparation $preparation -IsPrerelease ([bool]$Prerelease)
