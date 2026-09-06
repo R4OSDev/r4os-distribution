@@ -21,6 +21,7 @@ $runSchemaVersion = 2
 $perfdiagSchema = 'r4os.perfdiag.ndjson'
 $perfdiagSchemaVersion = 7
 $standardEnvironmentId = 'r4os-q35-haswell-1vcpu-1g-tcg-v1'
+$currentEnvironmentId = 'r4os-q35-haswell-smp4-1g-tcg-gpt1-v1'
 $legacyEnvironmentId = 'legacy-qemu-1vcpu-unversioned-v1'
 $allowedRecordFields = @(
     'schema',
@@ -534,7 +535,7 @@ function Get-MetricRecordsFromRunResult($Result) {
     Assert-NonEmptyString $workloadVersion 'request.workload_version' '^\d+\.\d+\.\d+$'
     if ($cache -notin @('warm', 'cold')) { throw 'Run request cache state is invalid.' }
     if ($repetitions -lt 3 -or $repetitions -gt 20) { throw 'Run request repetitions are invalid.' }
-    if ($requestedEnvironment -ne $standardEnvironmentId) { throw ('Unsupported benchmark environment: ' + $requestedEnvironment) }
+    if ($requestedEnvironment -notin @($standardEnvironmentId,$currentEnvironmentId)) { throw ('Unsupported benchmark environment: ' + $requestedEnvironment) }
 
     $environment = Get-RequiredProperty $Result 'environment' 'run result'
     if ($environment.id -ne $requestedEnvironment) { throw 'Run environment does not match request.' }
@@ -833,6 +834,12 @@ function Invoke-SelfTest {
         $fixture = [IO.File]::ReadAllText($fixturePath) | ConvertFrom-Json
         $metrics = @(Get-MetricRecordsFromRunResult $fixture)
         if ($metrics.Count -ne 1 -or $metrics[0].metric -ne 'perfdiag.clock.latency') { throw 'Valid fixture did not produce the catalog metric.' }
+        $currentFixture = [IO.File]::ReadAllText($fixturePath) | ConvertFrom-Json
+        $currentFixture.request.environment_id=$currentEnvironmentId
+        $currentFixture.environment.id=$currentEnvironmentId
+        $currentFixture.environment.vcpu=4
+        $currentMetrics=@(Get-MetricRecordsFromRunResult $currentFixture)
+        if($currentMetrics.Count -ne 1 -or $currentMetrics[0].environment_id -cne $currentEnvironmentId -or $metrics[0].environment_id -cne $standardEnvironmentId){throw 'Historical and GPT/SMP4 environments were mixed.'}
 
         $values = @(10, 20, 30, 40, 50)
         $suiteCases = [Collections.Generic.List[object]]::new()

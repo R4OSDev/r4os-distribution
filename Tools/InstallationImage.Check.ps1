@@ -48,6 +48,7 @@ function Test-R4OSInstallationImage {
             $actual=@($recovery.Paths()|Where-Object {$_.StartsWith("$slot/",[StringComparison]::OrdinalIgnoreCase)})
             if($actual.Count -ne $expectedFiles.Count){throw 'Extra installed Recovery file.'}
             if([InstallationImageCheck]::KernelVersion($recovery.ReadFile("$slot/recovery.elf")) -cne $package.recoveryKernelVersion){throw 'Recovery kernel artifact and manifest version differ.'}
+            [InstallationImageCheck]::RecoveryPair($recovery.ReadFile("$slot/recovery.elf"),$recovery.ReadFile("$slot/runtime.img"),$package.recoveryVersion,$package.recoveryKernelVersion,$false)
         }
         return [ordered]@{schema=1;bytes=$imageCheck.Bytes;installation=$manifest;medium=$Medium;bootHashes=$bootHashes;
             recoveryVersion=$package.recoveryVersion;recoveryManifestSha256=[InstallationImageCheck]::Hash($slotManifest);

@@ -51,7 +51,7 @@ function Get-QemuArguments([string]$SelectedMode, [string]$SelectedConfig, [stri
     foreach ($argument in @(
         '-readconfig', $SelectedConfig,
         '-machine', ('accel=' + $HostProfile.AcceleratorChain),
-        '-m', '1024',
+        '-m', '8192',
         '-smp', '4',
         '-cpu', $HostProfile.CpuModel,
         '-boot', 'c',
@@ -144,7 +144,6 @@ Assert-File $QemuPath 'QEMU'
 Assert-File $ConfigPath 'QEMU-Konfiguration'
 Assert-Directory $WorkingDirectory 'QEMU-Arbeitsverzeichnis'
 Assert-File (Join-Path $WorkingDirectory 'disk.img') 'Systemimage'
-Assert-File (Join-Path $WorkingDirectory 'data.img') 'Datenimage'
 Assert-DebugPortAvailable
 $hostProfile = Resolve-R4QemuHostProfile $QemuPath
 Write-Host ('QEMU host profile: ' + $hostProfile.Name +
@@ -168,6 +167,8 @@ if ($Mode -eq 'SshDebug') {
 }
 
 $qemuArguments = @(Get-QemuArguments $Mode $ConfigPath $SerialLogPath $Snapshot.IsPresent $hostProfile $NetworkAdapter)
+. (Join-Path $PSScriptRoot 'Qemu-Media.ps1')
+$WorkingDirectory=New-R4QemuMedia -SourceRoot $WorkingDirectory -Mode $(if($Snapshot){'Fresh'}else{'Persistent'}) -Name 'interactive-snapshot'
 $exitCode = 1
 Push-Location -LiteralPath $WorkingDirectory
 try {

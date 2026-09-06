@@ -34,8 +34,9 @@ Repo-neutrale Grenzanpassungen:
   `image-plan`: Planfragmente, Baume und priorisierte Overlays sind explizite
   Eingaben; Quellen und Zielkollisionen werden vor dem Schreiben geprueft.
 - Ausgabepfade liegen ausserhalb des Repositorys im gemappten Artefaktbereich.
-- Die QEMU-Standardkonfiguration bezieht `disk.img` und `data.img` relativ zum
-  gewaehlt gestarteten Profilordner.
+- Die QEMU-Standardkonfiguration bezieht die gemeinsame `disk.img` relativ
+  zum ausgewaehlten Arbeitsordner. Die Umstellung in 0.76.22 trennt gepruefte
+  Profilquellen, persistente interaktive Kopien und frische automatische Laeufe.
 - `Tools/Invoke-Qemu.ps1` und `Tools/Qemu-HostProfile.ps1` sind spaetere
   R4OS-Ergaenzungen. Sie besitzen den hostagnostischen GUI-/SSH-Start, die
   gemeinsame KVM-/WHPX-/HVF-/TCG-Auswahl und die lokale Netzwerkweiterleitung

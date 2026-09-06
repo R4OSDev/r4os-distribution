@@ -171,6 +171,24 @@ public sealed class InstallationImageCheck : IDisposable {
     static void Require(bool ok,string message) { if(!ok)throw new InvalidDataException(message); }
     static uint Crc(byte[] bytes) { uint crc=uint.MaxValue; foreach(byte value in bytes){crc^=value; for(int i=0;i<8;i++)crc=(crc>>1)^((crc&1)!=0?0xedb88320u:0);} return ~crc; }
     public static string Hash(byte[] bytes) { return Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(); }
+    public static void RecoveryPair(byte[] elf,byte[] runtime,string version,string kernel,bool required) {
+        Require(elf.Length>=64 && elf[0]==127 && Text(elf,1,3)=="ELF" && elf[4]==2 && elf[5]==1 && U16(elf,18)==62,"Recovery ELF64/x86_64");
+        int start=checked((int)U64(elf,40)),stride=U16(elf,58),count=U16(elf,60),strings=U16(elf,62);
+        Require(stride>=64 && count>0 && count<=4096 && strings<count && start>=0 && start<=elf.Length-count*stride,"Recovery ELF section table");
+        int names=checked((int)U64(elf,start+strings*stride+24)),size=checked((int)U64(elf,start+strings*stride+32));
+        Require(names>=0 && size>0 && names<=elf.Length-size,"Recovery ELF section names");bool found=false;
+        for(int i=0;i<count;i++){
+            int at=start+i*stride,index=checked((int)U32(elf,at));Require(index<size,"Recovery ELF name offset");
+            int end=Array.IndexOf(elf,(byte)0,names+index,size-index);Require(end>=0,"Recovery ELF name termination");
+            if(Text(elf,names+index,end-names-index)!=".r4os.recovery.pair")continue;
+            int offset=checked((int)U64(elf,at+24));
+            Require(!found && U32(elf,at+4)==1 && U64(elf,at+32)==112 && offset>=0 && offset<=elf.Length-112,"Recovery pair section");
+            Require(Text(elf,offset,8)=="R4RECOV1" && U64(elf,offset+8)==(ulong)runtime.LongLength &&
+                elf.AsSpan(offset+16,32).SequenceEqual(SHA256.HashData(runtime)) && Text(elf,offset+48,32).TrimEnd('\0')==version &&
+                Text(elf,offset+80,32).TrimEnd('\0')==kernel,"Recovery kernel/runtime pair mismatch");found=true;
+        }
+        Require(!required || found,"Missing Recovery kernel/runtime binding");
+    }
     public static string KernelVersion(byte[] elf) {
         Require(elf.Length>=64 && elf[0]==127 && Text(elf,1,3)=="ELF" && elf[4]==2 && elf[5]==1 && U16(elf,18)==62,"Kernel ELF64/x86_64");
         int start=checked((int)U64(elf,40)); int count=U16(elf,60); int names=U16(elf,62);

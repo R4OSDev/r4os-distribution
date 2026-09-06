@@ -40,7 +40,7 @@ Unter Windows:
     Build.bat image Test browser
     Build.bat headless Test browser
     Build.bat image Benchmark
-    Build.bat benchmark Benchmark perfdiag-clock 0.3.7 warm 5 r4os-q35-haswell-1vcpu-1g-tcg-v1
+    Build.bat benchmark Benchmark perfdiag-clock 0.3.7 warm 5 r4os-q35-haswell-smp4-1g-tcg-gpt1-v1
 
 Unter Linux stehen dieselben Aktionen und Argumente ueber `./Build.sh` zur
 Verfuegung, beispielsweise:
@@ -269,9 +269,9 @@ Benchmark. Nur `Build.bat benchmark Benchmark ...` unter Windows
 beziehungsweise `./Build.sh benchmark Benchmark ...` unter Linux akzeptiert eine
 vollstaendige Anforderung aus Suite, Workload-Version, Warm/Kalt,
 Wiederholungszahl und der festen Umgebungs-ID
-`r4os-q35-haswell-1vcpu-1g-tcg-v1`. Der Runner erzeugt ein getrenntes frisches
-D:-Image mit genau einer Workload und startet q35 mit TCG single-thread,
-Haswell, einem vCPU, 1 GiB und ohne Netzwerk. Erfolg verlangt genau einen
+`r4os-q35-haswell-smp4-1g-tcg-gpt1-v1`. Der Runner erzeugt ein getrenntes frisches
+DATA in einer privaten disk.img mit genau einer Workload und startet q35 mit TCG single-thread,
+Haswell, vier vCPUs, 1 GiB und ohne Netzwerk. Erfolg verlangt genau einen
 vollstaendigen PERFDIAG-NDJSON-Block und regulaeres Poweroff. Anforderung,
 Logs, Lauf-Datenimage und `benchmark-result.json` liegen unter
 `Artifacts/Distribution/Profiles/Benchmark/Runs/current/`.
@@ -332,12 +332,15 @@ Quellenmanifest mit den exakten Git-Commits aller beteiligten Repositories
 und lokale Release-Notes. Die Ausgabe liegt unter
 `Artifacts/Distribution/Releases/<Version>/`.
 
-Ein Profilpaket enthaelt das bootfaehige `disk.img`, ein neu erzeugtes und
-leeres `data.img`, `qemu.conf`, die Rechtsdokumentation sowie ein
-Image-Manifest mit Dateigroessen und SHA-256-Hashes. Das persistente
-`data.img` aus `Artifacts/Distribution/Profiles/<Profil>/` wird nie in ein
-Release uebernommen, weil es Zustand aus vorigen QEMU-Sitzungen enthalten
-kann.
+Ein Profilpaket enthaelt die gemeinsame bootfaehige `disk.img` mit
+BIOSBOOT/BOOT/SYSTEM/RECOVERY/DATA, frisch formatiertem DATA, exakt gepinntem
+`recovery.zip`, USB-Erstellungsstartern, `qemu.conf`, Rechtsdokumentation und
+Manifest mit allen Dateigroessen/SHA256. Der Produktionsweg verlangt den
+veroeffentlichten Stand aus `RecoveryPin.json`; technische lokale Kandidaten
+brauchen `-TechnicalCandidate -RecoveryCandidate <ZIP>` an `Tools/Release.ps1`
+und sind nicht publizierbar. GUI/SSH arbeiten auf persistenten Kopien mit
+Quell-SHA256 im Pfad; automatische Runner auf frischen Kopien. Das Quellimage
+enthaelt keinen rekursiven Original-ZIP-Cache.
 
 `publish` fuehrt dieselbe Vorbereitung aus und verwendet danach die lokale
 Workspace-Credentials-Datei. Es erzeugt den GitHub Release zunaechst als

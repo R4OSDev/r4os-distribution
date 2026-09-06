@@ -13,12 +13,12 @@
 //   --allow-dirty  do not fail on a set volume dirty flag
 
 const std = @import("std");
-const ntfs = @import("ntfs_format");
+const tools = @import("storage_tools");
+const ntfs = tools.ntfs_format;
 
-// Large enough for a full R4OS system image (boot FAT32 + NTFS system
-// volume, currently ~640 MB).  The old 256 MB cap silently made the real
-// product image unverifiable - only the small host-model volumes fit.
-const MAX_IMAGE_BYTES: usize = 1536 * 1024 * 1024;
+// Includes the common 2048-MB GPT image. Partition views below are bounded
+// to their own extent, so corrupt NTFS runs cannot borrow a sibling volume.
+const MAX_IMAGE_BYTES: usize = 4 * 1024 * 1024 * 1024 + 1;
 const MAX_ATTR_RUNS: usize = 1024;
 
 var failures: usize = 0;
@@ -489,6 +489,40 @@ pub fn main(init: std.process.Init) !void {
     const image = try cwd.readFileAlloc(io, path, allocator, .limited(MAX_IMAGE_BYTES));
     defer allocator.free(image);
 
+    if (!bare_volume and image.len >= 1024 and std.mem.eql(u8, image[512..520], "EFI PART")) {
+        const ReadOnly = struct {
+            bytes: []const u8,
+            fn read(raw: *anyopaque, lba: u64, out: []u8) i32 {
+                const self: *@This() = @ptrCast(@alignCast(raw));
+                @memcpy(out, self.bytes[@intCast(lba * 512)..][0..out.len]);
+                return 0;
+            }
+            fn write(_: *anyopaque, _: u64, _: []const u8) i32 {
+                return -1;
+            }
+            fn flush(_: *anyopaque) i32 {
+                return -1;
+            }
+        };
+        var source = ReadOnly{ .bytes = image };
+        const device = tools.io.Device{ .context = &source, .sectors = image.len / 512, .read_fn = ReadOnly.read, .write_fn = ReadOnly.write, .flush_fn = ReadOnly.flush };
+        var work: [tools.io.scratch_bytes]u8 = undefined;
+        const table = try tools.partition.Plan.read(device, &work);
+        if (table.kind != .gpt) return error.Gpt;
+        var found: usize = 0;
+        for (table.entries) |part| {
+            if (!part.present) continue;
+            const first: usize = @intCast(part.first * 512);
+            const length: usize = @intCast(part.count * 512);
+            if (length < 512 or first > image.len - length) return error.Geometry;
+            if (!std.mem.eql(u8, image[first + 3 ..][0..8], "NTFS    ")) continue;
+            found += 1;
+            try verifyVolume(allocator, image[first..][0..length], 0, allow_dirty);
+        }
+        if (found != 2) return error.ExpectedSystemAndData;
+        return;
+    }
+
     var part_offset: usize = 0;
     if (!bare_volume) {
         if (image.len < 512) {
@@ -510,6 +544,11 @@ pub fn main(init: std.process.Init) !void {
         part_offset = @as(usize, part_lba) * 512;
     }
 
+    if (part_offset > image.len or image.len - part_offset < 512) return error.Geometry;
+    try verifyVolume(allocator, image, part_offset, allow_dirty);
+}
+
+fn verifyVolume(allocator: std.mem.Allocator, image: []const u8, part_offset: usize, allow_dirty: bool) !void {
     var boot: ntfs.BootSector = undefined;
     const boot_result = ntfs.BootSector.parse(image[part_offset..], &boot);
     if (boot_result != .ok) {

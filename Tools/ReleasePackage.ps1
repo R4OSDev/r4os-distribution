@@ -4,7 +4,8 @@ function New-R4OSReleasePackage {
     param([Parameter(Mandatory)][string]$Image,[Parameter(Mandatory)][string]$BootRoot,
           [Parameter(Mandatory)][string]$RecoveryPackage,[Parameter(Mandatory)][string]$LegalRoot,
           [Parameter(Mandatory)][string]$ReleaseVersion,[Parameter(Mandatory)][string]$KernelVersion,
-          [ValidateSet('slim','full')][string]$Profile='slim',[Parameter(Mandatory)][string]$OutputRoot)
+          [ValidateSet('slim','full','test')][string]$Profile='slim',[Parameter(Mandatory)][string]$OutputRoot,
+          [string]$ExtraRoot='',[switch]$Technical)
     $ErrorActionPreference='Stop'
     foreach($version in @($ReleaseVersion,$KernelVersion)){if($version -cnotmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'){throw 'Invalid package version.'}}
     if(([IO.FileInfo]$Image).Length -ne 2147483648){throw 'r4os-gpt-1 requires the standard 2048 MB source image.'}
@@ -14,9 +15,20 @@ function New-R4OSReleasePackage {
         if(!$entry -or $entry.Length -gt 1048576){throw 'Missing Recovery manifest.'}
         $reader=[IO.StreamReader]::new($entry.Open(),[Text.Encoding]::UTF8)
         try{$recovery=$reader.ReadToEnd()|ConvertFrom-Json -AsHashtable}finally{$reader.Dispose()}
+        $manifestStream=$entry.Open();$hasher=[Security.Cryptography.SHA256]::Create()
+        try{$recoveryManifestHash=[Convert]::ToHexString($hasher.ComputeHash($manifestStream)).ToLowerInvariant()}finally{$hasher.Dispose();$manifestStream.Dispose()}
         if($recovery.schema -ne 1 -or $recovery.product -cne 'r4os-recovery' -or $recovery.architecture -cne 'x86_64' -or
             $recovery.recoveryVersion -cnotmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'){throw 'Incompatible Recovery package.'}
     }finally{$pair.Dispose()}
+    if(!$Technical){
+        . (Join-Path $PSScriptRoot 'InstallationImage.Check.ps1')
+        $checked=Test-R4OSInstallationImage -Image $Image -Medium local
+        if($checked.installation.releaseVersion -cne $ReleaseVersion -or $checked.installation.kernelVersion -cne $KernelVersion -or
+            $checked.recoveryVersion -cne $recovery.recoveryVersion -or $checked.recoveryManifestSha256 -cne $recoveryManifestHash){throw 'Release image, versions and pinned Recovery do not agree.'}
+        foreach($path in $checked.bootHashes.Keys){if((Get-FileHash -LiteralPath (Join-Path $BootRoot $path) -Algorithm SHA256).Hash.ToLowerInvariant() -cne $checked.bootHashes[$path]){throw 'Release BOOT source differs from its image.'}}
+        $view=[InstallationImageCheck]::new($Image)
+        try{if(@($view.Volumes['RECOVERY'].Paths()|Where-Object {$_ -match '^(?i:INSTALL/)'}).Count){throw 'Release image must not contain an original-ZIP cache.'}}finally{$view.Dispose()}
+    }
     [IO.Directory]::CreateDirectory($OutputRoot)|Out-Null
     $stage=Join-Path $OutputRoot 'staging'
     if(Test-Path -LiteralPath $stage){Remove-Item -LiteralPath $stage -Recurse -Force}
@@ -24,6 +36,13 @@ function New-R4OSReleasePackage {
     Copy-Item -LiteralPath $Image -Destination (Join-Path $stage 'disk.img')
     Copy-Item -LiteralPath $RecoveryPackage -Destination (Join-Path $stage 'recovery.zip')
     Copy-Item -LiteralPath $LegalRoot -Destination (Join-Path $stage 'Legal') -Recurse
+    if($ExtraRoot){
+        foreach($file in Get-ChildItem -LiteralPath $ExtraRoot -File -Recurse){
+            $relative=[IO.Path]::GetRelativePath($ExtraRoot,$file.FullName);$target=Join-Path $stage $relative
+            if(Test-Path -LiteralPath $target){throw "Duplicate release extra: $relative"}
+            [IO.Directory]::CreateDirectory((Split-Path $target -Parent))|Out-Null;Copy-Item -LiteralPath $file.FullName -Destination $target
+        }
+    }
     $bootFiles=@()
     foreach($file in @(Get-ChildItem -LiteralPath $BootRoot -File -Recurse | Sort-Object FullName -CaseSensitive)){
         $path=[IO.Path]::GetRelativePath($BootRoot,$file.FullName).Replace('\','/')

@@ -9,7 +9,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$benchmarkEnvironmentId = 'r4os-q35-haswell-1vcpu-1g-tcg-v1'
+$benchmarkEnvironmentId = 'r4os-q35-haswell-smp4-1g-tcg-gpt1-v1'
 $suiteWorkloads = @{
     'perfdiag-blit' = 'blit'
     'perfdiag-clock' = 'clock'
@@ -124,7 +124,7 @@ function Get-QemuArgumentLine([string]$ConfigPath, [string]$LogPath) {
         '-accel', 'tcg,thread=single',
         '-cpu', 'Haswell',
         '-m', '1G',
-        '-smp', '1,sockets=1,cores=1,threads=1',
+        '-smp', '4,sockets=1,cores=4,threads=1',
         '-boot', 'order=c,strict=on',
         '-nic', 'none',
         '-audiodev', 'driver=none,id=benchmark-audio',
@@ -256,7 +256,7 @@ function Invoke-SelfTest {
     if (@($guestText -split "`r`n" | Where-Object { $_ -match 'PERFDIAG\.R4X' }).Count -ne 1) { throw 'Guest request does not contain exactly one workload.' }
     if (@($guestText -split "`r`n" | Where-Object { $_ -eq 'POWEROFF' }).Count -ne 1) { throw 'Guest request does not contain exactly one poweroff.' }
     $argumentLine = Get-QemuArgumentLine 'benchmark.conf' 'benchmark.log'
-    foreach ($fixed in @('-accel tcg,thread=single', '-cpu Haswell', '-m 1G', '-smp 1,sockets=1,cores=1,threads=1', '-nic none', '-display none')) {
+    foreach ($fixed in @('-accel tcg,thread=single', '-cpu Haswell', '-m 1G', '-smp 4,sockets=1,cores=4,threads=1', '-nic none', '-display none')) {
         if (-not $argumentLine.Contains($fixed)) { throw ('Fixed QEMU argument missing: ' + $fixed) }
     }
 
@@ -297,10 +297,6 @@ $imageCreator = $env:R4OS_BENCHMARK_IMAGE_CREATOR
 $profileOutput = $env:R4OS_BENCHMARK_PROFILE_OUTPUT
 $runOutput = $env:R4OS_BENCHMARK_RUN_OUTPUT
 $releaseVersionFile = $env:R4OS_BENCHMARK_RELEASE_VERSION_FILE
-$dataMb = 0
-if (-not [int]::TryParse($env:R4OS_BENCHMARK_DATA_MB, [ref]$dataMb) -or $dataMb -le 0) {
-    throw 'Benchmark DATA_MB is invalid.'
-}
 $timeoutSeconds = 600
 $parsedTimeout = 0
 if ($env:QEMU_BENCHMARK_TIMEOUT_SECONDS -and [int]::TryParse($env:QEMU_BENCHMARK_TIMEOUT_SECONDS, [ref]$parsedTimeout) -and $parsedTimeout -gt 0) {
@@ -328,18 +324,21 @@ if (-not (Test-Path -LiteralPath $runOutput -PathType Container)) {
 
 $requestBat = Join-Path $runOutput 'BENCHMARK.BAT'
 $requestJson = Join-Path $runOutput 'request.json'
-$dataImage = Join-Path $runOutput 'data.img'
+$dataImage = Join-Path $runOutput 'disk.img'
 $logPath = Join-Path $runOutput 'serial.log'
 $errorPath = Join-Path $runOutput 'qemu.err'
 $resultPath = Join-Path $runOutput 'benchmark-result.json'
-foreach ($path in @($requestBat, $requestJson, $dataImage, $logPath, $errorPath, $resultPath)) {
+. (Join-Path $PSScriptRoot '../Tools/Qemu-Media.ps1')
+$preparedRun=New-R4QemuMedia -SourceRoot $profileOutput -Mode Fresh -Name 'current'
+if([IO.Path]::GetFullPath($preparedRun) -cne [IO.Path]::GetFullPath($runOutput)){throw 'Benchmark run must use the common fresh media directory.'}
+foreach ($path in @($requestBat, $requestJson, $logPath, $errorPath, $resultPath)) {
     if (Test-Path -LiteralPath $path -PathType Leaf) { Remove-Item -LiteralPath $path -Force }
 }
 
 Write-Utf8NoBom $requestBat (New-GuestRequestText $request)
 Write-Utf8NoBom $requestJson (($request | ConvertTo-Json -Depth 4) + [Environment]::NewLine)
-& $imageCreator --output $dataImage --size $dataMb --add ($requestBat + ':/BENCHMARK.BAT')
-if ($LASTEXITCODE -ne 0) { throw ('Fresh benchmark data image failed with exit code ' + $LASTEXITCODE + '.') }
+& $imageCreator reset-data --image $dataImage --add ($requestBat + '|/BENCHMARK.BAT')
+if ($LASTEXITCODE -ne 0) { throw ('Fresh benchmark DATA request failed with exit code ' + $LASTEXITCODE + '.') }
 
 $argumentLine = Get-QemuArgumentLine $config $logPath
 Write-Host ('=== QEMU benchmark ' + $request.suite + '; timeout ' + $timeoutSeconds + 's ===')
@@ -366,7 +365,7 @@ $result = [ordered]@{
         machine = 'q35'
         accelerator = 'tcg-single-thread'
         cpu = 'Haswell'
-        vcpu = 1
+        vcpu = 4
         memory_mb = 1024
         network = 'none'
         qemu = if ($qemuVersion.Count -eq 1) { [string]$qemuVersion[0] } else { 'unknown' }

@@ -1,11 +1,13 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('Prepare', 'Publish', 'SelfTest')]
+    [ValidateSet('Prepare', 'Publish', 'SelfTest', 'Library')]
     [string]$Action = 'Prepare',
 
     [string]$Profiles = 'Standard',
 
-    [switch]$Prerelease
+    [switch]$Prerelease,
+    [switch]$TechnicalCandidate,
+    [string]$RecoveryCandidate=''
 )
 
 Set-StrictMode -Version Latest
@@ -194,7 +196,8 @@ function Get-ReleaseContext {
         DistributionOutputRoot = $distributionOutputRoot
         PrivateInjectionRoot = Resolve-MappedPath -BasePath $artifactsRoot -Value (Require-Setting $settings 'PRIVATE_INJECTION_ROOT')
         ProfileOutputRoot = Join-Path $distributionOutputRoot 'Profiles'
-        ReleaseOutputRoot = Join-Path $distributionOutputRoot 'Releases'
+        ReleaseOutputRoot = Join-Path $distributionOutputRoot $(if($TechnicalCandidate){'TechnicalReleases'}else{'Releases'})
+        TechnicalCandidate = [bool]$TechnicalCandidate
         BuildScript = Join-Path $distributionRoot $buildScriptName
         VersionFile = Join-Path $distributionRoot 'Injection/R4OS/CONFIG/VERSION.R4S'
         ProfileSourceRoot = Join-Path $distributionRoot 'Profiles'
@@ -257,14 +260,9 @@ function Get-ProfileDefinition {
     if ($declaredProfile -cne $Profile) {
         throw "Profile identity mismatch in ${path}: $declaredProfile"
     }
-    $dataMbText = Require-Setting $values 'DATA_MB'
-    $dataMb = 0
-    if (-not [int]::TryParse($dataMbText, [ref]$dataMb) -or $dataMb -le 0) {
-        throw "Invalid DATA_MB in ${path}: $dataMbText"
-    }
+    if((Require-Setting $values 'LAYOUT') -cne 'r4os-gpt-1' -or (Require-Setting $values 'DATA_SIZE') -cne 'rest'){throw 'Release profile requires the common GPT image.'}
     return [pscustomobject][ordered]@{
         Name = $Profile
-        DataMb = $dataMb
         SourcePath = $path
         OutputPath = Join-Path $Context.ProfileOutputRoot $Profile
     }
@@ -351,7 +349,7 @@ function Get-RepositorySnapshots {
         }
 
         $status = @(Invoke-GitCapture $spec.Path @('status', '--porcelain', '--untracked-files=normal'))
-        if ($status.Count -gt 0) {
+        if ($status.Count -gt 0 -and !$Context.TechnicalCandidate) {
             $preview = ($status | Select-Object -First 20) -join '; '
             throw "Repository has uncommitted files: $($spec.Name): $preview"
         }
@@ -368,7 +366,7 @@ function Get-RepositorySnapshots {
 
         $head = ((Invoke-GitCapture $spec.Path @('rev-parse', 'HEAD')) -join '').Trim()
         $originMain = ((Invoke-GitCapture $spec.Path @('rev-parse', 'origin/main')) -join '').Trim()
-        if ($head -cne $originMain) {
+        if ($head -cne $originMain -and !$Context.TechnicalCandidate) {
             throw "Repository is not synchronized with origin/main: $($spec.Name)"
         }
 
@@ -378,6 +376,7 @@ function Get-RepositorySnapshots {
             workspace_path = Get-WorkspaceRelativePath $Context.WorkspaceRoot $spec.Path
             branch = $branch
             commit = $head
+            dirty = ($status.Count -gt 0)
         }
     }
     return @($snapshots)
@@ -496,70 +495,39 @@ function New-ZipArchive {
 }
 
 function New-ProfilePackage {
-    param(
-        [Parameter(Mandatory = $true)]$Context,
-        [Parameter(Mandatory = $true)][string]$Version,
-        [Parameter(Mandatory = $true)]$Definition,
-        [Parameter(Mandatory = $true)][string]$StagingRoot,
-        [Parameter(Mandatory = $true)][string]$SourceManifestPath
-    )
-
-    $packageName = "R4OS-$Version-$($Definition.Name)-x86_64"
-    $packageRoot = Join-Path (Join-Path $StagingRoot '.packages') $packageName
-    New-Item -ItemType Directory -Path $packageRoot -Force | Out-Null
-
-    $diskSource = Join-Path $Definition.OutputPath 'disk.img'
-    $diskTarget = Join-Path $packageRoot 'disk.img'
-    $dataTarget = Join-Path $packageRoot 'data.img'
-    $legalTarget = Join-Path $packageRoot 'Legal'
-
-    Copy-Item -LiteralPath $diskSource -Destination $diskTarget
-    Invoke-NativeChecked -FilePath $Context.ImageCreator -Arguments @('--output', $dataTarget, '--size', [string]$Definition.DataMb)
-    $expectedDataBytes = [int64]$Definition.DataMb * 1024 * 1024
-    $actualDataBytes = (Get-Item -LiteralPath $dataTarget).Length
-    if ($actualDataBytes -ne $expectedDataBytes) {
-        throw "Fresh data image has unexpected size for $($Definition.Name): $actualDataBytes"
-    }
-
-    Copy-Item -LiteralPath (Join-Path $Definition.OutputPath 'Legal') -Destination $legalTarget -Recurse
-    Copy-Item -LiteralPath $Context.QemuConfig -Destination (Join-Path $packageRoot 'qemu.conf')
-    Copy-Item -LiteralPath $SourceManifestPath -Destination (Join-Path $packageRoot (Split-Path $SourceManifestPath -Leaf))
-
-    $readme = @"
-R4OS $Version - $($Definition.Name) - x86_64
-
-disk.img is the bootable R4OS system image.
-data.img is a newly generated empty $($Definition.DataMb) MB data disk.
-qemu.conf is the R4OS QEMU drive configuration.
-Legal contains the licenses and notices shipped with this build.
-
-The persistent data.img from the developer workspace is never included in a
-release because it may contain state from earlier QEMU sessions.
-"@
-    Write-Utf8NoBom -Path (Join-Path $packageRoot 'README.txt') -Text ($readme + "`n")
-
-    $imageManifestPath = Join-Path $packageRoot 'IMAGE-MANIFEST.json'
-    $imageManifest = [pscustomobject][ordered]@{
-        schema = 1
-        release_version = $Version
-        profile = $Definition.Name
-        architecture = 'x86_64'
-        data_image = [pscustomobject][ordered]@{
-            state = 'fresh-empty'
-            size_mb = $Definition.DataMb
+    param([Parameter(Mandatory)]$Context,[Parameter(Mandatory)][string]$Version,
+          [Parameter(Mandatory)]$Definition,[Parameter(Mandatory)][string]$StagingRoot,[Parameter(Mandatory)][string]$SourceManifestPath)
+    . (Join-Path $PSScriptRoot 'ReleasePackage.ps1')
+    . (Join-Path $PSScriptRoot 'InstallationImage.Check.ps1')
+    . (Join-Path $PSScriptRoot 'UsbPackage.ps1')
+    $record=Get-Content -Raw -LiteralPath (Join-Path $Definition.OutputPath 'image.json')|ConvertFrom-Json -AsHashtable
+    if($record.technical -and !$Context.TechnicalCandidate){throw 'A technical Recovery candidate cannot be published in a normal R4OS release.'}
+    $source=Join-Path $Definition.OutputPath 'disk.img'
+    if((Get-Sha256 $source) -cne $record.sha256){throw 'The canonical release image was modified after creation.'}
+    $scratch=Join-Path (Join-Path $StagingRoot '.packages') $Definition.Name
+    [IO.Directory]::CreateDirectory($scratch)|Out-Null
+    $image=Join-Path $scratch 'fresh.img';Copy-Item -LiteralPath $source -Destination $image
+    Invoke-NativeChecked $Context.ImageCreator @('reset-data','--image',$image)
+    $bootRoot=Join-Path $scratch 'Boot'
+    $checkedImage=Test-R4OSInstallationImage -Image $image
+    $view=[InstallationImageCheck]::new($image)
+    try{
+        foreach($path in $checkedImage.bootHashes.Keys){
+            $target=Join-Path $bootRoot $path;[IO.Directory]::CreateDirectory((Split-Path $target -Parent))|Out-Null
+            [IO.File]::WriteAllBytes($target,$view.Volumes['BOOT'].ReadFile($path))
         }
-        files = @(Get-PackageFileRecords -PackageRoot $packageRoot)
-    }
-    Write-JsonFile -Path $imageManifestPath -Value $imageManifest
-
-    $zipPath = Join-Path $StagingRoot ($packageName + '.zip')
-    Write-Host "=== Compress $($Definition.Name) release package ==="
-    New-ZipArchive -SourceDirectory $packageRoot -DestinationPath $zipPath
-    $zipInfo = Get-Item -LiteralPath $zipPath
-    if ($zipInfo.Length -ge $script:MaximumAssetBytes) {
-        throw "Release asset reaches GitHub's 2 GiB per-file limit: $($zipInfo.FullName)"
-    }
-    return $zipPath
+    }finally{$view.Dispose()}
+    $extras=Join-Path $scratch 'Extras'
+    $null=New-R4UsbStarterBundle -Root $Context.DistributionRoot -Zig $Context.ZigExe -Sdk $Context.SdkRoot -Destination $extras
+    Copy-Item -LiteralPath $SourceManifestPath -Destination $extras
+    Copy-Item -LiteralPath $Context.QemuConfig -Destination (Join-Path $extras 'qemu.conf')
+    $readme='R4OS '+$Version+' ('+$Definition.Name+'). disk.img contains BIOSBOOT/BOOT/SYSTEM/RECOVERY/DATA. DATA is fresh. CreateUSB.bat / sh CreateUSB.sh uses PowerShell 7 and places the original release ZIP on the USB Recovery partition. Keep the ZIP and starter on another disk.'
+    Write-Utf8NoBom -Path (Join-Path $extras 'README.txt') -Text $readme
+    $package=New-R4OSReleasePackage -Image $image -BootRoot $bootRoot -RecoveryPackage $record.recoveryPackage -LegalRoot (Join-Path $Definition.OutputPath 'Legal') -ReleaseVersion $Version -KernelVersion $record.installation.kernelVersion -Profile $Definition.Name.ToLowerInvariant() -OutputRoot (Join-Path $scratch 'Package') -ExtraRoot $extras
+    $destination=Join-Path $StagingRoot (Split-Path $package.path -Leaf)
+    Move-Item -LiteralPath $package.path -Destination $destination
+    if(([IO.FileInfo]$destination).Length -ge $script:MaximumAssetBytes){throw 'Release asset exceeds the publication limit.'}
+    return $destination
 }
 
 function New-ReleaseNotes {
@@ -578,7 +546,7 @@ Architecture: x86_64
 
 Profiles: $profileText
 
-Each ZIP contains a bootable `disk.img`, a freshly generated empty `data.img`,
+Each ZIP contains one bootable `disk.img` with fresh DATA, independent Recovery,
 the QEMU drive configuration, legal material and exact image checksums. The
 source manifest records the Git commit of every repository in the release
 workspace.
@@ -634,6 +602,12 @@ function New-ReleasePreparation {
             profiles = @($ProfileNames)
             distribution_commit = $distributionSnapshot.commit
             repository_scope = 'complete-local-release-workspace'
+            recovery_pin = (Get-Content -Raw -LiteralPath (Join-Path $Context.DistributionRoot 'RecoveryPin.json')|ConvertFrom-Json)
+            technical = $Context.TechnicalCandidate
+            recovery_inputs = @($definitions|ForEach-Object {
+                $imageRecord=Get-Content -Raw -LiteralPath (Join-Path $_.OutputPath 'image.json')|ConvertFrom-Json -AsHashtable
+                [ordered]@{profile=$_.Name;version=$imageRecord.recoveryVersion;sha256=$imageRecord.recoveryPackageSha256;technical=$imageRecord.technical}
+            })
             repositories = $repositories
             tools = $tools
         }
@@ -915,7 +889,7 @@ function Publish-Release {
         $createBody = [pscustomobject][ordered]@{
             tag_name = $Preparation.Tag
             target_commitish = $Preparation.DistributionCommit
-            name = "R4OS $($Preparation.Version)"
+            name = $(if($Preparation.PSObject.Properties['DisplayName']){$Preparation.DisplayName}else{"R4OS $($Preparation.Version)"})
             body = $notes
             draft = $true
             prerelease = $IsPrerelease
@@ -1054,6 +1028,8 @@ function Invoke-ReleaseSelfTest {
     }
 }
 
+if($Action -eq 'Library'){return}
+$previousCandidate=[Environment]::GetEnvironmentVariable('R4OS_RECOVERY_CANDIDATE')
 try {
     if ($Action -eq 'SelfTest') {
         Invoke-ReleaseSelfTest
@@ -1061,6 +1037,9 @@ try {
     }
 
     $context = Get-ReleaseContext
+    if($Action -ceq 'Publish' -and $TechnicalCandidate){throw 'Technical candidates cannot be published.'}
+    if($RecoveryCandidate){[Environment]::SetEnvironmentVariable('R4OS_RECOVERY_CANDIDATE',[IO.Path]::GetFullPath($RecoveryCandidate))}
+    if([Environment]::GetEnvironmentVariable('R4OS_RECOVERY_CANDIDATE') -and !$TechnicalCandidate){throw 'A local Recovery candidate requires -TechnicalCandidate.'}
     $profileNames = @(Resolve-ProfileNames -Selection $Profiles)
     $preparation = New-ReleasePreparation -Context $context -ProfileNames $profileNames
 
@@ -1076,3 +1055,4 @@ catch {
     }
     exit 1
 }
+finally{[Environment]::SetEnvironmentVariable('R4OS_RECOVERY_CANDIDATE',$previousCandidate)}

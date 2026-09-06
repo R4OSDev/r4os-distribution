@@ -19,7 +19,7 @@ rebuild the kernel, libraries, or modules.
     Build.bat image Test browser
     Build.bat headless Test browser
     Build.bat image Benchmark
-    Build.bat benchmark Benchmark perfdiag-clock 0.3.7 warm 5 r4os-q35-haswell-1vcpu-1g-tcg-v1
+    Build.bat benchmark Benchmark perfdiag-clock 0.3.7 warm 5 r4os-q35-haswell-smp4-1g-tcg-gpt1-v1
 
 On Linux, use the same arguments with `./Build.sh`; tools, tests, plan
 generation, image creation, verification, GUI/headless QEMU, and benchmarks
@@ -108,9 +108,14 @@ per profile, calculates SHA-256 checksums, and records the exact repository
 commits and tool versions in a source manifest. Output is written below
 `Artifacts/Distribution/Releases/<version>/` in the mapped workspace.
 
-Each package contains `disk.img`, a newly generated empty `data.img`, the
-QEMU configuration, legal files, and an image manifest. The persistent
-profile data image from the developer workspace is never published.
+Each package contains one `disk.img` with BIOSBOOT/BOOT/SYSTEM/RECOVERY/DATA,
+fresh DATA, the exact independent `recovery.zip`, USB creation starters,
+QEMU configuration, legal files, and a manifest with all file hashes.
+`RecoveryPin.json` selects a published Recovery version and SHA256. An explicit
+`-TechnicalCandidate -RecoveryCandidate <ZIP>` passed to `Tools/Release.ps1`
+allows local acceptance packages; publication rejects that mode.
+GUI/SSH use persistent image copies keyed by the source SHA256; automated
+runners start from fresh copies. Release images contain no original-ZIP cache.
 
 `publish` performs the same preparation, creates a draft release in
 `R4OSDev/r4os-distribution`, uploads every asset, and only then publishes the

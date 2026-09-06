@@ -1,5 +1,5 @@
-# Shared PowerShell 7 orchestration. This remains a technical image producer
-# until the release pipeline supplies its separately published Recovery pin.
+# Shared image orchestration. Production uses the published Recovery pin;
+# an explicitly named local candidate marks the resulting image technical.
 function Get-InstallationFields([string]$Path) {
     $result=@{}
     foreach($line in Get-Content -LiteralPath $Path -Encoding utf8) {
@@ -50,12 +50,14 @@ function Expand-InstallationRecovery([string]$Package,[string]$Destination) {
         if(Test-Path -LiteralPath $Destination){Remove-Item -LiteralPath $Destination -Recurse -Force}
         [IO.Directory]::CreateDirectory($Destination)|Out-Null
         [IO.Compression.ZipFileExtensions]::ExtractToDirectory($archive,$Destination)
+        if(!('InstallationImageCheck' -as [type])){Add-Type -Path (Join-Path $PSScriptRoot 'InstallationImage.Check.cs')}
+        [InstallationImageCheck]::RecoveryPair([IO.File]::ReadAllBytes((Join-Path $Destination 'recovery.elf')),[IO.File]::ReadAllBytes((Join-Path $Destination 'runtime.img')),$manifest.recoveryVersion,$manifest.recoveryKernelVersion,$false)
         return $manifest
     }finally{$archive.Dispose()}
 }
 function New-R4OSInstallationImage {
-    param([Parameter(Mandatory)][string]$Root,[ValidateSet('Slim','Full')][string]$Profile='Slim',
-          [string]$InputList='', [string]$RecoveryPackage='', [ValidateSet('local','usb')][string]$Medium='local', [string]$OutputRoot='')
+    param([Parameter(Mandatory)][string]$Root,[ValidateSet('Slim','Full','Test','Benchmark')][string]$Profile='Slim',
+          [string]$InputList='', [Alias('RecoveryPackage')][string]$RecoveryCandidate='', [ValidateSet('local','usb')][string]$Medium='local', [string]$OutputRoot='', [switch]$ToolsReady)
     $settings=Get-InstallationFields (Join-Path $Root 'Settings.R4S')
     $workspace=Get-InstallationPath $Root $settings.WORKSPACE_ROOT
     $repositories=Get-InstallationPath $Root $settings.REPOSITORIES_ROOT
@@ -65,19 +67,24 @@ function New-R4OSInstallationImage {
     $devkit=Get-InstallationPath $workspace $settings.DEVKIT_ROOT
     $artifacts=Get-InstallationPath $workspace $settings.ARTIFACTS_ROOT
     $distribution=Get-InstallationPath $artifacts $settings.DISTRIBUTION_OUTPUT_ROOT
+    . (Join-Path $PSScriptRoot 'RecoveryPin.ps1')
+    $selectedRecovery=Resolve-R4RecoveryPackage -DistributionRoot $Root -CacheRoot (Join-Path $distribution 'RecoveryCache') -Candidate $RecoveryCandidate
+    $RecoveryPackage=$selectedRecovery.path
     $suffix=if($IsWindows){'.exe'}else{''}
     $zig=Join-Path (Get-InstallationPath $devkit $settings.ZIG_ROOT) "zig$suffix"
     $prefix=Join-Path $distribution 'HostTools'
     $generatePlan=!$InputList
     if($generatePlan){$InputList=Join-Path $distribution "Profiles/$Profile/image-adds.txt"}
-    if(!$OutputRoot){$OutputRoot=Join-Path $distribution "RecoveryImages/$Profile-$Medium"}
+    if(!$OutputRoot){$OutputRoot=Join-Path $distribution "Profiles/$Profile"}
     $OutputRoot=[IO.Path]::GetFullPath($OutputRoot)
     $allowed=[IO.Path]::GetFullPath($distribution)+[IO.Path]::DirectorySeparatorChar
     if(!$OutputRoot.StartsWith($allowed,[StringComparison]::OrdinalIgnoreCase)){throw 'Technical image output must remain below Distribution artifacts.'}
     [IO.Directory]::CreateDirectory($OutputRoot)|Out-Null
-    Push-Location $Root
-    try{Invoke-InstallationTool $zig @('build','--prefix',$prefix,"--fork=$sdk","--fork=$contract","--fork=$libraries")}
-    finally{Pop-Location}
+    if(!$ToolsReady){
+        Push-Location $Root
+        try{Invoke-InstallationTool $zig @('build','--prefix',$prefix,'-Doptimize=ReleaseSafe',"--fork=$sdk","--fork=$contract","--fork=$libraries")}
+        finally{Pop-Location}
+    }
     if($generatePlan){
         # Reuse the owner's current overlay/plan policy instead of keeping a
         # second image-plan recipe in this new format's orchestration.
@@ -85,13 +92,9 @@ function New-R4OSInstallationImage {
         Invoke-InstallationTool $starter @('plan',$Profile)
     }
     if(!(Test-Path -LiteralPath $InputList -PathType Leaf)){throw "Generate the $Profile image plan first: $InputList"}
-    if(!$RecoveryPackage){
-        $recoveryRoot=Join-Path $repositories 'Recovery'
-        . (Join-Path $recoveryRoot 'Tools/Package.ps1')
-        $RecoveryPackage=(New-RecoveryPackage -Root $recoveryRoot).path
-    }
     $recoveryDir=Join-Path $OutputRoot 'RecoveryPackage'
     $recovery=Expand-InstallationRecovery $RecoveryPackage $recoveryDir
+    if(!$selectedRecovery.technical -and $recovery.recoveryVersion -cne $selectedRecovery.pin.version){throw 'Recovery manifest differs from its published pin.'}
     $utf8=[Text.UTF8Encoding]::new($false)
     $recoveryList=Join-Path $OutputRoot 'recovery-adds.txt'
     $files=@(Get-ChildItem -LiteralPath $recoveryDir -File -Recurse|Sort-Object FullName -CaseSensitive)
@@ -107,10 +110,10 @@ function New-R4OSInstallationImage {
         '--add-list',$InputList,'--recovery-list',$recoveryList,'--release-version',$release,'--kernel-version',$kernelVersion,'--medium',$Medium)
     . (Join-Path $PSScriptRoot 'InstallationImage.Check.ps1')
     $checked=Test-R4OSInstallationImage -Image $image -Medium $Medium
-    $record=[ordered]@{schema=1;technical=$true;profile=$Profile;medium=$Medium;image=$image;bytes=([IO.FileInfo]$image).Length;
+    $record=[ordered]@{schema=1;technical=$selectedRecovery.technical;profile=$Profile;medium=$Medium;image=$image;bytes=([IO.FileInfo]$image).Length;
         sha256=(Get-FileHash -LiteralPath $image -Algorithm SHA256).Hash.ToLowerInvariant();installation=(Get-Content -Raw -LiteralPath $manifestPath|ConvertFrom-Json -AsHashtable);
-        recoveryVersion=$recovery.recoveryVersion;recoveryPackageSha256=(Get-FileHash -LiteralPath $RecoveryPackage -Algorithm SHA256).Hash.ToLowerInvariant();structure=$checked}
+        recoveryVersion=$recovery.recoveryVersion;recoveryPackageSha256=$selectedRecovery.sha256;recoveryPackage=$RecoveryPackage;structure=$checked}
     [IO.File]::WriteAllText((Join-Path $OutputRoot 'image.json'),(($record|ConvertTo-Json -Depth 20)+"`n"),$utf8)
-    Write-Host "Technical five-partition $Profile image ready: $image"
+    Write-Host "Five-partition $Profile image ready: $image (technical=$($selectedRecovery.technical))"
     return $record
 }

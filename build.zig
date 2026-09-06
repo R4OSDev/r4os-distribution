@@ -26,11 +26,6 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     const libraries_dependency = b.dependency("r4os_libraries", .{});
-    const ntfs_format = b.createModule(.{
-        .root_source_file = sdk_dependency.path("r4os/ntfs_format.zig"),
-        .target = target,
-        .optimize = optimize,
-    });
     const r4u_artifact = b.createModule(.{
         .root_source_file = sdk_dependency.path("r4os/r4u_artifact.zig"),
         .target = target,
@@ -55,7 +50,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    ntfs_verify_root.addImport("ntfs_format", ntfs_format);
+    ntfs_verify_root.addImport("storage_tools", storage_tools);
     const ntfs_verify = b.addExecutable(.{ .name = "ntfsverify", .root_module = ntfs_verify_root });
 
     const r4u_pack_root = b.createModule(.{

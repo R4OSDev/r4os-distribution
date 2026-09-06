@@ -22,11 +22,11 @@ if ($env:QEMU_TEST_TIMEOUT_SECONDS) {
     }
 }
 
-$cpuCount = 1
+$cpuCount = 4
 if ($env:R4OS_QEMU_CPUS) {
     $parsedCpuCount = 0
     if (-not [int]::TryParse($env:R4OS_QEMU_CPUS, [ref]$parsedCpuCount) -or
-        $parsedCpuCount -lt 1 -or $parsedCpuCount -gt 32) {
+        $parsedCpuCount -ne 4) {
         Write-Host ('Invalid R4OS_QEMU_CPUS: ' + $env:R4OS_QEMU_CPUS)
         exit 125
     }
