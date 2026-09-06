@@ -21,6 +21,7 @@ public sealed class InstallationImageCheck : IDisposable {
         readonly int clusterBytes;
         readonly Dictionary<string,FatEntry> files = new Dictionary<string,FatEntry>(StringComparer.OrdinalIgnoreCase);
         public readonly long FreeBytes;
+        public int ClusterBytes { get { return clusterBytes; } }
         public Fat(InstallationImageCheck image, Partition partition) {
             this.image=image; this.partition=partition;
             long start=partition.First*512; var boot=image.Read(start,512);

@@ -52,6 +52,6 @@ function Test-R4OSInstallationImage {
         }
         return [ordered]@{schema=1;bytes=$imageCheck.Bytes;installation=$manifest;medium=$Medium;bootHashes=$bootHashes;
             recoveryVersion=$package.recoveryVersion;recoveryManifestSha256=[InstallationImageCheck]::Hash($slotManifest);
-            bootFreeBytes=$boot.FreeBytes;recoveryFreeBytes=$recovery.FreeBytes;physicalStructure='verified'}
+            bootFreeBytes=$boot.FreeBytes;recoveryFreeBytes=$recovery.FreeBytes;recoveryClusterBytes=$recovery.ClusterBytes;physicalStructure='verified'}
     }finally{$imageCheck.Dispose()}
 }

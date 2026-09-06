@@ -504,6 +504,7 @@ function New-ProfilePackage {
     if($record.technical -and !$Context.TechnicalCandidate){throw 'A technical Recovery candidate cannot be published in a normal R4OS release.'}
     $source=Join-Path $Definition.OutputPath 'disk.img'
     if((Get-Sha256 $source) -cne $record.sha256){throw 'The canonical release image was modified after creation.'}
+    if((Get-Sha256 $record.recoveryPackage) -cne $record.recoveryPackageSha256){throw 'The Recovery package was replaced after image creation.'}
     $scratch=Join-Path (Join-Path $StagingRoot '.packages') $Definition.Name
     [IO.Directory]::CreateDirectory($scratch)|Out-Null
     $image=Join-Path $scratch 'fresh.img';Copy-Item -LiteralPath $source -Destination $image

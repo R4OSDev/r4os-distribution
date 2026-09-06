@@ -67,5 +67,9 @@ function New-R4OSReleasePackage {
     $archive=Join-Path $OutputRoot $asset
     if(Test-Path -LiteralPath $archive){Remove-Item -LiteralPath $archive -Force}
     [IO.Compression.ZipFile]::CreateFromDirectory($stage,$archive,[IO.Compression.CompressionLevel]::Optimal,$false)
+    if(!$Technical){
+        . (Join-Path $PSScriptRoot 'RecoveryBudget.ps1')
+        $null=Test-R4RecoveryCacheBudget -FreeBytes $checked.recoveryFreeBytes -ClusterBytes $checked.recoveryClusterBytes -ReleaseBytes ([IO.FileInfo]$archive).Length -RecoveryBytes ([IO.FileInfo]$RecoveryPackage).Length
+    }
     return [ordered]@{path=$archive;version=$ReleaseVersion;bytes=([IO.FileInfo]$archive).Length;sha256=(Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant();manifest=$manifest}
 }
