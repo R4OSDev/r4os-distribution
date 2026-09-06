@@ -11,6 +11,12 @@ using System.Security.Cryptography;
 using Microsoft.Win32.SafeHandles;
 
 public sealed class R4UsbClaim : IDisposable {
+    // Disable managed read-ahead on target handles. A buffered FileStream can
+    // request 1 MB when the caller only reads the final 64 KB (or GPT sector),
+    // crossing the physical device end. Windows rejects that raw request.
+    // Copy/Verify already provide their own sector-aligned 1-MB transfer buffers.
+    // Virtual targets use the identical stream policy.
+    const int TargetStreamBufferSize=1;
     [DllImport("libc", SetLastError=true)] static extern int open(string path,int flags);
     [DllImport("libc", SetLastError=true)] static extern int flock(int fd,int operation);
     [DllImport("libc", EntryPoint="ioctl", SetLastError=true)] static extern int IoLong(int fd,ulong request,ref long value);
@@ -45,7 +51,7 @@ public sealed class R4UsbClaim : IDisposable {
         SafeFileHandle handle=null;
         try {
             if(regularFile) {
-                Stream=new FileStream(path,FileMode.Open,FileAccess.ReadWrite,FileShare.None,1024*1024);
+                Stream=new FileStream(path,FileMode.Open,FileAccess.ReadWrite,FileShare.None,TargetStreamBufferSize);
                 if((File.GetAttributes(path)&FileAttributes.ReparsePoint)!=0)throw new IOException("Virtual target must be a regular file.");
                 Bytes=Stream.Length;SectorBytes=512;
                 if(!OperatingSystem.IsWindows() && flock(Stream.SafeFileHandle.DangerousGetHandle().ToInt32(),6)!=0)throw Native("Virtual image claim");
@@ -59,7 +65,7 @@ public sealed class R4UsbClaim : IDisposable {
                 if(handle.IsInvalid)throw Native("Exclusive physical drive claim");
                 var length=new byte[8];Control(handle,0x7405c,length);Bytes=BitConverter.ToInt64(length,0);
                 var geometry=new byte[24];Control(handle,0x70000,geometry);SectorBytes=BitConverter.ToInt32(geometry,20);
-                Stream=new FileStream(handle,FileAccess.ReadWrite,1024*1024,false);handle=null;
+                Stream=new FileStream(handle,FileAccess.ReadWrite,TargetStreamBufferSize,false);handle=null;
             } else {
                 // No create/truncate: a mounted/in-use block device fails EBUSY.
                 int fd=open(path,2|128|0x80000|0x20000);if(fd<0)throw Native("Exclusive USB claim");
@@ -67,7 +73,7 @@ public sealed class R4UsbClaim : IDisposable {
                 if(flock(fd,6)!=0)throw Native("USB file lock");
                 long bytes=0;int logical=0;
                 if(IoLong(fd,0x80081272,ref bytes)!=0 || IoInt(fd,0x1268,ref logical)!=0)throw Native("USB geometry");
-                Bytes=bytes;SectorBytes=logical;Stream=new FileStream(handle,FileAccess.ReadWrite,1024*1024,false);handle=null;
+                Bytes=bytes;SectorBytes=logical;Stream=new FileStream(handle,FileAccess.ReadWrite,TargetStreamBufferSize,false);handle=null;
             }
             if(Bytes!=expectedBytes || SectorBytes!=expectedSectorBytes || SectorBytes!=512 || Bytes%512!=0)throw new IOException("Target geometry changed or is unsupported.");
         } catch {handle?.Dispose();Dispose();throw;}

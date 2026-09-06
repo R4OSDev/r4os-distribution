@@ -110,6 +110,7 @@ function Invoke-R4UsbWrite($Target,$Plan,[string]$Prepared,[string]$Image,[strin
   }
   if($BeforeClaim){& $BeforeClaim}
   $virtual=$Target.Contains('virtual') -and $Target.virtual
+  Write-Host 'Pruefe USB-Ziel vor dem Schreiben ...'
   $claim=[R4UsbClaim]::new($Target.path,$Target.bytes,$Target.sectorBytes,$virtual,[string[]]$Target.volumes)
   if([R4UsbClaim]::Fingerprint($claim.Stream,$claim.Bytes) -cne $Fingerprint){throw 'Datentraeger wurde seit der Auswahl veraendert.'}
   foreach($phase in @('image','cache')){
