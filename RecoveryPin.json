@@ -2,5 +2,8 @@
   "schema": 1,
   "product": "r4os-recovery",
   "architecture": "x86_64",
-  "status": "unconfigured"
+  "status": "published",
+  "version": "0.1.19",
+  "releaseId": 383453891,
+  "sha256": "8499ed394ad8eabe1e33e27f9118251526deff3a25677b33faaff875bf76a3cd"
 }
