@@ -113,16 +113,18 @@ public sealed class InstallationImageCheck : IDisposable {
             return result.ToArray();
         }
     }
-    readonly FileStream file;
+    readonly Stream file;
+    readonly bool leaveOpen;
     public readonly Dictionary<string,Partition> Partitions=new Dictionary<string,Partition>(StringComparer.Ordinal);
     public readonly Dictionary<string,Fat> Volumes=new Dictionary<string,Fat>(StringComparer.Ordinal);
     public readonly long Bytes;
     public readonly string DiskGuid;
     public InstallationImageCheck(string path) : this(path, false) { }
-    public InstallationImageCheck(string path, bool allowNonstandardSystem) {
-        file=File.OpenRead(path);
+    public InstallationImageCheck(string path, bool allowNonstandardSystem) : this(File.OpenRead(path),0,allowNonstandardSystem,false) { }
+    public InstallationImageCheck(Stream source,long bytes,bool allowNonstandardSystem,bool leaveOpen) {
+        file=source;this.leaveOpen=leaveOpen;
         try {
-            Bytes=file.Length; Require(Bytes%512==0 && Bytes>=1740L*1024*1024,"Installation image size");
+            Bytes=bytes==0 ? file.Length : bytes; Require(Bytes%512==0 && Bytes>=(3411968L+32769+33)*512,"Installation image size");
             long sectors=Bytes/512;
             var mbr=Read(0,512); Require(mbr[510]==85 && mbr[511]==170 && mbr[450]==238 && U32(mbr,454)==1 && U32(mbr,458)==Math.Min(sectors-1,uint.MaxValue),"Protective MBR");
             for(int i=462;i<510;i++)Require(mbr[i]==0,"Additional MBR partition");
@@ -154,14 +156,14 @@ public sealed class InstallationImageCheck : IDisposable {
                 Require(Text(boot,3,8)=="NTFS    " && U16(boot,11)==512 && U64(boot,40)==(ulong)(part.Count-1),"NTFS geometry "+role);
                 Require(boot.AsSpan().SequenceEqual(Read((part.First+part.Count-1)*512,512)),"NTFS backup boot "+role);
             }
-        } catch { file.Dispose(); throw; }
+        } catch { if(!leaveOpen)file.Dispose(); throw; }
     }
     byte[] Header(long at,long other) {
         var bytes=Read(at*512,512);
         Require(Text(bytes,0,8)=="EFI PART" && U32(bytes,8)==65536 && U32(bytes,12)==92 && U32(bytes,20)==0 && U64(bytes,24)==(ulong)at && U64(bytes,32)==(ulong)other && U32(bytes,80)==128 && U32(bytes,84)==128,"GPT header");
         var header=bytes.AsSpan(0,92).ToArray(); Array.Clear(header,16,4); Require(Crc(header)==U32(bytes,16),"GPT header CRC"); return bytes;
     }
-    byte[] Read(long at,int count) { Require(at>=0 && count>=0 && at<=file.Length-count,"Image read bounds"); var result=new byte[count]; file.Position=at; file.ReadExactly(result); return result; }
+    byte[] Read(long at,int count) { Require(at>=0 && count>=0 && at<=Bytes-count,"Image read bounds"); var result=new byte[count]; file.Position=at; file.ReadExactly(result); return result; }
     static ushort U16(byte[] b,int at) { return BitConverter.ToUInt16(b,at); }
     static uint U32(byte[] b,int at) { return BitConverter.ToUInt32(b,at); }
     static ulong U64(byte[] b,int at) { return BitConverter.ToUInt64(b,at); }
@@ -187,5 +189,5 @@ public sealed class InstallationImageCheck : IDisposable {
         }
         Require(version!=null,"Missing kernel metadata"); return version;
     }
-    public void Dispose() { file.Dispose(); }
+    public void Dispose() { if(!leaveOpen)file.Dispose(); }
 }

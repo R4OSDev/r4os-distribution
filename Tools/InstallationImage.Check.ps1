@@ -1,8 +1,8 @@
 function Test-R4OSInstallationImage {
-    param([Parameter(Mandatory)][string]$Image,[ValidateSet('local','usb')][string]$Medium='local',
-          [switch]$AllowNonstandardSystem,[switch]$PreservedMenu)
+    param([string]$Image,[ValidateSet('local','usb')][string]$Medium='local',
+          [switch]$AllowNonstandardSystem,[switch]$PreservedMenu,[IO.Stream]$Stream,[long]$ImageBytes=0)
     if(!('InstallationImageCheck' -as [type])){Add-Type -Path (Join-Path $PSScriptRoot 'InstallationImage.Check.cs')}
-    $imageCheck=[InstallationImageCheck]::new($Image,[bool]$AllowNonstandardSystem)
+    $imageCheck=if($Stream){[InstallationImageCheck]::new($Stream,$ImageBytes,[bool]$AllowNonstandardSystem,$true)}else{[InstallationImageCheck]::new($Image,[bool]$AllowNonstandardSystem)}
     try {
         $utf8=[Text.UTF8Encoding]::new($false,$true)
         $boot=$imageCheck.Volumes['BOOT'];$recovery=$imageCheck.Volumes['RECOVERY']

@@ -99,6 +99,9 @@ pub fn main(init: std.process.Init) !void {
     if (args.len >= 2 and std.mem.eql(u8, args[1], "create-installation")) {
         return runCreateInstallation(a, io, cwd, args[2..]);
     }
+    if (args.len >= 2 and std.mem.eql(u8, args[1], "prepare-usb")) {
+        return @import("usb_prepare.zig").run(a, io, cwd, args[2..]);
+    }
 
     var output_path: ?[]const u8 = null;
     var size_mb: u32 = 64;
