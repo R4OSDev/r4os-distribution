@@ -1,4 +1,4 @@
-param([Parameter(Mandatory)][string]$ReleaseZip,[switch]$SkipBoot,[string]$Zig='', [string]$Qemu='')
+param([Parameter(Mandatory)][string]$ReleaseZip,[switch]$SkipBoot,[switch]$PackagedStarter,[string]$Zig='', [string]$Qemu='')
 $ErrorActionPreference='Stop';Set-StrictMode -Version Latest
 $root=Split-Path $PSScriptRoot -Parent;$workspace=[IO.Path]::GetFullPath((Join-Path $root '../..'))
 $output=Join-Path $workspace 'Artifacts/Distribution/UsbAcceptance';[IO.Directory]::CreateDirectory($output)|Out-Null
@@ -23,15 +23,25 @@ $windows=@(@{Number=0;BusType='NVMe';IsReadOnly=$false;IsBoot=$true;IsSystem=$tr
  @{Number=2;BusType='USB';IsReadOnly=$false;IsBoot=$false;IsSystem=$false;IsOffline=$false;Size=4GB;LogicalSectorSize=512;FriendlyName='Stick';UniqueId='B';SerialNumber='B'})
 $parts=@(@{DiskNumber=2;AccessPaths=@('E:\','\\?\Volume{11111111-1111-1111-1111-111111111111}\')})
 $items=@(Convert-R4UsbWindowsTargets $windows $parts);Require ($items.Count -eq 1 -and $items[0].path -ceq '\\.\PhysicalDrive2' -and $items[0].volumes.Count -eq 1) 'Windows selection failed.'
-$bundle=Join-Path $output 'Standalone USB Starter';$null=New-R4UsbStarterBundle -Root $root -Zig $Zig -Sdk (Join-Path $workspace 'Repositories/SDK') -Destination $bundle
+$bundle=Join-Path $output $(if($PackagedStarter){'Packaged USB Starter'}else{'Standalone USB Starter'})
+if($PackagedStarter){
+ if(Test-Path -LiteralPath $bundle){Remove-Item -LiteralPath $bundle -Recurse -Force}
+ $null=Expand-R4UsbRelease $ReleaseZip $bundle
+ foreach($relative in @('CreateUSB.ps1','CreateUSB.bat','CreateUSB.sh','Tools/USB/linux-x86_64/imagecreater','Tools/USB/windows-x86_64/imagecreater.exe')){
+  Require (Test-Path -LiteralPath (Join-Path $bundle $relative) -PathType Leaf) "Packaged USB input missing: $relative"
+ }
+}else{$null=New-R4UsbStarterBundle -Root $root -Zig $Zig -Sdk (Join-Path $workspace 'Repositories/SDK') -Destination $bundle}
+$starter=if($PackagedStarter -and $IsLinux){'sh'}else{'pwsh'}
+[string[]]$starterArguments=@(if($PackagedStarter -and $IsLinux){Join-Path $bundle 'CreateUSB.sh'}else{'-NoProfile';'-File';Join-Path $bundle 'CreateUSB.ps1'})
 if($IsLinux){[IO.File]::SetUnixFileMode((Join-Path $bundle 'Tools/USB/linux-x86_64/imagecreater'),[IO.UnixFileMode]::UserRead -bor [IO.UnixFileMode]::UserWrite)}
 $image=Join-Path $output 'stick.img';Blank $image (3GB+13*512)
 $snapshot=Get-R4UsbFingerprint (Virtual $image)
 # Bad confirmation uses the complete public entry point and must not mutate.
-& pwsh -NoProfile -File (Join-Path $bundle 'CreateUSB.ps1') -ReleaseZip $ReleaseZip -VirtualImage $image -WorkRoot (Join-Path $output 'work') -ConfirmErase WRONG
-Require ($LASTEXITCODE -eq 1 -and (Get-R4UsbFingerprint (Virtual $image)) -ceq $snapshot) 'Bad confirmation changed target.'
+& $starter @starterArguments -ReleaseZip $ReleaseZip -VirtualImage $image -WorkRoot (Join-Path $output 'work') -ConfirmErase WRONG
+Require ($LASTEXITCODE -eq 1) "Bad confirmation returned unexpected exit code $LASTEXITCODE."
+Require ((Get-R4UsbFingerprint (Virtual $image)) -ceq $snapshot) 'Bad confirmation changed target.'
 $watch=[Diagnostics.Stopwatch]::StartNew()
-& pwsh -NoProfile -File (Join-Path $bundle 'CreateUSB.ps1') -ReleaseZip $ReleaseZip -VirtualImage $image -WorkRoot (Join-Path $output 'work') -ConfirmErase ('ERASE '+$image)
+& $starter @starterArguments -ReleaseZip $ReleaseZip -VirtualImage $image -WorkRoot (Join-Path $output 'work') -ConfirmErase ('ERASE '+$image)
 Require ($LASTEXITCODE -eq 0) 'Standalone USB creation failed.'
 $report=Get-ChildItem -LiteralPath (Join-Path $output 'work') -Filter result.json -File -Recurse|Sort-Object LastWriteTimeUtc -Descending|Select-Object -First 1
 $created=Get-Content -Raw -LiteralPath $report.FullName|ConvertFrom-Json -AsHashtable
@@ -80,6 +90,17 @@ if(!$SkipBoot){
   }while($text -notmatch '\[RECOVERY\] shell=READY' -or $text -notmatch 'DHCP05913 state=bound')
   Require ($text -match 'bus=usb') 'Recovery did not identify USB source.'
   $null=Ssh 'VER';$listing=Ssh 'DIR R:\INSTALL';Require ($listing -match 'RELEASE.ZIP') 'Original ZIP missing through guest SSH.'
+  if($PackagedStarter){
+   # Current production Recovery validates its complete slot after starting
+   # SSH. Wait for that real menu-ready boundary before sending console keys.
+   $deadline=[DateTime]::UtcNow.AddSeconds(60)
+   do{
+    $state=if((Ssh 'DIR R:\') -match 'state\.r4s'){Ssh 'TYPE R:\state.r4s'}else{''}
+    if($state -match 'CURRENT_CONFIRMED=yes'){break}
+    if($process.HasExited -or [DateTime]::UtcNow -ge $deadline){throw 'Packaged Recovery menu did not confirm its boot.'}
+    Start-Sleep -Milliseconds 250
+   }while($true)
+  }
   $session=Open-Qmp $qmpPort;Start-Sleep -Milliseconds 1000;Send-Keys $session @('up','up','ret');Start-Sleep -Milliseconds 1000
   foreach($key in @('p','o','w','e','r','o','f','f','ret')){Send-Keys $session @($key)}
   Require ($process.WaitForExit(20000) -and $process.ExitCode -eq 0) 'USB keyboard/Terminal poweroff failed.'
@@ -89,6 +110,6 @@ if(!$SkipBoot){
   if(!$process.HasExited){$process.Kill($true)};$process.WaitForExit();[IO.File]::WriteAllText((Join-Path $output 'usb-qemu.log'),$stderr.GetAwaiter().GetResult(),$utf8);$null=$stdout.GetAwaiter().GetResult();$process.Dispose()
  }
 }
-$result=[ordered]@{schema=1;host=$(if($IsWindows){'Windows'}else{'Linux'});runs=$runs;sourceZipSha256=$created.sourceZipSha256;creatorSha256=(Get-FileHash -LiteralPath $creator -Algorithm SHA256).Hash.ToLowerInvariant();runnerSha256=(Get-FileHash -LiteralPath $PSCommandPath -Algorithm SHA256).Hash.ToLowerInvariant();created=$created}
+$result=[ordered]@{schema=1;host=$(if($IsWindows){'Windows'}else{'Linux'});packagedStarter=[bool]$PackagedStarter;runs=$runs;sourceZipSha256=$created.sourceZipSha256;creatorSha256=(Get-FileHash -LiteralPath $creator -Algorithm SHA256).Hash.ToLowerInvariant();runnerSha256=(Get-FileHash -LiteralPath $PSCommandPath -Algorithm SHA256).Hash.ToLowerInvariant();created=$created}
 [IO.File]::WriteAllText((Join-Path $output 'usb-results.json'),(($result|ConvertTo-Json -Depth 30)+"`n"),$utf8)
 Write-Host 'USB acceptance PASS.'
