@@ -120,6 +120,7 @@ function Invoke-R4UsbWrite($Target,$Plan,[string]$Prepared,[string]$Image,[strin
    foreach($step in $Plan[$phase]){$copySource=if($step.source -ceq 'image'){$source}else{$ready};$claim.Verify($copySource,$step.first,$step.count)}
   }
   . (Join-Path $PSScriptRoot 'InstallationImage.Check.ps1')
+  Write-Host 'Pruefe geschriebenes USB-Medium ...'
   $result=Test-R4OSInstallationImage -Stream $claim.Stream -ImageBytes $claim.Bytes -Medium usb
   $view=[InstallationImageCheck]::new($claim.Stream,$claim.Bytes,$false,$true)
   try{$result['originalZipSha256']=[InstallationImageCheck]::Hash($view.Volumes['RECOVERY'].ReadFile('INSTALL/RELEASE.ZIP'))}finally{$view.Dispose()}

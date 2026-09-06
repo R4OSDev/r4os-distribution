@@ -99,7 +99,9 @@ public sealed class InstallationImageCheck : IDisposable {
             int at=0;
             foreach(uint cluster in Chain(entry.First,new HashSet<uint>())) {
                 int count=Math.Min(clusterBytes,result.Length-at);
-                image.Read(data+(cluster-2L)*clusterBytes,count).CopyTo(result,at); at+=count;
+                // PhysicalDrive reads must remain sector-aligned even for a
+                // file's partial final cluster. Trim padding in memory only.
+                image.Read(data+(cluster-2L)*clusterBytes,clusterBytes).AsSpan(0,count).CopyTo(result.AsSpan(at,count)); at+=count;
             }
             Require(at==result.Length,"FAT short read"); return result;
         }
@@ -164,7 +166,7 @@ public sealed class InstallationImageCheck : IDisposable {
         Require(Text(bytes,0,8)=="EFI PART" && U32(bytes,8)==65536 && U32(bytes,12)==92 && U32(bytes,20)==0 && U64(bytes,24)==(ulong)at && U64(bytes,32)==(ulong)other && U32(bytes,80)==128 && U32(bytes,84)==128,"GPT header");
         var header=bytes.AsSpan(0,92).ToArray(); Array.Clear(header,16,4); Require(Crc(header)==U32(bytes,16),"GPT header CRC"); return bytes;
     }
-    byte[] Read(long at,int count) { Require(at>=0 && count>=0 && at<=Bytes-count,"Image read bounds"); var result=new byte[count]; file.Position=at; file.ReadExactly(result); return result; }
+    byte[] Read(long at,int count) { Require(at>=0 && count>=0 && at<=Bytes-count && at%512==0 && count%512==0,"Image sector read bounds/alignment"); var result=new byte[count]; file.Position=at; file.ReadExactly(result); return result; }
     static ushort U16(byte[] b,int at) { return BitConverter.ToUInt16(b,at); }
     static uint U32(byte[] b,int at) { return BitConverter.ToUInt32(b,at); }
     static ulong U64(byte[] b,int at) { return BitConverter.ToUInt64(b,at); }

@@ -57,6 +57,18 @@ Reject {Assert-R4UsbSources $target @($image)} 'Source on virtual target accepte
 $held=[R4UsbClaim]::new($image,$target.bytes,512,$true,[string[]]@())
 try{Reject {Invoke-R4UsbWrite $target $plan $prepared $source $after $null} 'Busy target accepted.'}finally{$held.Dispose()}
 Require ((Get-R4UsbFingerprint $target) -ceq $after) 'Preflight rejection changed target.'
+# Inspect the complete written image through raw-device read constraints.
+# This catches partial final-file reads that ordinary host files accept.
+Add-Type -Path (Join-Path $PSScriptRoot 'UsbSectorReadStream.cs')
+$sectorStream=[UsbSectorReadStream]::new($image)
+try {
+ $sectorCheck=Test-R4OSInstallationImage -Stream $sectorStream -ImageBytes $target.bytes -Medium usb
+ Require ($sectorCheck.installation.diskGuid -ceq $created.structure.installation.diskGuid) 'Sector-read installation differs.'
+ $sectorView=[InstallationImageCheck]::new($sectorStream,$target.bytes,$false,$true)
+ try {$sectorZipHash=[InstallationImageCheck]::Hash($sectorView.Volumes['RECOVERY'].ReadFile('INSTALL/RELEASE.ZIP'))}finally{$sectorView.Dispose()}
+ Require ($sectorZipHash -ceq $created.sourceZipSha256 -and $sectorStream.FinalSectorReads -gt 0) 'Sector-read ZIP or final device sector differs.'
+ $rawReadContract=[ordered]@{result='PASS';sectorBytes=512;readCalls=$sectorStream.ReadCalls;readBytes=$sectorStream.ReadBytes;finalSectorReads=$sectorStream.FinalSectorReads;originalZipSha256=$sectorZipHash}
+}finally{$sectorStream.Dispose()}
 # Minimum geometry is prepared and read-only checked through the same owner.
 $minimum=Join-Path $output 'minimum.img';if(Test-Path $minimum){Remove-Item -LiteralPath $minimum -Force}
 $creator=Join-Path $bundle "Tools/USB/$(if($IsWindows){'windows-x86_64'}else{'linux-x86_64'})/imagecreater$suffix"
@@ -110,6 +122,6 @@ if(!$SkipBoot){
   if(!$process.HasExited){$process.Kill($true)};$process.WaitForExit();[IO.File]::WriteAllText((Join-Path $output 'usb-qemu.log'),$stderr.GetAwaiter().GetResult(),$utf8);$null=$stdout.GetAwaiter().GetResult();$process.Dispose()
  }
 }
-$result=[ordered]@{schema=1;host=$(if($IsWindows){'Windows'}else{'Linux'});packagedStarter=[bool]$PackagedStarter;runs=$runs;sourceZipSha256=$created.sourceZipSha256;creatorSha256=(Get-FileHash -LiteralPath $creator -Algorithm SHA256).Hash.ToLowerInvariant();runnerSha256=(Get-FileHash -LiteralPath $PSCommandPath -Algorithm SHA256).Hash.ToLowerInvariant();created=$created}
+$result=[ordered]@{schema=1;host=$(if($IsWindows){'Windows'}else{'Linux'});packagedStarter=[bool]$PackagedStarter;runs=$runs;rawReadContract=$rawReadContract;sourceZipSha256=$created.sourceZipSha256;creatorSha256=(Get-FileHash -LiteralPath $creator -Algorithm SHA256).Hash.ToLowerInvariant();runnerSha256=(Get-FileHash -LiteralPath $PSCommandPath -Algorithm SHA256).Hash.ToLowerInvariant();created=$created}
 [IO.File]::WriteAllText((Join-Path $output 'usb-results.json'),(($result|ConvertTo-Json -Depth 30)+"`n"),$utf8)
 Write-Host 'USB acceptance PASS.'
