@@ -69,6 +69,14 @@ if (-not $workingDirectory -or -not (Test-Path -LiteralPath $workingDirectory -P
     exit 125
 }
 
+$audioDevice = 'driver=none,id=headless-audio'
+if ($env:R4OS_QEMU_WAV_OUTPUT) {
+    $wavPath = [IO.Path]::GetFullPath($env:R4OS_QEMU_WAV_OUTPUT)
+    if (Test-Path -LiteralPath $wavPath) { throw "WAV evidence already exists: $wavPath" }
+    [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($wavPath)) | Out-Null
+    $audioDevice = 'driver=wav,id=headless-audio,path=' + $wavPath.Replace(',', ',,')
+}
+
 $argumentLine = @(
     '-readconfig', (Quote-Argument $config),
     '-cpu', $hostProfile.CpuModel,
@@ -76,7 +84,7 @@ $argumentLine = @(
     '-smp', ([string]$cpuCount),
     '-machine', ('accel=' + $hostProfile.AcceleratorChain),
     '-nic', 'none',
-    '-audiodev', 'driver=none,id=headless-audio',
+    '-audiodev', (Quote-Argument $audioDevice),
     '-global', 'hda-duplex.audiodev=headless-audio',
     '-serial', (Quote-Argument ('file:' + $logPath)),
     '-display', 'none',
