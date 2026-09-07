@@ -20,7 +20,7 @@ function New-R4QemuMedia {
    # FileStream's share check is mandatory on Windows; Linux also honors
    # the fcntl/share lock used by .NET. QEMU's own image lock is checked by
    # a nonblocking platform file lock before any length or payload change.
-   $outputFile.Lock(0,[Math]::Max(1,$outputFile.Length))
+   $outputFile.Lock(0,[Math]::Max([long]1,$outputFile.Length))
    $outputFile.SetLength(0);$inputFile.CopyTo($outputFile);$outputFile.Flush($true)
   }finally{if($outputFile){$outputFile.Dispose()};$inputFile.Dispose()}
   if((Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant() -cne $digest){throw 'QEMU work copy differs from its source.'}
