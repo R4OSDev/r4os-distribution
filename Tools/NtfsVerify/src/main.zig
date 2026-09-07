@@ -16,9 +16,6 @@ const std = @import("std");
 const tools = @import("storage_tools");
 const ntfs = tools.ntfs_format;
 
-// Includes the common 2048-MB GPT image. Partition views below are bounded
-// to their own extent, so corrupt NTFS runs cannot borrow a sibling volume.
-const MAX_IMAGE_BYTES: usize = 4 * 1024 * 1024 * 1024 + 1;
 const MAX_ATTR_RUNS: usize = 1024;
 
 var failures: usize = 0;
@@ -28,9 +25,39 @@ fn fail(comptime format: []const u8, args: anytype) void {
     std.debug.print("NTFSVERIFY FAIL: " ++ format ++ "\n", args);
 }
 
+const ImageView = struct {
+    file: std.Io.File,
+    io: std.Io,
+    first: u64 = 0,
+    bytes: u64,
+
+    fn read(self: ImageView, offset: u64, out: []u8) bool {
+        if (offset > self.bytes or out.len > self.bytes - offset) return false;
+        // Payload and metadata reads share a fixed upper I/O size.
+        var done: usize = 0;
+        while (done < out.len) {
+            const length = @min(out.len - done, tools.io.max_transfer_bytes);
+            const count = self.file.readPositionalAll(self.io, out[done..][0..length], self.first + offset + done) catch {
+                fail("image read failed at byte {d}", .{self.first + offset + done});
+                return false;
+            };
+            if (count != length) {
+                fail("short image read at byte {d}", .{self.first + offset + done});
+                return false;
+            }
+            done += length;
+        }
+        return true;
+    }
+
+    fn region(self: ImageView, first: u64, bytes: u64) !ImageView {
+        if (bytes < 512 or first > self.bytes or bytes > self.bytes - first) return error.Geometry;
+        return .{ .file = self.file, .io = self.io, .first = self.first + first, .bytes = bytes };
+    }
+};
+
 const Volume = struct {
-    image: []const u8,
-    part_offset: usize,
+    image: ImageView,
     boot: ntfs.BootSector,
     record_size: usize,
     mft_runs: [128]ntfs.Run = undefined,
@@ -42,13 +69,14 @@ const Volume = struct {
         return self.boot.cluster_bytes;
     }
 
-    fn lcnOffset(self: *const Volume, lcn: u64) ?usize {
-        const offset = self.part_offset + @as(usize, @intCast(lcn)) * self.clusterBytes();
-        if (offset >= self.image.len) return null;
+    fn lcnOffset(self: *const Volume, lcn: u64) ?u64 {
+        if (lcn >= self.image.bytes / self.clusterBytes()) return null;
+        const offset = lcn * self.clusterBytes();
         return offset;
     }
 
-    fn mftRecordRaw(self: *const Volume, number: u64) ?[]const u8 {
+    fn mftRecordRaw(self: *const Volume, number: u64, buf: []u8) ?[]const u8 {
+        if (buf.len < self.record_size or number > std.math.maxInt(u64) / self.record_size) return null;
         var byte_index = number * self.record_size;
         var run_index: usize = 0;
         while (run_index < self.mft_run_count) : (run_index += 1) {
@@ -57,9 +85,10 @@ const Volume = struct {
             if (byte_index < run_bytes) {
                 const lcn = run.lcn orelse return null;
                 const base = self.lcnOffset(lcn) orelse return null;
-                const offset = base + @as(usize, @intCast(byte_index));
-                if (offset + self.record_size > self.image.len) return null;
-                return self.image[offset .. offset + self.record_size];
+                if (byte_index > self.image.bytes - base) return null;
+                const record = buf[0..self.record_size];
+                if (!self.image.read(base + byte_index, record)) return null;
+                return record;
             }
             byte_index -= run_bytes;
         }
@@ -67,9 +96,8 @@ const Volume = struct {
     }
 
     fn loadRecord(self: *const Volume, number: u64, buf: []u8) ?ntfs.FileRecordHeader {
-        const raw = self.mftRecordRaw(number) orelse return null;
         const record = buf[0..self.record_size];
-        @memcpy(record, raw);
+        _ = self.mftRecordRaw(number, buf) orelse return null;
         if (ntfs.applyFixups(record) != .ok) return null;
         const header = ntfs.FileRecordHeader.parse(record) orelse return null;
         if (header.record_number != number) return null;
@@ -210,14 +238,14 @@ fn readRunsInto(volume: *const Volume, attr: *const AttrRuns, out: []u8) ?usize 
         if (position + run_bytes > total) run_bytes = total - position;
         if (run.lcn) |lcn| {
             const src = volume.lcnOffset(lcn) orelse return null;
-            if (src + run_bytes > volume.image.len) return null;
+            if (run_bytes > volume.image.bytes - src) return null;
             var copy_bytes = run_bytes;
             if (position >= attr.initialized_size) {
                 copy_bytes = 0;
             } else if (position + copy_bytes > attr.initialized_size) {
                 copy_bytes = @intCast(attr.initialized_size - position);
             }
-            @memcpy(out[position .. position + copy_bytes], volume.image[src .. src + copy_bytes]);
+            if (!volume.image.read(src, out[position .. position + copy_bytes])) return null;
         }
         position += run_bytes;
     }
@@ -486,16 +514,23 @@ pub fn main(init: std.process.Init) !void {
         std.process.exit(2);
     };
 
-    const image = try cwd.readFileAlloc(io, path, allocator, .limited(MAX_IMAGE_BYTES));
-    defer allocator.free(image);
+    const file = try cwd.openFile(io, path, .{});
+    defer file.close(io);
+    // Keep one read-only handle and a shared lock throughout verification.
+    if (!try file.tryLock(io, .shared)) return error.ImageBusy;
+    defer file.unlock(io);
+    const size = (try file.stat(io)).size;
+    if (size < 512 or size % 512 != 0) return error.Geometry;
+    const image = ImageView{ .file = file, .io = io, .bytes = size };
+    var header_bytes: [1024]u8 = .{0} ** 1024;
+    if (!image.read(0, header_bytes[0..@min(size, header_bytes.len)])) return error.ImageRead;
 
-    if (!bare_volume and image.len >= 1024 and std.mem.eql(u8, image[512..520], "EFI PART")) {
+    if (!bare_volume and size >= 1024 and std.mem.eql(u8, header_bytes[512..520], "EFI PART")) {
         const ReadOnly = struct {
-            bytes: []const u8,
+            image: ImageView,
             fn read(raw: *anyopaque, lba: u64, out: []u8) i32 {
                 const self: *@This() = @ptrCast(@alignCast(raw));
-                @memcpy(out, self.bytes[@intCast(lba * 512)..][0..out.len]);
-                return 0;
+                return if (self.image.read(lba * 512, out)) 0 else -1;
             }
             fn write(_: *anyopaque, _: u64, _: []const u8) i32 {
                 return -1;
@@ -504,71 +539,69 @@ pub fn main(init: std.process.Init) !void {
                 return -1;
             }
         };
-        var source = ReadOnly{ .bytes = image };
-        const device = tools.io.Device{ .context = &source, .sectors = image.len / 512, .read_fn = ReadOnly.read, .write_fn = ReadOnly.write, .flush_fn = ReadOnly.flush };
+        var source = ReadOnly{ .image = image };
+        const device = tools.io.Device{ .context = &source, .sectors = size / 512, .read_fn = ReadOnly.read, .write_fn = ReadOnly.write, .flush_fn = ReadOnly.flush };
         var work: [tools.io.scratch_bytes]u8 = undefined;
         const table = try tools.partition.Plan.read(device, &work);
         if (table.kind != .gpt) return error.Gpt;
         var found: usize = 0;
         for (table.entries) |part| {
             if (!part.present) continue;
-            const first: usize = @intCast(part.first * 512);
-            const length: usize = @intCast(part.count * 512);
-            if (length < 512 or first > image.len - length) return error.Geometry;
-            if (!std.mem.eql(u8, image[first + 3 ..][0..8], "NTFS    ")) continue;
+            const view = try image.region(part.first * 512, part.count * 512);
+            var boot_sector: [512]u8 = undefined;
+            if (!view.read(0, &boot_sector)) return error.ImageRead;
+            if (!std.mem.eql(u8, boot_sector[3..11], "NTFS    ")) continue;
             found += 1;
-            try verifyVolume(allocator, image[first..][0..length], 0, allow_dirty);
+            try verifyVolume(allocator, view, allow_dirty);
         }
         if (found != 2) return error.ExpectedSystemAndData;
         return;
     }
 
-    var part_offset: usize = 0;
+    var view = image;
     if (!bare_volume) {
-        if (image.len < 512) {
-            std.debug.print("image too small\n", .{});
-            std.process.exit(1);
-        }
         // Pick the first NTFS-typed (0x07) MBR partition; fall back to the
         // first entry for single-partition NTFS disks written before the
         // system layout carried a FAT32 boot partition in slot 1.
-        var part_lba = std.mem.readInt(u32, image[446 + 8 ..][0..4], .little);
+        var selected = header_bytes[446..462];
         var slot: usize = 0;
         while (slot < 4) : (slot += 1) {
-            const entry = image[446 + slot * 16 ..][0..16];
+            const entry = header_bytes[446 + slot * 16 ..][0..16];
             if (entry[4] == 0x07) {
-                part_lba = std.mem.readInt(u32, entry[8..12], .little);
+                selected = entry;
                 break;
             }
         }
-        part_offset = @as(usize, part_lba) * 512;
+        view = try image.region(@as(u64, std.mem.readInt(u32, selected[8..12], .little)) * 512, @as(u64, std.mem.readInt(u32, selected[12..16], .little)) * 512);
     }
 
-    if (part_offset > image.len or image.len - part_offset < 512) return error.Geometry;
-    try verifyVolume(allocator, image, part_offset, allow_dirty);
+    try verifyVolume(allocator, view, allow_dirty);
 }
 
-fn verifyVolume(allocator: std.mem.Allocator, image: []const u8, part_offset: usize, allow_dirty: bool) !void {
+fn verifyVolume(allocator: std.mem.Allocator, image: ImageView, allow_dirty: bool) !void {
     var boot: ntfs.BootSector = undefined;
-    const boot_result = ntfs.BootSector.parse(image[part_offset..], &boot);
+    var boot_sector: [512]u8 = undefined;
+    if (!image.read(0, &boot_sector)) return error.ImageRead;
+    const boot_result = ntfs.BootSector.parse(&boot_sector, &boot);
     if (boot_result != .ok) {
         std.debug.print("boot sector parse failed: {s}\n", .{@tagName(boot_result)});
         std.process.exit(1);
     }
 
+    if (boot.total_sectors >= image.bytes / 512 or boot.file_record_bytes > 4096) return error.Geometry;
     var volume = Volume{
         .image = image,
-        .part_offset = part_offset,
         .boot = boot,
         .record_size = boot.file_record_bytes,
     };
 
     // Backup boot sector: identical copy in the sector after total_sectors.
     {
-        const backup_offset = part_offset + @as(usize, @intCast(boot.total_sectors)) * 512;
-        if (backup_offset + 512 > image.len) {
+        const backup_offset = boot.total_sectors * 512;
+        var backup: [512]u8 = undefined;
+        if (!image.read(backup_offset, &backup)) {
             fail("backup boot sector outside image (offset {d})", .{backup_offset});
-        } else if (!std.mem.eql(u8, image[part_offset .. part_offset + 512], image[backup_offset .. backup_offset + 512])) {
+        } else if (!std.mem.eql(u8, &boot_sector, &backup)) {
             fail("backup boot sector differs from boot sector", .{});
         }
     }
@@ -581,7 +614,7 @@ fn verifyVolume(allocator: std.mem.Allocator, image: []const u8, part_offset: us
         };
         var record_buf: [4096]u8 = undefined;
         const record = record_buf[0..volume.record_size];
-        @memcpy(record, image[mft_offset .. mft_offset + volume.record_size]);
+        if (!image.read(mft_offset, record)) return error.ImageRead;
         if (ntfs.applyFixups(record) != .ok) {
             std.debug.print("MFT record 0 fixups failed\n", .{});
             std.process.exit(1);
@@ -639,7 +672,8 @@ fn verifyVolume(allocator: std.mem.Allocator, image: []const u8, part_offset: us
             } else {
                 var index: usize = 0;
                 while (index < mirror_records) : (index += 1) {
-                    const raw = volume.mftRecordRaw(index) orelse {
+                    var raw_buffer: [4096]u8 = undefined;
+                    const raw = volume.mftRecordRaw(index, &raw_buffer) orelse {
                         fail("MFT record {d} unreadable for mirror compare", .{index});
                         continue;
                     };
@@ -665,16 +699,15 @@ fn verifyVolume(allocator: std.mem.Allocator, image: []const u8, part_offset: us
     {
         var number: u64 = 0;
         while (number < volume.mft_record_count) : (number += 1) {
-            const raw = volume.mftRecordRaw(number) orelse continue;
+            var record_buf: [4096]u8 = undefined;
+            const raw = volume.mftRecordRaw(number, &record_buf) orelse continue;
             const magic = std.mem.readInt(u32, raw[0..4], .little);
             if (magic == ntfs.BAAD_MAGIC) {
                 fail("record {d} is BAAD", .{number});
                 continue;
             }
             if (magic != ntfs.FILE_MAGIC) continue;
-            var record_buf: [4096]u8 = undefined;
             const record = record_buf[0..volume.record_size];
-            @memcpy(record, raw);
             if (ntfs.applyFixups(record) != .ok) {
                 fail("record {d} fixups failed", .{number});
                 continue;

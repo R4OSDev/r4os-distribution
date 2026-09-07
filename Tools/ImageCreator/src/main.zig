@@ -373,26 +373,6 @@ fn runCreateSystem(gpa: std.mem.Allocator, io: anytype, cwd: std.Io.Dir, args: [
     );
 }
 
-const ImageDevice = struct {
-    bytes: []u8,
-    fn read(raw: *anyopaque, lba: u64, out: []u8) i32 {
-        const self: *ImageDevice = @ptrCast(@alignCast(raw));
-        @memcpy(out, self.bytes[@intCast(lba * 512)..][0..out.len]);
-        return 0;
-    }
-    fn write(raw: *anyopaque, lba: u64, bytes: []const u8) i32 {
-        const self: *ImageDevice = @ptrCast(@alignCast(raw));
-        @memcpy(self.bytes[@intCast(lba * 512)..][0..bytes.len], bytes);
-        return 0;
-    }
-    fn flush(_: *anyopaque) i32 {
-        return 0;
-    }
-    fn device(self: *ImageDevice) storage_tools.io.Device {
-        return .{ .context = self, .sectors = self.bytes.len / 512, .exclusive = true, .read_fn = read, .write_fn = write, .flush_fn = flush };
-    }
-};
-
 fn runCreateInstallation(gpa: std.mem.Allocator, io: std.Io, cwd: std.Io.Dir, args: []const []const u8) !void {
     var arena = std.heap.ArenaAllocator.init(gpa);
     defer arena.deinit();
@@ -458,41 +438,69 @@ fn runCreateInstallation(gpa: std.mem.Allocator, io: std.Io, cwd: std.Io.Dir, ar
     try boot_entries.append(a, .{ .src = "", .dest = "/boot/r4os-installation.json", .data = manifest });
     try boot_entries.append(a, .{ .src = "", .dest = "/boot/limine.conf", .data = config });
 
-    const bytes = try a.alloc(u8, @intCast(common.standard_bytes));
-    @memset(bytes, 0);
-    var ram = ImageDevice{ .bytes = bytes };
-    const device = ram.device();
+    // A newly created private file starts with zeroed extents on both hosts.
+    // Publish it atomically only after every partition and BIOS stage passed.
+    var output_file = try cwd.createFileAtomic(io, destination, .{ .replace = true });
+    defer output_file.deinit(io);
+    // Zig's replace-capable Atomic creates a write-only temporary handle.
+    // Reopen that private file for the formatter's read-back checks.
+    output_file.file.close(io);
+    output_file.file_open = false;
+    const temporary_name = std.fmt.hex(output_file.file_basename_hex);
+    output_file.file = try output_file.dir.openFile(io, &temporary_name, .{ .mode = .read_write });
+    output_file.file_open = true;
+    var target = storage_tools.host_file.File{ .file = output_file.file, .io = io, .sectors = 0 };
+    try target.acquire();
+    defer target.release();
+    try target.resize(common.standard_bytes / 512);
+    const device = target.device(null);
     const work = try a.alloc(u8, storage_tools.io.scratch_bytes);
     var table = try storage_tools.partition.Plan.read(device, work);
     try layout.bind(&table);
     try table.commit(device, work);
     for ([_]common.Role{ .BOOT, .RECOVERY }) |role| {
+        var part_arena = std.heap.ArenaAllocator.init(gpa);
+        defer part_arena.deinit();
+        const pa = part_arena.allocator();
         const region = layout.part(role);
-        _ = try buildFat32PartitionInto(a, io, cwd, bytes, @intCast(region.first), @intCast(layout.sectors), @intCast(region.count), @intCast(region.count / 2048), if (role == .BOOT) boot_entries.items else recovery.items);
+        var files: std.ArrayList(storage_tools.fat32_image.File) = .empty;
+        for (if (role == .BOOT) boot_entries.items else recovery.items) |entry| {
+            const data = entry.data orelse try cwd.readFileAlloc(io, entry.src, pa, .limited(region.count * 512));
+            try files.append(pa, .{ .path = entry.dest, .bytes = data });
+        }
+        var fat = try storage_tools.fat32_image.prepareStreamed(pa, region.count, region.first, sectorsPerClusterForSize(@intCast(region.count / 2048)), "R4OS BOOT", 0xCAFEBABE, files.items);
+        defer fat.deinit();
+        var view = storage_tools.io.Region{ .parent = device, .first = region.first, .count = region.count };
+        try fat.execute(try view.device(), false, work);
     }
     for ([_]common.Role{ .SYSTEM, .DATA }) |role| {
+        var part_arena = std.heap.ArenaAllocator.init(gpa);
+        defer part_arena.deinit();
+        const pa = part_arena.allocator();
         const region = layout.part(role);
         const serial = std.mem.readInt(u64, ids.partitions[@intFromEnum(role)][0..8], .little);
-        var builder = try ntfs_mkfs.Builder.init(a, region.count * 512, @tagName(role), @intCast(region.first), storage_tools.standardNtfsMetadata(), 132_000_000_000_000_000, serial);
+        var builder = try ntfs_mkfs.Builder.init(pa, region.count * 512, @tagName(role), @intCast(region.first), storage_tools.standardNtfsMetadata(), 132_000_000_000_000_000, serial);
+        defer builder.deinit();
         if (role == .SYSTEM) {
             for (system_entries.items) |entry| {
-                const contents = try cwd.readFileAlloc(io, entry.src, a, .unlimited);
-                try ntfs_cli.addPath(&builder, a, entry.dest, contents);
+                const contents = try cwd.readFileAlloc(io, entry.src, pa, .limited(region.count * 512));
+                try ntfs_cli.addPath(&builder, pa, entry.dest, contents);
             }
         } else {
             for ([_][]const u8{ "DOCS", "MEDIA", "TEMP" }) |name| {
                 _ = try builder.addDirectory(builder.root(), name);
             }
         }
-        const volume = try builder.finalize();
-        if (volume.len != region.count * 512) return error.NtfsSizeMismatch;
-        @memcpy(bytes[@intCast(region.first * 512)..][0..volume.len], volume);
+        var ntfs_plan = try builder.prepare();
+        defer ntfs_plan.deinit();
+        var view = storage_tools.io.Region{ .parent = device, .first = region.first, .count = region.count };
+        try ntfs_plan.execute(try view.device(), false, work);
     }
     const committed = try storage_tools.partition.Plan.read(device, work);
     try storage_tools.limine.installBios(device, &committed, work);
-    // Only complete host files are published. The product guest uses the
-    // same layout/BIOS helper over its explicit device claim, not this CLI.
-    try cwd.writeFile(io, .{ .sub_path = destination, .data = bytes });
+    try device.flush();
+    target.release();
+    try output_file.replace(io);
     if (manifest_output) |path| try cwd.writeFile(io, .{ .sub_path = path, .data = manifest });
     std.debug.print("R4OS five-partition image: {s}, 2048 MB, disk {s}, default {s}\n", .{ destination, common.guid.format(ids.disk), @tagName(medium) });
 }

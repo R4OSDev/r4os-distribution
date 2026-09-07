@@ -505,17 +505,16 @@ function New-ProfilePackage {
     $record=Get-Content -Raw -LiteralPath (Join-Path $Definition.OutputPath 'image.json')|ConvertFrom-Json -AsHashtable
     if($record.technical -and !$Context.TechnicalCandidate){throw 'A technical Recovery candidate cannot be published in a normal R4OS release.'}
     $source=Join-Path $Definition.OutputPath 'disk.img'
-    if((Get-Sha256 $source) -cne $record.sha256){throw 'The canonical release image was modified after creation.'}
     if((Get-Sha256 $record.recoveryPackage) -cne $record.recoveryPackageSha256){throw 'The Recovery package was replaced after image creation.'}
     $scratch=Join-Path (Join-Path $StagingRoot '.packages') $Definition.Name
     [IO.Directory]::CreateDirectory($scratch)|Out-Null
-    $image=Join-Path $scratch 'fresh.img';Copy-Item -LiteralPath $source -Destination $image
+    $image=Join-Path $scratch 'fresh.img';Copy-R4ReleaseImage -Source $source -Destination $image -ExpectedSha256 $record.sha256
     Invoke-NativeChecked $Context.ImageCreator @('reset-data','--image',$image)
     $bootRoot=Join-Path $scratch 'Boot'
-    $checkedImage=Test-R4OSInstallationImage -Image $image
+    if(!('InstallationImageCheck' -as [type])){Add-Type -Path (Join-Path $PSScriptRoot 'InstallationImage.Check.cs')}
     $view=[InstallationImageCheck]::new($image)
     try{
-        foreach($path in $checkedImage.bootHashes.Keys){
+        foreach($path in $record.installation.bootFiles){
             $target=Join-Path $bootRoot $path;[IO.Directory]::CreateDirectory((Split-Path $target -Parent))|Out-Null
             [IO.File]::WriteAllBytes($target,$view.Volumes['BOOT'].ReadFile($path))
         }
