@@ -389,3 +389,41 @@ sperren, Groesse setzen und Quick-Format ausfuehren; --full nullt alle
 Sektoren. --partition erzeugt die MBR-Tabelle ueber denselben SDK-Writer.
 Metadatenauswahl und --add/--add-list bleiben kompatibel. FAT32-Images nutzen
 die bisherige konservative FAT-Groessenberechnung bytegleich.
+
+
+NTFS-Werkzeuggrenzen ab 0.78.73
+-----------------------------
+Die gemeinsame R4OS-Pfadgrenze betraegt 24 Komponenten einschliesslich der
+Dateikomponente. Der Builder prueft vor Aufnahme eines Kindes, ImageCreator
+vor Anlage der Eltern und NtfsVerify fuer Dateien wie Verzeichnisse. Der
+oeffentliche Laufzeitpfad verwendet dieselbe Konstante; sein bisheriges
+24-Komponenten-Verhalten bleibt erhalten. Der Kernel-Support wurde
+abgeglichen. Ein Build mit unveraenderter Kernelversion ergab denselben
+SHA256 des Kernelartefakts, daher bleibt Kernel 0.1.130 bestehen.
+
+Die Indexbitmap deckt alle 4096 erlaubten Indexbloecke ab; die Blockerzeugung
+prueft dasselbe Limit vor Allokation. Nicht passende residente MFT-Records
+scheitern weiterhin kontrolliert in prepare vor Oeffnung eines Schreibziels.
+Die gezielte 3500-Dateien-Fixture benoetigt 587 Bloecke und 80 Bitmapbytes.
+Verifier und Laufzeit finden auch den letzten 255-Zeichen-Namen.
+
+NtfsVerify prueft zusammenhaengende nichtresidente Extents, physische
+Runbereiche, logische Deckung und initialized_size<=data_size. Gewoehnliche
+Attribute verlangen data_size<=allocated_size und eine vollstaendig durch
+Runs gedeckte Allokation ohne Loecher. Sparse-/komprimierte Attribute und
+der spezielle $BadClus:$Bad-Strom sind getrennt behandelt; deren logische
+Deckung wird ohne gewoehnliche physische Allokationsgleichheit geprueft.
+readRunsInto erzeugt Sparse-Nullen, verweigert rohe komprimierte/verschluesselte
+Inhalte und bestaetigt keine Bytes hinter dem Ende der tatsaechlichen Runs.
+Keine Zusage einer Pruefung dekomprimierter oder entschluesselter Dateiinhalte.
+
+Kurze Nachweise: Windows-Referenz unveraendert gueltig; ein zusaetzliches
+Byte ohne Runlistdeckung wird abgewiesen. Datei im 24. Segment gueltig und
+mit exakt sechs Nutzbytes lesbar, alte Datei im 25. Segment von Verifier und
+Laufzeit abgewiesen. ImageCreator laesst bei zu tiefem Ziel eine vorhandene
+Zieldatei unveraendert. Grosse Indexbitmap und letzter Dateizugriff bestehen.
+Die temporaere Hostlesehilfe brauchte 64 MB + 1 als exklusive Leseschranke;
+das war eine Fixturegrenze, keine Aenderung am Dateisystem.
+
+R4PART 0.1.5 und Recovery 0.1.55/Menue 0.1.20 uebernehmen den Formatter.
+Keine neue Gast-, Hardware- oder Release-Gesamtpruefung fuer diese Grenzen.

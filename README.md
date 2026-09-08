@@ -127,3 +127,33 @@ GitHub Contents write permission.
 
 Original R4OS material is licensed under Apache License 2.0. Third-party
 components retain their own licenses; see `THIRD_PARTY_NOTICES.md`.
+
+
+NTFS image boundaries (0.78.73)
+-------------------------------
+The shared R4OS path policy is 24 components, including a final file name.
+The builder checks a child's depth before insertion. ImageCreator counts
+the complete destination before creating parent nodes. NtfsVerify applies
+the same boundary to both files and directories. The public volume reader
+uses that shared constant; its existing runtime limit is unchanged.
+
+The builder's index bitmap now covers all 4096 permitted index blocks.
+Block construction checks the same limit before allocation; resident record
+capacity remains checked by prepare, before any target is opened for writing.
+A 3500-file fixture needs 587 blocks and an 80-byte bitmap, including the
+previously out-of-range bit 512. Verification and the final long-name lookup
+both succeed.
+
+NtfsVerify collects consecutive nonresident extents, checks physical run
+ranges and logical coverage, and requires initialized size <= data size.
+Ordinary attributes require data size <= allocated size and complete run
+coverage of that allocation, without holes. Sparse/compressed streams and
+the special $BadClus:$Bad stream are distinguished; their logical coverage
+is checked without applying ordinary physical-allocation equality. Raw
+readRunsInto supports sparse zeroes but rejects compressed/encrypted data,
+and never reports bytes beyond its actual run array as read successfully.
+This does not claim to validate decompressed or decrypted file contents.
+
+Reference: Microsoft ATTRIBUTE_RECORD_HEADER
+https://learn.microsoft.com/en-us/windows/win32/devnotes/attribute-record-header
+and the existing local NTFS layout references.

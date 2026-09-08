@@ -18,6 +18,36 @@ const ntfs = tools.ntfs_format;
 
 const MAX_ATTR_RUNS: usize = 1024;
 
+test "run reads reject an uncovered tail and distinguish sparse from compressed bytes" {
+    var volume: Volume = undefined;
+    volume.boot = std.mem.zeroes(ntfs.BootSector);
+    volume.boot.cluster_bytes = 512;
+    var attr = AttrRuns{
+        .captured = true,
+        .data_size = 513,
+        .allocated_size = 512,
+        .next_vcn = 1,
+        .count = 1,
+        .has_holes = true,
+        .flags = ntfs.ATTR_FLAG_SPARSE,
+    };
+    attr.runs[0] = .{ .lcn = null, .length_clusters = 1 };
+    var bytes: [1024]u8 = undefined;
+    try std.testing.expect(readRunsInto(&volume, &attr, &bytes) == null);
+    // Even a caller with an inconsistent captured extent total must not get
+    // a success count for bytes beyond the actual run array.
+    attr.allocated_size = 1024;
+    attr.next_vcn = 2;
+    try std.testing.expect(readRunsInto(&volume, &attr, &bytes) == null);
+    attr.data_size = 512;
+    attr.allocated_size = 512;
+    attr.next_vcn = 1;
+    try std.testing.expectEqual(@as(?usize, 512), readRunsInto(&volume, &attr, &bytes));
+    for (bytes[0..512]) |byte| try std.testing.expectEqual(@as(u8, 0), byte);
+    attr.flags = ntfs.ATTR_FLAG_COMPRESSED;
+    try std.testing.expect(readRunsInto(&volume, &attr, &bytes) == null);
+}
+
 var failures: usize = 0;
 
 fn fail(comptime format: []const u8, args: anytype) void {
@@ -111,25 +141,35 @@ const AttrRuns = struct {
     count: usize = 0,
     data_size: u64 = 0,
     initialized_size: u64 = 0,
+    allocated_size: u64 = 0,
+    next_vcn: u64 = 0,
     flags: u16 = 0,
+    captured: bool = false,
     resident: bool = false,
+    special_badclus: bool = false,
+    has_holes: bool = false,
     resident_copy: [4096]u8 = undefined,
     resident_len: usize = 0,
 
-    fn appendMapping(self: *AttrRuns, mapping: []const u8) bool {
-        var iterator = ntfs.RunlistIterator.init(mapping);
-        while (iterator.next()) |run| {
-            if (self.count >= self.runs.len) return false;
-            self.runs[self.count] = run;
-            self.count += 1;
-        }
-        return !iterator.hadError();
+    fn complete(self: *const AttrRuns, volume: *const Volume) bool {
+        if (!self.captured or self.initialized_size > self.data_size) return false;
+        if (self.resident) return self.data_size == self.resident_len;
+        const cluster = volume.clusterBytes();
+        const covered = std.math.mul(u64, self.next_vcn, cluster) catch return false;
+        if (self.data_size > covered or self.allocated_size % cluster != 0) return false;
+        // Sparse/compressed attributes describe logical holes; $BadClus:$Bad
+        // is a special whole-volume hole stream even without the sparse flag.
+        const ordinary = !self.special_badclus and
+            (self.flags & (ntfs.ATTR_FLAG_SPARSE | ntfs.ATTR_FLAG_COMPRESSED)) == 0;
+        if (ordinary and (self.has_holes or self.data_size > self.allocated_size or self.allocated_size != covered)) return false;
+        return true;
     }
 };
 
-fn captureAttribute(attribute: ntfs.Attribute, out: *AttrRuns, is_first: bool) bool {
+fn captureAttribute(volume: *const Volume, attribute: ntfs.Attribute, out: *AttrRuns) bool {
     if (!attribute.non_resident) {
-        if (attribute.value.len > out.resident_copy.len) return false;
+        if (out.captured or attribute.value.len > out.resident_copy.len) return false;
+        out.captured = true;
         out.resident = true;
         @memcpy(out.resident_copy[0..attribute.value.len], attribute.value);
         out.resident_len = attribute.value.len;
@@ -138,15 +178,41 @@ fn captureAttribute(attribute: ntfs.Attribute, out: *AttrRuns, is_first: bool) b
         out.flags = attribute.flags;
         return true;
     }
-    if (is_first) {
+    if (out.resident or attribute.lowest_vcn != out.next_vcn or
+        (out.captured and attribute.lowest_vcn == 0)) return false;
+    if (!out.captured) {
         out.data_size = attribute.data_size;
         out.initialized_size = attribute.initialized_size;
+        out.allocated_size = attribute.allocated_size;
         out.flags = attribute.flags;
+    } else if (out.flags != attribute.flags) return false;
+    out.captured = true;
+    var clusters: u64 = 0;
+    const volume_clusters = volume.boot.total_sectors / (volume.clusterBytes() / 512);
+    var iterator = ntfs.RunlistIterator.init(attribute.mapping_pairs);
+    while (iterator.next()) |run| {
+        if (run.length_clusters == 0 or out.count >= out.runs.len) return false;
+        clusters = std.math.add(u64, clusters, run.length_clusters) catch return false;
+        if (run.lcn) |lcn| {
+            if (lcn >= volume_clusters or run.length_clusters > volume_clusters - lcn) return false;
+        } else out.has_holes = true;
+        out.runs[out.count] = run;
+        out.count += 1;
     }
-    return out.appendMapping(attribute.mapping_pairs);
+    if (iterator.hadError() or iterator.offset >= attribute.mapping_pairs.len or attribute.mapping_pairs[iterator.offset] != 0) return false;
+    if (clusters == 0) {
+        return attribute.lowest_vcn == 0 and out.data_size == 0 and out.allocated_size == 0 and
+            (attribute.highest_vcn == 0 or attribute.highest_vcn == std.math.maxInt(u64));
+    }
+    if (attribute.highest_vcn < attribute.lowest_vcn) return false;
+    const extent_clusters = std.math.add(u64, attribute.highest_vcn - attribute.lowest_vcn, 1) catch return false;
+    if (clusters != extent_clusters) return false;
+    out.next_vcn = std.math.add(u64, attribute.highest_vcn, 1) catch return false;
+    return true;
 }
 
 fn collectAttribute(volume: *const Volume, record_number: u64, attr_type: ntfs.AttrType, name_utf16: []const u8, out: *AttrRuns) bool {
+    out.special_badclus = record_number == ntfs.MFT_RECORD_BADCLUS and attr_type == .data and std.mem.eql(u8, name_utf16, "$\x00B\x00a\x00d\x00");
     var record_buf: [4096]u8 = undefined;
     const header = volume.loadRecord(record_number, record_buf[0..]) orelse return false;
     const record = record_buf[0..volume.record_size];
@@ -166,15 +232,15 @@ fn collectAttribute(volume: *const Volume, record_number: u64, attr_type: ntfs.A
                 if (attribute.attr_type != @intFromEnum(attr_type)) continue;
                 if (!std.mem.eql(u8, attribute.name, name_utf16)) continue;
                 if (attribute.non_resident and attribute.lowest_vcn != entry.lowest_vcn) continue;
-                if (!captureAttribute(attribute, out, entry.lowest_vcn == 0)) return false;
+                if (!captureAttribute(volume, attribute, out)) return false;
                 found_any = true;
             }
         }
-        if (found_any) return true;
+        if (found_any) return out.complete(volume);
     }
 
     const attribute = ntfs.findAttribute(record, header, attr_type, name_utf16) orelse return false;
-    return captureAttribute(attribute, out, true);
+    return captureAttribute(volume, attribute, out) and out.complete(volume);
 }
 
 /// Verifies every $ATTRIBUTE_LIST entry of a base record: the referenced
@@ -222,7 +288,8 @@ fn verifyAttributeList(volume: *const Volume, base_number: u64, base_sequence: u
 }
 
 fn readRunsInto(volume: *const Volume, attr: *const AttrRuns, out: []u8) ?usize {
-    const total: usize = @intCast(attr.data_size);
+    if (!attr.complete(volume) or (attr.flags & (ntfs.ATTR_FLAG_COMPRESSED | ntfs.ATTR_FLAG_ENCRYPTED)) != 0) return null;
+    const total = std.math.cast(usize, attr.data_size) orelse return null;
     if (total > out.len) return null;
     if (attr.resident) {
         @memcpy(out[0..attr.resident_len], attr.resident_copy[0..attr.resident_len]);
@@ -234,8 +301,8 @@ fn readRunsInto(volume: *const Volume, attr: *const AttrRuns, out: []u8) ?usize 
     var run_index: usize = 0;
     while (run_index < attr.count and position < total) : (run_index += 1) {
         const run = attr.runs[run_index];
-        var run_bytes = @as(usize, @intCast(run.length_clusters)) * cluster;
-        if (position + run_bytes > total) run_bytes = total - position;
+        const extent_bytes = std.math.mul(u64, run.length_clusters, cluster) catch return null;
+        const run_bytes: usize = @intCast(@min(extent_bytes, total - position));
         if (run.lcn) |lcn| {
             const src = volume.lcnOffset(lcn) orelse return null;
             if (run_bytes > volume.image.bytes - src) return null;
@@ -249,7 +316,7 @@ fn readRunsInto(volume: *const Volume, attr: *const AttrRuns, out: []u8) ?usize 
         }
         position += run_bytes;
     }
-    return total;
+    return if (position == total) total else null;
 }
 
 // ---------------------------------------------------------------------------
@@ -278,8 +345,8 @@ const DirCtx = struct {
 };
 
 fn walkDirectory(volume: *const Volume, allocator: std.mem.Allocator, record_number: u64, stats: *WalkStats, depth: usize) void {
-    if (depth > 24) {
-        fail("directory depth over 24 at record {d}", .{record_number});
+    if (depth > ntfs.R4OS_PATH_SEGMENTS_MAX) {
+        fail("directory path exceeds {d} components at record {d}", .{ ntfs.R4OS_PATH_SEGMENTS_MAX, record_number });
         return;
     }
     var record_buf: [4096]u8 = undefined;
@@ -453,6 +520,10 @@ fn walkEntries(volume: *const Volume, allocator: std.mem.Allocator, entries: []c
         stats.entries += 1;
         if (file_name.namespace == ntfs.NAMESPACE_DOS) continue;
         if (isDotName(file_name.name)) continue;
+        if (depth >= ntfs.R4OS_PATH_SEGMENTS_MAX) {
+            fail("entry path exceeds {d} components at record {d}", .{ ntfs.R4OS_PATH_SEGMENTS_MAX, reference.record });
+            continue;
+        }
 
         var target_buf: [4096]u8 = undefined;
         const target_header = volume.loadRecord(reference.record, target_buf[0..]) orelse {
@@ -627,6 +698,11 @@ fn verifyVolume(allocator: std.mem.Allocator, image: ImageView, allow_dirty: boo
             std.debug.print("MFT record 0 without $DATA\n", .{});
             std.process.exit(1);
         };
+        var first_extent = AttrRuns{};
+        const has_list = ntfs.findAttribute(record, header, .attribute_list, &[_]u8{}) != null;
+        if (!data_attr.non_resident or !captureAttribute(&volume, data_attr, &first_extent) or
+            (!has_list and !first_extent.complete(&volume)) or data_attr.data_size > image.bytes or
+            data_attr.data_size % volume.record_size != 0) return error.MftGeometry;
         var iterator = ntfs.RunlistIterator.init(data_attr.mapping_pairs);
         while (iterator.next()) |run| {
             if (volume.mft_run_count >= volume.mft_runs.len) break;
@@ -735,6 +811,12 @@ fn verifyVolume(allocator: std.mem.Allocator, image: ImageView, allow_dirty: boo
             var iterator = ntfs.AttributeIterator.init(record, header);
             while (iterator.next()) |attribute| {
                 if (!attribute.non_resident) continue;
+                if (attribute.lowest_vcn == 0) {
+                    var complete_attribute = AttrRuns{};
+                    const base_number = if (header.base_record.record != 0) header.base_record.record else number;
+                    if (!collectAttribute(&volume, base_number, @enumFromInt(attribute.attr_type), attribute.name, &complete_attribute))
+                        fail("record {d}: nonresident attribute 0x{X} has invalid size or runlist coverage", .{ number, attribute.attr_type });
+                }
                 var runs = ntfs.RunlistIterator.init(attribute.mapping_pairs);
                 while (runs.next()) |run| {
                     const lcn = run.lcn orelse continue;

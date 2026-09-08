@@ -130,6 +130,13 @@ fn argVal(args: []const []const u8, i: usize) ?[]const u8 {
 
 /// Adds a file at an NTFS path, creating parent directories on demand.
 pub fn addPath(builder: *mkfs.Builder, a: std.mem.Allocator, dest: []const u8, data: []const u8) !void {
+    if (dest.len == 0 or dest[dest.len - 1] == '/' or dest[dest.len - 1] == '\\') return error.BadDestPath;
+    var segments = std.mem.tokenizeAny(u8, dest, "/\\");
+    var depth: usize = 0;
+    while (segments.next() != null) {
+        depth += 1;
+        if (depth > mkfs.max_path_segments) return error.PathTooDeep;
+    }
     var parent = builder.root();
     var rest = dest;
     while (std.mem.indexOfAny(u8, rest, "/\\")) |sep| {
