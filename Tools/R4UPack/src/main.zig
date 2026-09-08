@@ -3,6 +3,8 @@ const artifact = @import("r4u_artifact");
 const contract = artifact.contract;
 
 const checksum_seed: u32 = 2166136261;
+const stream_buffer_bytes = 64 * 1024;
+const maximum_payload_bytes = 32 * 1024 * 1024;
 
 const Payload = struct {
     src: []const u8,
@@ -10,7 +12,9 @@ const Payload = struct {
     canonical_target: []u8,
     kind: []const u8,
     name: []const u8,
-    bytes: []const u8,
+    file: std.Io.File,
+    size: u64,
+    modified: std.Io.Timestamp,
     offset: u64,
     checksum: u32,
     component: ?artifact.Identity,
@@ -85,10 +89,12 @@ pub fn main(init: std.process.Init) !void {
         } else if (std.mem.eql(u8, arg, "--payload")) {
             i += 1;
             if (i >= args.len) return usage("missing --payload value");
+            if (payload_specs.items.len >= contract.max_package_payloads) return usage("at most 32 payloads are supported");
             try payload_specs.append(allocator, args[i]);
         } else if (std.mem.eql(u8, arg, "--require")) {
             i += 1;
             if (i >= args.len) return usage("missing --require value");
+            if (requirement_specs.items.len >= contract.max_package_payloads) return usage("at most 32 requirements are supported");
             try requirement_specs.append(allocator, args[i]);
         } else if (std.mem.eql(u8, arg, "--help") or std.mem.eql(u8, arg, "-h") or std.mem.eql(u8, arg, "/?")) {
             try printUsage();
@@ -118,7 +124,7 @@ pub fn main(init: std.process.Init) !void {
     var payloads: std.ArrayList(Payload) = .empty;
     defer payloads.deinit(allocator);
     defer for (payloads.items) |payload| {
-        allocator.free(payload.bytes);
+        payload.file.close(io);
         allocator.free(payload.canonical_target);
     };
 
@@ -126,10 +132,13 @@ pub fn main(init: std.process.Init) !void {
     var derived_class: contract.DerivedClass = .{};
     var component_count: usize = 0;
     var has_unversioned_payload = false;
+    var scratch: [stream_buffer_bytes]u8 = undefined;
     for (payload_specs.items) |spec| {
-        var payload = try parsePayloadSpec(allocator, cwd, io, spec);
+        var payload = try parsePayloadSpec(allocator, cwd, io, spec, &scratch);
+        errdefer payload.file.close(io);
+        errdefer allocator.free(payload.canonical_target);
         payload.offset = payload_offset;
-        payload_offset = std.math.add(u64, payload_offset, payload.bytes.len) catch return error.PackageTooLarge;
+        payload_offset = std.math.add(u64, payload_offset, payload.size) catch return error.PackageTooLarge;
         if (payload.component) |identity| {
             contract.includeComponent(&derived_class, identity.kind, payload.canonical_target);
             component_count += 1;
@@ -150,44 +159,21 @@ pub fn main(init: std.process.Init) !void {
     defer requirements.deinit(allocator);
     defer for (requirements.items) |requirement| allocator.free(requirement.target);
     for (requirement_specs.items) |spec| {
-        try requirements.append(allocator, try parseRequirement(allocator, spec));
+        const requirement = try parseRequirement(allocator, spec);
+        errdefer allocator.free(requirement.target);
+        try requirements.append(allocator, requirement);
     }
     try validateUniqueRequirements(requirements.items);
     if (has_unversioned_payload and requirements.items.len == 0) {
-        return usage("configuration, data, font and SDK payloads require at least one concrete component requirement");
+        return usage("configuration, font and SDK payloads require at least one concrete component requirement");
     }
 
     var manifest: std.ArrayList(u8) = .empty;
     defer manifest.deinit(allocator);
     try buildManifest(allocator, &manifest, opts, description, derived_class, payloads.items, component_count, requirements.items);
+    if (manifest.items.len > contract.manifest_max_bytes) return error.ManifestTooLarge;
 
-    var payload_blob: std.ArrayList(u8) = .empty;
-    defer payload_blob.deinit(allocator);
-    for (payloads.items) |payload| try payload_blob.appendSlice(allocator, payload.bytes);
-
-    const manifest_checksum = checksum(manifest.items);
-    const payload_checksum = checksum(payload_blob.items);
-    var package_hash = checksum_seed;
-    package_hash = checksumUpdate(package_hash, manifest.items);
-    package_hash = checksumUpdate(package_hash, payload_blob.items);
-
-    var out: std.ArrayList(u8) = .empty;
-    defer out.deinit(allocator);
-    try out.appendNTimes(allocator, 0, contract.header_size);
-    writeHeader(
-        out.items[0..contract.header_size],
-        manifest.items.len,
-        payload_blob.items.len,
-        manifest_checksum,
-        payload_checksum,
-        package_hash,
-        @intCast(payloads.items.len),
-        derived_class.activation == .restart,
-    );
-    try out.appendSlice(allocator, manifest.items);
-    try out.appendSlice(allocator, payload_blob.items);
-
-    try cwd.writeFile(io, .{ .sub_path = opts.output, .data = out.items });
+    const package_hash = try writePackage(cwd, io, opts.output, manifest.items, payloads.items, payload_offset, derived_class.activation == .restart, &scratch);
     std.debug.print(
         "R4U2 created: {s} release={s} package-version={s} payloads={d} components={d} activation={s} priority={s} checksum={d}\n",
         .{
@@ -203,6 +189,90 @@ pub fn main(init: std.process.Init) !void {
     );
 }
 
+fn writePackage(cwd: std.Io.Dir, io: std.Io, output_path: []const u8, manifest: []const u8, payloads: []const Payload, payload_size: u64, reboot: bool, scratch: []u8) !u32 {
+    // The final path changes only after all source bytes and hashes agree.
+    // An I/O error or a source changed between passes preserves prior output.
+    var output = try cwd.createFileAtomic(io, output_path, .{ .replace = true });
+    defer output.deinit(io);
+    try output.file.writePositionalAll(io, manifest, contract.header_size);
+    var writer = PackageWriter{
+        .file = output.file,
+        .io = io,
+        .offset = contract.header_size + manifest.len,
+        .package_hash = checksum(manifest),
+    };
+    for (payloads) |payload| {
+        try validateSource(payload, io);
+        const streamed = try streamPayload(FileReader{ .file = payload.file, .io = io }, &writer, payload.size, scratch);
+        if (streamed != payload.checksum) return error.SourceChanged;
+        try validateSource(payload, io);
+    }
+    var header: [contract.header_size]u8 = undefined;
+    writeHeader(
+        &header,
+        manifest.len,
+        payload_size,
+        checksum(manifest),
+        writer.payload_hash,
+        writer.package_hash,
+        @intCast(payloads.len),
+        reboot,
+    );
+    try output.file.writePositionalAll(io, &header, 0);
+    try output.file.sync(io);
+    try output.replace(io);
+    return writer.package_hash;
+}
+
+const FileReader = struct {
+    file: std.Io.File,
+    io: std.Io,
+
+    pub fn readAt(self: FileReader, offset: u64, out: []u8) bool {
+        const got = self.file.readPositionalAll(self.io, out, offset) catch return false;
+        return got == out.len;
+    }
+};
+
+const DiscardWriter = struct {
+    pub fn writeAll(_: DiscardWriter, _: []const u8) !void {}
+};
+
+const PackageWriter = struct {
+    file: std.Io.File,
+    io: std.Io,
+    offset: u64,
+    payload_hash: u32 = checksum_seed,
+    package_hash: u32,
+
+    pub fn writeAll(self: *PackageWriter, bytes: []const u8) !void {
+        try self.file.writePositionalAll(self.io, bytes, self.offset);
+        self.offset += bytes.len;
+        self.payload_hash = checksumUpdate(self.payload_hash, bytes);
+        self.package_hash = checksumUpdate(self.package_hash, bytes);
+    }
+};
+
+fn streamPayload(reader: anytype, writer: anytype, size: u64, scratch: []u8) !u32 {
+    std.debug.assert(scratch.len != 0);
+    var offset: u64 = 0;
+    var hash = checksum_seed;
+    while (offset < size) {
+        const count: usize = @intCast(@min(scratch.len, size - offset));
+        const bytes = scratch[0..count];
+        if (!reader.readAt(offset, bytes)) return error.SourceReadFailed;
+        try writer.writeAll(bytes);
+        hash = checksumUpdate(hash, bytes);
+        offset += count;
+    }
+    return hash;
+}
+
+fn validateSource(payload: Payload, io: std.Io) !void {
+    const stat = try payload.file.stat(io);
+    if (stat.size != payload.size or stat.mtime.nanoseconds != payload.modified.nanoseconds) return error.SourceChanged;
+}
+
 fn usage(reason: []const u8) !void {
     std.debug.print("R4UPack: {s}\n", .{reason});
     try printUsage();
@@ -215,12 +285,14 @@ fn printUsage() !void {
         \\  r4upack --output FILE.R4U --package ID --version X.Y.Z --release X.Y.Z --title TEXT --description-file UTF8.TXT [--activation live|restart] [--priority normal|foundation] --payload SRC|TARGET|KIND [--require KIND|NAME|TARGET|MIN_VERSION|installed|active ...]
         \\
         \\Versioned payload KIND values are boot-kernel, system-library, driver, protocol, service and software.
-        \\R4UPack reads component identity and version from the ELF/R4M0 artifact. Font, config, sdk and data payloads carry no invented component version and require a concrete --require.
+        \\R4UPack reads component identity and version from the ELF/R4M0 artifact. Font, config and sdk payloads carry no invented component version and require a concrete --require.
+        \\At most 32 payloads and 32 requirements, a 32-KB manifest and 32 MB per payload are supported.
+        \\The data kind and foreign-drive targets are not supported by R4UPack.
         \\
     , .{});
 }
 
-fn parsePayloadSpec(allocator: std.mem.Allocator, cwd: std.Io.Dir, io: std.Io, spec_raw: []const u8) !Payload {
+fn parsePayloadSpec(allocator: std.mem.Allocator, cwd: std.Io.Dir, io: std.Io, spec_raw: []const u8, scratch: []u8) !Payload {
     const spec = std.mem.trim(u8, spec_raw, " \t\r\n");
     const first = std.mem.indexOfScalar(u8, spec, '|') orelse return error.BadPayloadSpec;
     const second = std.mem.indexOfScalarPos(u8, spec, first + 1, '|') orelse return error.BadPayloadSpec;
@@ -229,38 +301,48 @@ fn parsePayloadSpec(allocator: std.mem.Allocator, cwd: std.Io.Dir, io: std.Io, s
     const target = std.mem.trim(u8, spec[first + 1 .. second], " \t\r\n");
     const kind_raw = std.mem.trim(u8, spec[second + 1 ..], " \t\r\n");
     if (src.len == 0 or target.len == 0 or kind_raw.len == 0) return error.BadPayloadSpec;
+    if (std.ascii.eqlIgnoreCase(kind_raw, "data") or isForeignDriveTarget(target)) return error.UnsupportedDataPayload;
     if (!validTarget(target)) return error.BadTargetPath;
     const kind = if (std.ascii.eqlIgnoreCase(kind_raw, "auto")) kindFromTarget(target) else kind_raw;
     if (!validKind(kind) or !kindMatchesTarget(kind, target)) return error.KindTargetMismatch;
 
-    const bytes = try cwd.readFileAlloc(io, src, allocator, .limited(32 * 1024 * 1024));
-    errdefer allocator.free(bytes);
     var target_buffer: [1024]u8 = undefined;
     const canonical = contract.canonicalInventoryTarget(target_buffer[0..], target) orelse return error.BadTargetPath;
     const canonical_owned = try allocator.dupe(u8, canonical);
     errdefer allocator.free(canonical_owned);
     if (contract.isManagedStateTarget(canonical_owned)) return error.ManagedStatePayloadForbidden;
 
+    const file = try cwd.openFile(io, src, .{});
+    errdefer file.close(io);
+    const stat = try file.stat(io);
+    if (stat.kind != .file) return error.PayloadNotFile;
+    if (stat.size > maximum_payload_bytes) return error.PayloadTooLarge;
+    const reader = FileReader{ .file = file, .io = io };
+
     var identity: ?artifact.Identity = null;
     if (contract.componentKindForPayload(kind, canonical_owned)) |expected_kind| {
-        const inspected = artifact.inspect(artifact.SliceReader{ .bytes = bytes }, bytes.len) orelse return error.MissingArtifactIdentity;
+        const inspected = artifact.inspect(reader, stat.size) orelse return error.MissingArtifactIdentity;
         if (inspected.kind != expected_kind) return error.ArtifactKindMismatch;
         const expected_name = componentNameFromTarget(target, expected_kind);
         if (!std.ascii.eqlIgnoreCase(expected_name, inspected.nameText())) return error.ArtifactNameMismatch;
         identity = inspected;
     }
 
-    return .{
+    const result: Payload = .{
         .src = src,
         .target = target,
         .canonical_target = canonical_owned,
         .kind = kind,
         .name = baseName(target),
-        .bytes = bytes,
+        .file = file,
+        .size = stat.size,
+        .modified = stat.mtime,
         .offset = 0,
-        .checksum = checksum(bytes),
+        .checksum = try streamPayload(reader, DiscardWriter{}, stat.size, scratch),
         .component = identity,
     };
+    try validateSource(result, io);
+    return result;
 }
 
 fn parseRequirement(allocator: std.mem.Allocator, spec_raw: []const u8) !Requirement {
@@ -299,7 +381,8 @@ fn validateUniquePayloads(payloads: []const Payload) !void {
             const identity = payload.component orelse continue;
             const prior_identity = prior.component orelse continue;
             if (identity.kind == prior_identity.kind and
-                std.ascii.eqlIgnoreCase(identity.nameText(), prior_identity.nameText())) {
+                std.ascii.eqlIgnoreCase(identity.nameText(), prior_identity.nameText()))
+            {
                 return error.DuplicateComponent;
             }
         }
@@ -365,7 +448,7 @@ fn buildManifest(
             out,
             allocator,
             "PAYLOAD;index={d};name={s};target={s};kind={s};size={d};checksum={d};offset={d};abi=R4M0:1\n",
-            .{ index, payload.name, payload.target, payload.kind, payload.bytes.len, payload.checksum, payload.offset },
+            .{ index, payload.name, payload.target, payload.kind, payload.size, payload.checksum, payload.offset },
         );
         if (isBootKernelTarget(payload.target)) {
             try appendFmt(out, allocator, "ROLLBACK;target={s};backup=/boot/r4os-prev.elf;strategy=replace\n", .{payload.target});
@@ -409,7 +492,7 @@ fn appendFmt(out: *std.ArrayList(u8), allocator: std.mem.Allocator, comptime fmt
 fn writeHeader(
     out: []u8,
     manifest_len: usize,
-    payload_len: usize,
+    payload_len: u64,
     manifest_checksum: u32,
     payload_checksum: u32,
     package_checksum: u32,
@@ -487,8 +570,7 @@ fn validKind(kind: []const u8) bool {
         std.mem.eql(u8, kind, "software") or
         std.mem.eql(u8, kind, "font") or
         std.mem.eql(u8, kind, "config") or
-        std.mem.eql(u8, kind, "sdk") or
-        std.mem.eql(u8, kind, "data");
+        std.mem.eql(u8, kind, "sdk");
 }
 
 fn kindFromTarget(target: []const u8) []const u8 {
@@ -503,7 +585,6 @@ fn kindFromTarget(target: []const u8) []const u8 {
     if (pathHasPrefix(target, "C:\\R4OS\\FONTS\\") and std.ascii.endsWithIgnoreCase(target, ".R4F")) return "font";
     if (pathHasPrefix(target, "C:\\R4OS\\CONFIG\\")) return "config";
     if (pathHasPrefix(target, "C:\\R4OS\\SDK\\")) return "sdk";
-    if (isForeignDriveTarget(target)) return "data";
     return "unknown";
 }
 
@@ -545,6 +626,66 @@ test "subsystem R4X payloads use the software update class" {
     try std.testing.expect(kindMatchesTarget("software", target));
     try std.testing.expect(componentTargetMatchesKind(.r4x, "/R4OS/SUBSYSTEMS/r4os.gb/R4GB.R4X"));
     try std.testing.expectEqualStrings("unknown", kindFromTarget("C:\\R4OS\\SUBSYSTEMS\\r4os.gb\\README.TXT"));
+}
+
+test "stream chunks preserve bytes and stop on source or destination failure" {
+    const Source = struct {
+        bytes: []const u8,
+        maximum_read: usize = 0,
+        fail_at: ?u64 = null,
+        pub fn readAt(self: *@This(), offset: u64, out: []u8) bool {
+            self.maximum_read = @max(self.maximum_read, out.len);
+            if (self.fail_at) |at| if (offset >= at) return false;
+            @memcpy(out, self.bytes[@intCast(offset)..][0..out.len]);
+            return true;
+        }
+    };
+    const Sink = struct {
+        bytes: [129]u8 = undefined,
+        used: usize = 0,
+        fail_at: ?usize = null,
+        pub fn writeAll(self: *@This(), bytes: []const u8) !void {
+            if (self.fail_at) |at| if (self.used >= at) return error.OutputFailed;
+            @memcpy(self.bytes[self.used..][0..bytes.len], bytes);
+            self.used += bytes.len;
+        }
+    };
+    var bytes: [129]u8 = undefined;
+    for (&bytes, 0..) |*byte, index| byte.* = @truncate(index * 37);
+    var source = Source{ .bytes = &bytes };
+    var sink = Sink{};
+    var scratch: [17]u8 = undefined;
+    try std.testing.expectEqual(checksum(&bytes), try streamPayload(&source, &sink, bytes.len, &scratch));
+    try std.testing.expectEqualSlices(u8, &bytes, sink.bytes[0..sink.used]);
+    try std.testing.expectEqual(@as(usize, 17), source.maximum_read);
+    source.fail_at = 34;
+    sink = .{};
+    try std.testing.expectError(error.SourceReadFailed, streamPayload(&source, &sink, bytes.len, &scratch));
+    try std.testing.expectEqual(@as(usize, 34), sink.used);
+    source.fail_at = null;
+    sink = .{ .fail_at = 34 };
+    try std.testing.expectError(error.OutputFailed, streamPayload(&source, &sink, bytes.len, &scratch));
+    try std.testing.expectEqual(@as(usize, 34), sink.used);
+}
+
+test "changed streamed source preserves the previous complete output" {
+    const io = std.testing.io;
+    var temporary = std.testing.tmpDir(.{});
+    defer temporary.cleanup();
+    try temporary.dir.writeFile(io, .{ .sub_path = "source.bin", .data = "original" });
+    try temporary.dir.writeFile(io, .{ .sub_path = "output.r4u", .data = "previous-package" });
+    var scratch: [17]u8 = undefined;
+    var payload = try parsePayloadSpec(std.testing.allocator, temporary.dir, io, "source.bin|C:\\R4OS\\CONFIG\\TEST.R4S|config", &scratch);
+    defer payload.file.close(io);
+    defer std.testing.allocator.free(payload.canonical_target);
+    try temporary.dir.writeFile(io, .{ .sub_path = "source.bin", .data = "modified" });
+    // Keep the recorded mtime current to exercise the independent second-pass
+    // byte checksum, even on filesystems with coarse timestamp resolution.
+    payload.modified = (try payload.file.stat(io)).mtime;
+    try std.testing.expectError(error.SourceChanged, writePackage(temporary.dir, io, "output.r4u", "manifest", &.{payload}, payload.size, false, &scratch));
+    const unchanged = try temporary.dir.readFileAlloc(io, "output.r4u", std.testing.allocator, .limited(64));
+    defer std.testing.allocator.free(unchanged);
+    try std.testing.expectEqualStrings("previous-package", unchanged);
 }
 
 fn pathHasPrefix(path: []const u8, prefix: []const u8) bool {
