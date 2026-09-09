@@ -3,7 +3,7 @@
   "product": "r4os-recovery",
   "architecture": "x86_64",
   "status": "published",
-  "version": "0.1.23",
-  "releaseId": 384322698,
-  "sha256": "33ebb5e1de486017ffe7ba2f18a349a7dc21ca1c32aa501605f71eb6752de5dc"
+  "version": "0.1.57",
+  "releaseId": 385448159,
+  "sha256": "607aac80059643dc5bfe85e853402124860a3f2ad7639faf68c3f4cb5ced2386"
 }
