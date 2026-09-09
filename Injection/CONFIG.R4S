@@ -1,4 +1,6 @@
-﻿AUTO=PCI
+﻿# AUTO permits a native display owner; SOFTWARE keeps firmware graphics.
+GRAPHICS=AUTO
+AUTO=PCI
 AUTO=ACPI
 SHELL=/R4OS/SOFTWARE/DESKTOP/R4DESK.R4X
 DRIVER=DISPBLIT

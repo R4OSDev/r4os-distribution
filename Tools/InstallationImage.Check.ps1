@@ -19,13 +19,18 @@ function Test-R4OSInstallationImage {
         $config=$utf8.GetString($boot.ReadFile('boot/limine.conf'))
         $default=if($Medium -eq 'local'){1}else{2}
         if(!$PreservedMenu -and ($config -cnotmatch "^timeout: 5`ndefault_entry: $default`n" -or
-            (@([regex]::Matches($config,'(?m)^/[^\r\n]+')).Value -join '|') -cne '/R4OS|/R4OS Recovery|/R4OS Recovery Previous')){throw 'Limine menu/default differs.'}
+            (@([regex]::Matches($config,'(?m)^/[^\r\n]+')).Value -join '|') -cne '/R4OS|/R4OS Recovery|/R4OS Recovery Previous|/R4OS Software Graphics')){throw 'Limine menu/default differs.'}
+        $softwareEntries=@([regex]::Matches($config,'(?m)^/R4OS Software Graphics$'))
+        if($softwareEntries.Count -gt 1){throw 'Duplicate software graphics entry.'}
+        $softwareGraphics=$softwareEntries.Count -eq 1
+        if($softwareGraphics -and $config.Substring($softwareEntries[0].Index) -cnotmatch '(?m)^    cmdline: r4os.graphics=software$'){throw 'Software graphics command line differs.'}
         $bootGuid=$manifest.partitions.BOOT.partitionGuid;$recoveryGuid=$manifest.partitions.RECOVERY.partitionGuid
         $paths=@([regex]::Matches($config,'(?m)^    (?:module_)?path: guid\(([^)]+)\):/([^\r\n]+)$'))
         $expected=@('boot/r4os.elf','boot/preload.r4i','boot/preload/hidreport.r4p','boot/preload/usbhid.r4p','boot/preload/usbbot.r4p','boot/preload/usbscsi.r4p','CURRENT/recovery.elf','CURRENT/runtime.img','PREVIOUS/recovery.elf','PREVIOUS/runtime.img')
+        if($softwareGraphics){$expected+=@('boot/r4os.elf','boot/preload.r4i','boot/preload/hidreport.r4p','boot/preload/usbhid.r4p','boot/preload/usbbot.r4p','boot/preload/usbscsi.r4p')}
         if($paths.Count -ne $expected.Count){throw 'Unexpected Limine file references.'}
         for($i=0;$i -lt $paths.Count;$i++) {
-            if($paths[$i].Groups[1].Value -cne $(if($i -lt 6){$bootGuid}else{$recoveryGuid}) -or $paths[$i].Groups[2].Value -cne $expected[$i]){throw 'Limine reference differs from the physical installation.'}
+            if($paths[$i].Groups[1].Value -cne $(if($i -lt 6 -or $i -ge 10){$bootGuid}else{$recoveryGuid}) -or $paths[$i].Groups[2].Value -cne $expected[$i]){throw 'Limine reference differs from the physical installation.'}
         }
         $required=@('boot/r4os.elf','boot/preload.r4i','boot/preload/hidreport.r4p','boot/preload/usbhid.r4p','boot/preload/usbbot.r4p','boot/preload/usbscsi.r4p','boot/limine-bios.sys','EFI/BOOT/BOOTX64.EFI')
         if((@($manifest.bootFiles|Sort-Object -CaseSensitive) -join '|') -cne (@($required|Sort-Object -CaseSensitive) -join '|')){throw 'Managed BOOT file list differs.'}
