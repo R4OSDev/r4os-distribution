@@ -193,7 +193,9 @@ try{
     if($Variant -eq 'timeout' -and -not $serial.Contains('DISPLAYD virtio recovery: OK')){throw 'Missing timeout/reset/fallback proof'}
     if($Variant -eq 'fallback' -and -not $serial.Contains('VIRTGPU native: error=NotFound')){throw 'Missing absent-device proof'}
     if($nvidia){
-        foreach($marker in @('NVIDIA bind: absent inventory=canonical native-writes=disabled fallback=preserved',
+        foreach($marker in @('NVIDIA resource: lock=verified',
+            'source=loaded-r4d native-writes=disabled',
+            'NVIDIA bind: absent inventory=canonical native-writes=disabled fallback=preserved',
             'NVIDIA unbind: OK resources=0 native-writes=disabled fallback=preserved',
             'DISPLAYD nvidia: records=available source=boot-log hardware-acceptance=separate',
             'DISPLAYD state: OK state=bootfb')){
