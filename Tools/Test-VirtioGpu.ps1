@@ -1,11 +1,13 @@
 # Explicit bounded integration probe; never invoked by ordinary build/test.
-param([ValidateSet('all','probe','native','timeout','fallback')][string]$Variant='all')
+param([ValidateSet('all','probe','native','timeout','fallback','nvidia-passive')][string]$Variant='all')
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
 $distribution=Split-Path $PSScriptRoot -Parent
 . (Join-Path $PSScriptRoot 'Distribution.ps1')
 $context=Get-R4DistributionContext $distribution
 $workspace=$context.workspace
+$nvidia=$Variant -eq 'nvidia-passive'
+$driverName=if($nvidia){'NVIDIA'}else{'VIRTGPU'}
 if($Variant -eq 'all'){
     foreach($part in @('native','timeout','fallback')){& $PSCommandPath -Variant $part}
     return
@@ -18,13 +20,14 @@ $autoexec=Join-Path $scratch 'AUTOEXEC.BAT'
  $lines=@('@ECHO OFF','VER','C:\R4OS\SOFTWARE\TERMINAL\DIAG\DISPLAYD.R4X /STATE')
  if($Variant -eq 'native'){$lines+='C:\R4OS\SOFTWARE\TERMINAL\DIAG\DISPLAYD.R4X /VIRTIO /RESIZE'}
  if($Variant -eq 'timeout'){$lines+='C:\R4OS\SOFTWARE\TERMINAL\DIAG\DISPLAYD.R4X /VIRTIO /FAIL'}
- $lines+=@('C:\R4OS\SOFTWARE\TERMINAL\DIAG\DISPLAYD.R4X','SET','C:\R4OS\SOFTWARE\TERMINAL\DIAG\DISPLAYD.R4X /VIRTIO','ECHO [GFX07908] complete','POWEROFF')
+ $driverReport=if($nvidia){'/NVIDIA'}else{'/VIRTIO'}
+ $lines+=@('C:\R4OS\SOFTWARE\TERMINAL\DIAG\DISPLAYD.R4X','SET',"C:\R4OS\SOFTWARE\TERMINAL\DIAG\DISPLAYD.R4X $driverReport",'ECHO [GFX07908] complete','POWEROFF')
  [IO.File]::WriteAllText($autoexec,(($lines -join "`r`n")+"`r`n"),[Text.UTF8Encoding]::new($false))
  & $starter plan Test
  if($LASTEXITCODE -ne 0){throw "Plan failed: $LASTEXITCODE"}
  $catalog=Join-Path $context.sdk ('zig-out/bin/module-catalog'+$context.suffix)
  $regular=Get-Content -Raw (Join-Path $context.output 'Generated/MODULES.JSON')|ConvertFrom-Json
- $target='/R4OS/DRIVERS/VIRTGPU.R4D'
+ $target="/R4OS/DRIVERS/$driverName.R4D"
  $privateInventory=Join-Path $scratch "MODULES-$Variant.JSON"
  $extraPlan=Join-Path $scratch "components-$Variant.plan"
  $map=Join-Path $context.input 'WorkspaceModules.map'
@@ -45,8 +48,8 @@ $autoexec=Join-Path $scratch 'AUTOEXEC.BAT'
  if($extra.Count -ne 1){throw 'Expected canonical Virtio GPU artifact'}
  $config=(Get-Content -Raw (Join-Path $distribution 'TestInjection/CONFIG.R4S')) -replace '(?m)^SHELL=.*','SHELL=/R4OS/SOFTWARE/TERMINAL/TERMINAL.R4X' -replace '(?m)^SHELL_ARGS=.*','SHELL_ARGS='
  $config=$config -replace '(?m)^OPTION SMP selftest=yes\r?\n','' -replace '(?m)^DRIVER=(DISPBLIT|EXAMPLE)\r?\n',''
- $driverMode=if($Variant -eq 'probe'){'probe'}elseif($Variant -eq 'timeout'){'timeout'}else{'native'}
- $config+="`nDRIVER=VIRTGPU`nOPTION VIRTGPU mode=$driverMode`nGRAPHICS=AUTO`n"
+ $driverMode=if($nvidia){'passive'}elseif($Variant -eq 'probe'){'probe'}elseif($Variant -eq 'timeout'){'timeout'}else{'native'}
+ $config+="`nDRIVER=$driverName`nOPTION $driverName mode=$driverMode`nGRAPHICS=AUTO`n"
  $configPath=Join-Path $scratch "CONFIG-$Variant.R4S"
  [IO.File]::WriteAllText($configPath,$config,[Text.UTF8Encoding]::new($true))
  $plan=@(Get-Content (Join-Path $context.output 'Profiles/Test/image-adds.txt')|ForEach-Object {
@@ -74,7 +77,7 @@ $start=[Diagnostics.ProcessStartInfo]::new($context.qemu)
 $start.UseShellExecute=$false;$start.RedirectStandardError=$true;$start.RedirectStandardInput=$true;$start.RedirectStandardOutput=$true;$start.WorkingDirectory=$media
 $arguments=@('-readconfig',(Join-Path $distribution 'QEMU/standard.conf'),'-cpu',$profile.CpuModel,'-m','1G','-smp','4','-machine',('accel='+$profile.AcceleratorChain),
     '-audiodev','driver=none,id=headless-audio','-global','hda-duplex.audiodev=headless-audio','-serial',('file:'+$serialPath),'-display','none','-monitor','none','-qmp','stdio','-no-reboot','-nic','none','-name',"R4OS virtio-gpu-$Variant SMP4")
-if($Variant -ne 'fallback'){$arguments+=@('-vga','none','-readconfig',(Join-Path $distribution 'QEMU/virtio-gpu.conf'))}
+if($Variant -ne 'fallback' -and !$nvidia){$arguments+=@('-vga','none','-readconfig',(Join-Path $distribution 'QEMU/virtio-gpu.conf'))}
 $vnc=$null
 if($Variant -eq 'native'){
     $listener=[Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback,0)
@@ -162,7 +165,7 @@ try{
     $greeting=$qemu.StandardOutput.ReadLineAsync().WaitAsync([TimeSpan]::FromSeconds(10)).GetAwaiter().GetResult()
     if($greeting -notmatch 'QMP'){throw 'Missing QMP greeting'}
     $null=Invoke-Qmp qmp_capabilities
-    Write-Host "SMP4 Virtio graphics: $Variant, $($profile.Name), explicit fresh medium"
+    Write-Host "SMP4 graphics: $Variant, $($profile.Name), explicit fresh medium"
     while(-not $qemu.HasExited -and $clock.Elapsed.TotalSeconds -lt 90){
         $serial=Read-Serial
         if($serial -match '\[CRASH\]|\[PANIC\]'){throw 'Guest crash'}
@@ -189,6 +192,14 @@ try{
     if($Variant -eq 'native' -and -not $serial.Contains('completion=device-execution bytes=11993088')){throw 'Sparse 32-frame upload unexpectedly copied a whole surface'}
     if($Variant -eq 'timeout' -and -not $serial.Contains('DISPLAYD virtio recovery: OK')){throw 'Missing timeout/reset/fallback proof'}
     if($Variant -eq 'fallback' -and -not $serial.Contains('VIRTGPU native: error=NotFound')){throw 'Missing absent-device proof'}
+    if($nvidia){
+        foreach($marker in @('NVIDIA bind: absent inventory=canonical native-writes=disabled fallback=preserved',
+            'NVIDIA unbind: OK resources=0 native-writes=disabled fallback=preserved',
+            'DISPLAYD nvidia: records=available source=boot-log hardware-acceptance=separate',
+            'DISPLAYD state: OK state=bootfb')){
+            if(!$serial.Contains($marker)){throw "Missing passive NVIDIA proof: $marker"}
+        }
+    }
     if($serial -match 'DISPLAYD.*FAILED|\[PANIC\]|\[CRASH\]|General Protection Fault|Page Fault|resources=quarantined'){throw 'Guest failure'}
     $proof.passed=$true
 }finally{

@@ -180,3 +180,11 @@ Generated CONFIG/AUTOEXEC/catalog/PPM/log/result files live under
 never rewritten. Fresh source/run media live below the configured distribution
 output's `Technical/virtio-gpu-<variant>`. Ordinary build/test entry points do
 not invoke this explicit profile.
+
+`graphics-test Test nvidia-passive` reuses the existing short graphics harness
+for the passive NVIDIA driver on ordinary VGA. It requires built NVIDIA and
+DISPLAYD artifacts, creates a separate Test image with the canonical module
+inventory, and checks failed-load cleanup, driver records and usable bootfb
+with four vCPUs and no guest network. The default `all` selection continues
+to run the three Virtio cases. No NVIDIA hardware behavior is emulated by
+the absence case, and normal profiles do not include NVIDIA.R4D.
