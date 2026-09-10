@@ -57,3 +57,12 @@ policies and repository terms.
 
 The private key included by the Test profile is public test material. It must
 never be used outside tests.
+
+libdisplay-info timing data and EDID fixtures
+-------------------------------------------
+Copyright (c) 2022 The libdisplay-info Contributors.
+License: MIT. File: libdisplay-info-MIT.txt
+Source: https://gitlab.freedesktop.org/emersion/libdisplay-info
+R4GFX's compiled receiver helper uses derived CTA timing records; the explicit
+EXAMPLE output fixture embeds the upstream QEMU EDID. Libraries and Example
+record exact input hashes and transformations in ThirdParty/DisplayInfo.
