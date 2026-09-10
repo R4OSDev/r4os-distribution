@@ -256,6 +256,8 @@ try{
             'NVIDIA runtime-check: memory=OK init=64 worker=64 alignment=16 content=verified live=0',
             'NVIDIA runtime-check: clock=OK init=64 worker=64 monotonic-ns=verified',
             'NVIDIA runtime-check: threads=OK callbacks=4 cpu-mask=',
+            'NVIDIA runtime-check: private-semaphores=OK callbacks=4 contention=128 timeout=bounded cpu-boxes=freed native-c=not-linked',
+            'NVIDIA runtime-check: private-semaphore-close=OK stop=no-permit wait=completed busy=retained cpu-box=freed',
             'NVIDIA runtime-check: semaphores=OK fifo=3 contention=256 timeout=bounded overflow=retained stale=verified',
             'NVIDIA runtime-check: semaphore-close=OK stop=no-permit admission=closed wait=completed records=2',
             'shared-work=blocked heap-clock=verified',
