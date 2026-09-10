@@ -78,3 +78,12 @@ values in src/firmware-lock.json. Explicit NVIDIA.R4D packages contain both
 unchanged containers and the same complete license as versioned resources.
 Ordinary images do not select NVIDIA.R4D. This license payload grants no
 hardware support claim and does not enable firmware execution.
+
+NVIDIA Open GPU Kernel Modules 570.144: selected interface headers
+File: NVIDIA-570.144-HEADERS-LICENSE.txt
+Nineteen byte-identical original headers from commit
+8ec351aeb96a93a4bb69ccc12a542bf8a8df2b6f retain their per-file MIT terms.
+All original copyright/permission notices and package COPYING accompany
+the NVIDIA module and images. R4OS adapters remain original Apache-2.0 code.
+No Linux kernel implementation or complete RM engine is linked by this CPU
+adapter integration. Header provenance is in NVIDIA/ThirdParty/Nvidia570.144.

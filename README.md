@@ -189,8 +189,8 @@ with four vCPUs and no guest network. The default `all` selection continues
 to run the three Virtio cases. No NVIDIA hardware behavior is emulated by
 the absence case, and normal profiles do not include NVIDIA.R4D.
 
-`graphics-test Test nvidia-runtime` exercises NVIDIA 0.1.6's resident CPU heap
-and monotonic clock providers on kernel 0.1.143 / DriverApi32. Init and a real worker each verify
+`graphics-test Test nvidia-runtime` exercises NVIDIA 0.1.9's resident CPU heap
+and monotonic clock providers on kernel 0.1.144 / DriverApi33. Init and a real worker each verify
 64 allocations and 64 monotonic clock reads, with time advancing after a
 scheduler wait; a worker observes actual shutdown admission, rejects new
 allocation and releases its buffer. The intentional diagnostic init stop then
@@ -205,6 +205,14 @@ heap/clock use, finite join and targeted cooperative cancellation, and close
 waking a dedicated sleeper. Generic cleanup must retire three completed Task
 records before freeing the two remaining CPU allocations. No extra guest
 variant, network, GPU emulation or default test selection is introduced.
+
+The same variant now requires actual execution of all 21 memory/string/clock
+C adapters in both init and Driver Work, through the target Zig providers.
+It also retains the private semaphore contention and close probes; the
+sixteen C semaphore adapters still await a target native-fault boundary.
+The selected 19 original MIT header notices and complete upstream COPYING
+are carried together in `NVIDIA-570.144-HEADERS-LICENSE.txt` inside NVIDIA.R4D,
+under `/R4OS/LICENSES` and in the adjacent image `Legal` directory.
 
 Headless Test includes a fresh 16-MB raw NVMe namespace alongside the SATA
 boot disk. This is the virtual device required by the existing NVMEIRQ and
