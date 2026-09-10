@@ -1040,11 +1040,11 @@ try {
     }
 
     $context = Get-ReleaseContext
-    if($Action -ceq 'Publish' -and $TechnicalCandidate){throw 'Technical candidates cannot be published.'}
+    if($Action -ieq 'Publish' -and $TechnicalCandidate){throw 'Technical candidates cannot be published.'}
     if($RecoveryCandidate){[Environment]::SetEnvironmentVariable('R4OS_RECOVERY_CANDIDATE',[IO.Path]::GetFullPath($RecoveryCandidate))}
     if([Environment]::GetEnvironmentVariable('R4OS_RECOVERY_CANDIDATE') -and !$TechnicalCandidate){throw 'A local Recovery candidate requires -TechnicalCandidate.'}
     $profileNames = @(Resolve-ProfileNames -Selection $Profiles)
-    if($Prepared -and $Action -cne 'Publish'){throw '-Prepared is only valid for Publish.'}
+    if($Prepared -and $Action -ine 'Publish'){throw '-Prepared is only valid for Publish.'}
     $preparation = if($Prepared){Get-R4PreparedRelease -Context $context -ProfileNames $profileNames}else{New-ReleasePreparation -Context $context -ProfileNames $profileNames}
 
     if ($Action -eq 'Publish') {
