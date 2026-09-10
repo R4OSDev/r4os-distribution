@@ -14,11 +14,21 @@ under `Injection/R4OS/LICENSES`.
 | zlib 1.3.1 | zlib License | `zlib.txt` |
 | stb_image 2.30 | MIT selected from its dual offer | `stb_image-MIT.txt` |
 | RTL8168 firmware tables derived from the Realtek vendor driver | GPL-2.0-only | `RTL8168-GPL-2.0-only.txt` |
+| libdisplay-info timing data and EDID fixtures | MIT | `libdisplay-info-MIT.txt` |
+| Original NVIDIA GSP 570.144 containers in explicitly selected NVIDIA.R4D | NVIDIA's original license; not Apache-2.0 | `NVIDIA-570.144-LICENSE.txt` |
 
 Original R4OS material remains under Apache License 2.0. The matching
 `R4OS-LICENSE.txt`, `R4OS-NOTICE.txt`, and aggregate
 `THIRD-PARTY-NOTICES.txt` are shipped in every image and staged beside
 binary release images.
+
+NVIDIA.R4D has `IMAGE_SCOPE=none` and is absent from ordinary images. An
+explicit selection carries both original GSP containers and the complete
+unmodified NVIDIA license as module resources. The source owner records
+exact origin, version, lengths and SHA-256 values in `src/firmware-lock.json`.
+The shared license overlay preserves the same complete license text beside
+the image and under `/R4OS/LICENSES`; it does not enable the driver or imply
+hardware support. Original proprietary firmware is not relicensed or altered.
 
 ## Root certificates
 

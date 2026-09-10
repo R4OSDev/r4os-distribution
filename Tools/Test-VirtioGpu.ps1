@@ -1,12 +1,14 @@
 # Explicit bounded integration probe; never invoked by ordinary build/test.
-param([ValidateSet('all','probe','native','timeout','fallback','nvidia-passive')][string]$Variant='all')
+param([ValidateSet('all','probe','native','timeout','fallback','nvidia-passive','nvidia-firmware','nvidia-firmware-missing','nvidia-firmware-corrupt')][string]$Variant='all')
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
 $distribution=Split-Path $PSScriptRoot -Parent
 . (Join-Path $PSScriptRoot 'Distribution.ps1')
 $context=Get-R4DistributionContext $distribution
 $workspace=$context.workspace
-$nvidia=$Variant -eq 'nvidia-passive'
+$nvidia=$Variant.StartsWith('nvidia-',[StringComparison]::Ordinal)
+$firmware=$Variant.StartsWith('nvidia-firmware',[StringComparison]::Ordinal)
+$firmwareFault=if($Variant -eq 'nvidia-firmware-missing'){'missing'}elseif($Variant -eq 'nvidia-firmware-corrupt'){'corrupt'}else{''}
 $driverName=if($nvidia){'NVIDIA'}else{'VIRTGPU'}
 if($Variant -eq 'all'){
     foreach($part in @('native','timeout','fallback')){& $PSCommandPath -Variant $part}
@@ -46,9 +48,54 @@ $autoexec=Join-Path $scratch 'AUTOEXEC.BAT'
  if(@(Compare-Object (@($regular.entries.target)+$target|Sort-Object -Unique) ($final.entries.target|Sort-Object -Unique)).Count){throw 'Unexpected private selection'}
  $extra=@(Get-Content $extraPlan|Where-Object {$_.EndsWith(':'+$target,[StringComparison]::OrdinalIgnoreCase)})
  if($extra.Count -ne 1){throw 'Expected canonical Virtio GPU artifact'}
+ if($firmwareFault){
+    # Deliberately invalid private test copy. Canonical module and prepared
+    # proprietary originals remain unchanged; only the test image sees this.
+    $sourceModule=$extra[0].Substring(0,$extra[0].Length-(':'+$target).Length)
+    $faultModule=Join-Path $scratch 'NVIDIA.R4D'
+    Copy-Item -LiteralPath $sourceModule -Destination $faultModule -Force
+    $stream=[IO.File]::Open($faultModule,[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+    function Read-ModuleBytes([long]$Offset,[int]$Count){
+        if($Offset -lt 0 -or $Offset -gt $stream.Length -or $Count -gt $stream.Length-$Offset){throw 'Fault fixture range'}
+        $data=[byte[]]::new($Count);$stream.Position=$Offset
+        if($stream.Read($data,0,$Count) -ne $Count){throw 'Fault fixture short read'}
+        return ,$data
+    }
+    $mutation=$null
+    try{
+        $header=Read-ModuleBytes 0 64
+        $tableOffset=[BitConverter]::ToUInt32($header,16);$sectionCount=[BitConverter]::ToUInt32($header,20)
+        if($sectionCount -gt 16){throw 'Fault fixture sections'}
+        $pin=Get-Content -Raw (Join-Path $context.repositories 'Drivers/NVIDIA/src/firmware-lock.json')|ConvertFrom-Json
+        $name=$pin.firmware[0].resource
+        for($i=0;$i -lt $sectionCount;$i++){
+            $section=Read-ModuleBytes ($tableOffset+32*$i) 32
+            if([Text.Encoding]::ASCII.GetString($section,0,8).TrimEnd([char]0) -cne '.rsrc'){continue}
+            $baseOffset=[BitConverter]::ToUInt32($section,12)
+            $countBytes=Read-ModuleBytes $baseOffset 4;$count=[BitConverter]::ToUInt32($countBytes,0)
+            if($count -gt 64){throw 'Fault fixture resource count'}
+            for($j=0;$j -lt $count;$j++){
+                $entry=Read-ModuleBytes ($baseOffset+4+16*$j) 16
+                if([BitConverter]::ToUInt16($entry,0) -ne 3){continue}
+                $nameOffset=$baseOffset+[BitConverter]::ToUInt32($entry,4)
+                $nameBytes=Read-ModuleBytes $nameOffset ($name.Length+1)
+                if([Text.Encoding]::ASCII.GetString($nameBytes).TrimEnd([char]0) -cne $name){continue}
+                if($null -ne $mutation){throw 'Ambiguous fault fixture resource'}
+                $mutation=if($firmwareFault -eq 'missing'){$nameOffset}else{$baseOffset+[BitConverter]::ToUInt32($entry,8)}
+                $old=Read-ModuleBytes $mutation 1
+                $stream.Position=$mutation;$stream.WriteByte([byte]($old[0] -bxor 1))
+            }
+        }
+        if($null -eq $mutation){throw 'Missing fault fixture resource'}
+        $stream.Flush($true)
+    }finally{$stream.Dispose()}
+    $faultProof=[ordered]@{fault=$firmwareFault;resource=$name;offset=$mutation;canonical=(Get-FileHash $sourceModule).Hash.ToLowerInvariant();private=(Get-FileHash $faultModule).Hash.ToLowerInvariant();canonical_modified=$false}
+    [IO.File]::WriteAllText((Join-Path $scratch 'fault.json'),($faultProof|ConvertTo-Json)+"`n",[Text.UTF8Encoding]::new($false))
+    $extra=@($faultModule.Replace('\','/')+':'+$target)
+ }
  $config=(Get-Content -Raw (Join-Path $distribution 'TestInjection/CONFIG.R4S')) -replace '(?m)^SHELL=.*','SHELL=/R4OS/SOFTWARE/TERMINAL/TERMINAL.R4X' -replace '(?m)^SHELL_ARGS=.*','SHELL_ARGS='
  $config=$config -replace '(?m)^OPTION SMP selftest=yes\r?\n','' -replace '(?m)^DRIVER=(DISPBLIT|EXAMPLE)\r?\n',''
- $driverMode=if($nvidia){'passive'}elseif($Variant -eq 'probe'){'probe'}elseif($Variant -eq 'timeout'){'timeout'}else{'native'}
+ $driverMode=if($firmware){'firmware-check'}elseif($nvidia){'passive'}elseif($Variant -eq 'probe'){'probe'}elseif($Variant -eq 'timeout'){'timeout'}else{'native'}
  $config+="`nDRIVER=$driverName`nOPTION $driverName mode=$driverMode`nGRAPHICS=AUTO`n"
  $configPath=Join-Path $scratch "CONFIG-$Variant.R4S"
  [IO.File]::WriteAllText($configPath,$config,[Text.UTF8Encoding]::new($true))
@@ -195,12 +242,27 @@ try{
     if($nvidia){
         foreach($marker in @('NVIDIA resource: lock=verified',
             'source=loaded-r4d native-writes=disabled',
-            'NVIDIA bind: absent inventory=canonical native-writes=disabled fallback=preserved',
             'NVIDIA unbind: OK resources=0 native-writes=disabled fallback=preserved',
             'DISPLAYD nvidia: records=available source=boot-log hardware-acceptance=separate',
             'DISPLAYD state: OK state=bootfb')){
             if(!$serial.Contains($marker)){throw "Missing passive NVIDIA proof: $marker"}
         }
+        if(!$firmwareFault -and !$serial.Contains('NVIDIA bind: absent inventory=canonical native-writes=disabled fallback=preserved')){throw 'Missing absent NVIDIA proof'}
+    }
+    if($firmware -and !$firmwareFault){
+        $pin=Get-Content -Raw (Join-Path $context.repositories 'Drivers/NVIDIA/src/firmware-lock.json')|ConvertFrom-Json
+        foreach($family in @('ga10x','tu10x')){
+            $binding=@($pin.families|Where-Object {$_.name -ceq $family})[0]
+            $item=$pin.firmware[$binding.artifact]
+            $reads=[int][Math]::Ceiling($item.bytes/65536)
+            $marker="NVIDIA firmware: verified family=$family rm=$($pin.rm_version) bytes=$($item.bytes) reads=$reads sha256=matched elf=valid signature-bytes=4096 gpu-authentication=unverified"
+            if(!$serial.Contains($marker)){throw "Missing runtime firmware proof: $marker"}
+        }
+        if(!$serial.Contains('NVIDIA firmware-check: OK containers=2 cpu-buffers=closed native-writes=disabled fallback=preserved')){throw 'Missing firmware cleanup proof'}
+    }
+    if($firmwareFault){
+        $expected=if($firmwareFault -eq 'missing'){'phase=storage reason=Resource'}else{'phase=read-verify reason=WrongHash'}
+        if(!$serial.Contains('NVIDIA firmware: rejected family=ga10x '+$expected) -or $serial.Contains('NVIDIA firmware-check: OK') -or $serial.Contains('NVIDIA pci=') -or $serial.Contains('NVIDIA bind: absent')){throw 'Wrong firmware rejection or PCI work after rejection'}
     }
     if($serial -match 'DISPLAYD.*FAILED|\[PANIC\]|\[CRASH\]|General Protection Fault|Page Fault|resources=quarantined'){throw 'Guest failure'}
     $proof.passed=$true

@@ -66,3 +66,15 @@ Source: https://gitlab.freedesktop.org/emersion/libdisplay-info
 R4GFX's compiled receiver helper uses derived CTA timing records; the explicit
 EXAMPLE output fixture embeds the upstream QEMU EDID. Libraries and Example
 record exact input hashes and transformations in ThirdParty/DisplayInfo.
+
+NVIDIA GSP 570.144 (explicit NVIDIA.R4D selection)
+------------------------------------------------
+Original gsp_ga10x.bin and gsp_tu10x.bin from NVIDIA's 570.144 installer.
+License: the complete original NVIDIA license, not Apache-2.0.
+File: NVIDIA-570.144-LICENSE.txt
+Source: https://download.nvidia.com/XFree86/Linux-x86_64/570.144/NVIDIA-Linux-x86_64-570.144-no-compat32.run
+The NVIDIA driver owner pins exact source, version, byte lengths and SHA-256
+values in src/firmware-lock.json. Explicit NVIDIA.R4D packages contain both
+unchanged containers and the same complete license as versioned resources.
+Ordinary images do not select NVIDIA.R4D. This license payload grants no
+hardware support claim and does not enable firmware execution.
