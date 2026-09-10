@@ -257,6 +257,8 @@ try{
             'NVIDIA runtime-check: clock=OK init=64 worker=64 monotonic-ns=verified',
             'NVIDIA runtime-check: threads=OK callbacks=4 cpu-mask=',
             'NVIDIA runtime-check: native-c=OK adapters=21 contexts=init,worker providers=driver-api link=actual',
+            'NVIDIA runtime-check: native-format=OK adapters=9 contexts=init,worker integers=64 truncation=reported invalid=rejected log=driver-owner',
+            'NVIDIA runtime-check: native-format-task=OK context=dedicated log=driver-owner',
             'NVIDIA runtime-check: private-semaphores=OK callbacks=4 contention=128 timeout=bounded cpu-boxes=freed provider=zig',
             'NVIDIA runtime-check: native-waits=OK adapters=5 busy=monotonic sleep=scheduler yield=real duration=4100ms cancel=blocked-task deadlines=independent resources=0',
             'NVIDIA runtime-check: native-semaphores=OK adapters=16 provider=driver-api link=actual resources=0',
@@ -275,6 +277,17 @@ try{
             if(!$serial.Contains($marker)){throw "Missing driver CPU heap proof: $marker"}
         }
         if($serial -notmatch '\[R4D\] cleanup owner=\d+ irq=0 work=0 threads=3 semaphores=2 dma=0 cpu-heap=2 cpu-bytes=4185 '){throw 'Missing actual quiesced thread/semaphore/CPU backing cleanup'}
+        $nativeLogOwner=[regex]::Match($serial,'\[LOG1\] source=Driver severity=Info owner=(\d+) text=NVIDIA runtime-check: native-format=OK')
+        if(!$nativeLogOwner.Success -or $nativeLogOwner.Groups[1].Value -eq '0'){throw 'Native formatting has no actual driver owner'}
+        $nativeOwner=$nativeLogOwner.Groups[1].Value
+        foreach($nativeContext in @(1,2,3)){
+            foreach($record in @(
+                "severity=Info owner=$nativeOwner text=NVIDIA native-log-check: context=$nativeContext value=fedcba9876543210",
+                "severity=Error owner=$nativeOwner text=NVIDIA native-log-check: severity=error context=$nativeContext")){
+                if(!$serial.Contains('[LOG1] source=Driver '+$record+"`r`n")){throw 'Native C logging lost context, owner, severity or complete record bytes'}
+            }
+        }
+        if(!$serial.Contains("[LOG1] source=Driver severity=Warn owner=$nativeOwner text=NVIDIA modeset: GPU-check: native-log-check severity=warning`r`n")){throw 'Native NVKMS warning transport is missing'}
         if($serial -match 'NVIDIA runtime-check: FAILED|NVIDIA pci=|NVIDIA bind: absent'){throw 'CPU diagnostic failed or entered PCI after its diagnostic stop'}
     }
     if($firmware -and !$firmwareFault){
