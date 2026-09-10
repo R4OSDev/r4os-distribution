@@ -254,6 +254,7 @@ try{
     if($runtime){
         foreach($marker in @(
             'NVIDIA runtime-check: memory=OK init=64 worker=64 alignment=16 content=verified live=0',
+            'NVIDIA runtime-check: clock=OK init=64 worker=64 monotonic-ns=verified',
             'NVIDIA runtime-check: OK result=diagnostic-init-stop native-writes=disabled fallback=preserved',
             'NVIDIA runtime-check: shutdown=OK admission=closed live=2 bytes=4185 workers=quiesced',
             '[R4D] init failed code=-8')){
