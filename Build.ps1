@@ -1,5 +1,5 @@
 param(
- [Parameter(Position=0)][ValidateSet('tools','test','plan','image','verify','qemu','ssh','headless','benchmark','recovery-image','check')][string]$Action='tools',
+ [Parameter(Position=0)][ValidateSet('tools','test','plan','image','verify','qemu','ssh','headless','graphics-test','benchmark','recovery-image','check')][string]$Action='tools',
  [Parameter(Position=1)][ValidateSet('','Slim','Full','Test','Benchmark')][string]$Profile='',
  [Parameter(Position=2)][string]$Variant='', [Parameter(Position=3)][string]$WorkloadVersion='',
  [Parameter(Position=4)][string]$CacheState='', [Parameter(Position=5)][int]$Repetitions=0,
@@ -28,6 +28,11 @@ try {
   'qemu' {Start-R4DistributionInteractive $context $Profile $Variant 'Gui'}
   'ssh' {Start-R4DistributionInteractive $context $Profile $Variant 'SshDebug'}
   'headless' {Start-R4DistributionHeadless $context $Profile $Variant}
+  'graphics-test' {
+   if($Profile -and $Profile -ne 'Test'){throw 'graphics-test uses only the explicit Test profile'}
+   $graphicsVariant=if($Variant){$Variant}else{'all'}
+   & (Join-Path $PSScriptRoot 'Tools/Test-VirtioGpu.ps1') -Variant $graphicsVariant
+  }
   'benchmark' {Start-R4DistributionBenchmark $context $Profile $Variant $WorkloadVersion $CacheState $Repetitions $EnvironmentId}
  }
  exit 0

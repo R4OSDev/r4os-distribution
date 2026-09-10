@@ -157,3 +157,26 @@ This does not claim to validate decompressed or decrypted file contents.
 Reference: Microsoft ATTRIBUTE_RECORD_HEADER
 https://learn.microsoft.com/en-us/windows/win32/devnotes/attribute-record-header
 and the existing local NTFS layout references.
+
+## Explicit virtual graphics check
+
+`Build.bat graphics-test Test` / `./Build.sh graphics-test Test` runs the short
+native, injected-timeout and absent-device variants sequentially. Append
+`native`, `timeout`, `fallback` or `probe` to select one. It requires current
+Test artifacts plus explicitly built VIRTGPU.R4D; it does not rebuild modules
+or run the ordinary long test suite. The Virtio driver stays IMAGE_SCOPE=none.
+
+`QEMU/virtio-gpu.conf` adds the explicit VGA-compatible 2D device to the shared
+standard machine. Every guest has four vCPUs, no network and a 90-second limit.
+Native validation checks 32 sparse images, two QMP pixel captures, stable BO
+ownership and two VNC resize notifications while the guest is not drawing.
+VNC binds only loopback. Timeout validation requires acknowledged reset,
+bootfb restoration and resource release. The fallback variant uses standard
+VGA with exactly the same R4D/Kernel/diagnostic binaries. Virtio completion
+is device execution; no VBlank or physical NVIDIA/HDMI result is implied.
+
+Generated CONFIG/AUTOEXEC/catalog/PPM/log/result files live under
+`Temp/gfx-virtio/<variant>` in the mapped workspace. Versioned injections are
+never rewritten. Fresh source/run media live below the configured distribution
+output's `Technical/virtio-gpu-<variant>`. Ordinary build/test entry points do
+not invoke this explicit profile.
