@@ -255,12 +255,16 @@ try{
         foreach($marker in @(
             'NVIDIA runtime-check: memory=OK init=64 worker=64 alignment=16 content=verified live=0',
             'NVIDIA runtime-check: clock=OK init=64 worker=64 monotonic-ns=verified',
+            'NVIDIA runtime-check: threads=OK callbacks=4 cpu-mask=',
+            'shared-work=blocked heap-clock=verified',
+            'NVIDIA runtime-check: thread-waits=OK poll=timeout self-join=rejected join-cancel=target-retained stop=cooperative stale=verified',
+            'NVIDIA runtime-check: thread-close=OK admission=closed callbacks=quiesced records=3 heap-free=verified',
             'NVIDIA runtime-check: OK result=diagnostic-init-stop native-writes=disabled fallback=preserved',
             'NVIDIA runtime-check: shutdown=OK admission=closed live=2 bytes=4185 workers=quiesced',
             '[R4D] init failed code=-8')){
             if(!$serial.Contains($marker)){throw "Missing driver CPU heap proof: $marker"}
         }
-        if($serial -notmatch '\[R4D\] cleanup owner=\d+ irq=0 work=0 dma=0 cpu-heap=2 cpu-bytes=4185 '){throw 'Missing actual quiesced CPU backing cleanup'}
+        if($serial -notmatch '\[R4D\] cleanup owner=\d+ irq=0 work=0 threads=3 dma=0 cpu-heap=2 cpu-bytes=4185 '){throw 'Missing actual quiesced thread/CPU backing cleanup'}
         if($serial -match 'NVIDIA runtime-check: FAILED|NVIDIA pci=|NVIDIA bind: absent'){throw 'CPU diagnostic failed or entered PCI after its diagnostic stop'}
     }
     if($firmware -and !$firmwareFault){

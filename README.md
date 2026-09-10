@@ -189,8 +189,8 @@ with four vCPUs and no guest network. The default `all` selection continues
 to run the three Virtio cases. No NVIDIA hardware behavior is emulated by
 the absence case, and normal profiles do not include NVIDIA.R4D.
 
-`graphics-test Test nvidia-runtime` exercises NVIDIA 0.1.5's resident CPU heap
-and monotonic clock providers on kernel 0.1.142 / DriverApi31. Init and a real worker each verify
+`graphics-test Test nvidia-runtime` exercises NVIDIA 0.1.6's resident CPU heap
+and monotonic clock providers on kernel 0.1.143 / DriverApi32. Init and a real worker each verify
 64 allocations and 64 monotonic clock reads, with time advancing after a
 scheduler wait; a worker observes actual shutdown admission, rejects new
 allocation and releases its buffer. The intentional diagnostic init stop then
@@ -198,3 +198,10 @@ requires generic cleanup of two remaining allocations, 4185 CPU payload bytes,
 with no retained owner or crash. The same run checks usable bootfb and normal
 poweroff. It uses no NVIDIA device, PCI probe or guest network, and does not
 claim RM/GSP or hardware execution. It is absent from the default all selection.
+
+The same nvidia-runtime variant additionally requires dedicated Task progress
+on at least two CPUs while the shared BSP work lane remains occupied, real
+heap/clock use, finite join and targeted cooperative cancellation, and close
+waking a dedicated sleeper. Generic cleanup must retire three completed Task
+records before freeing the two remaining CPU allocations. No extra guest
+variant, network, GPU emulation or default test selection is introduced.
