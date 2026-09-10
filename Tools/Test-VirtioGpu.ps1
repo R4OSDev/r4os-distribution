@@ -1,5 +1,5 @@
 # Explicit bounded integration probe; never invoked by ordinary build/test.
-param([ValidateSet('all','probe','native','timeout','fallback','nvidia-passive','nvidia-firmware','nvidia-firmware-missing','nvidia-firmware-corrupt')][string]$Variant='all')
+param([ValidateSet('all','probe','native','timeout','fallback','nvidia-passive','nvidia-firmware','nvidia-firmware-missing','nvidia-firmware-corrupt','nvidia-runtime')][string]$Variant='all')
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
 $distribution=Split-Path $PSScriptRoot -Parent
@@ -8,6 +8,7 @@ $context=Get-R4DistributionContext $distribution
 $workspace=$context.workspace
 $nvidia=$Variant.StartsWith('nvidia-',[StringComparison]::Ordinal)
 $firmware=$Variant.StartsWith('nvidia-firmware',[StringComparison]::Ordinal)
+$runtime=$Variant -eq 'nvidia-runtime'
 $firmwareFault=if($Variant -eq 'nvidia-firmware-missing'){'missing'}elseif($Variant -eq 'nvidia-firmware-corrupt'){'corrupt'}else{''}
 $driverName=if($nvidia){'NVIDIA'}else{'VIRTGPU'}
 if($Variant -eq 'all'){
@@ -95,7 +96,7 @@ $autoexec=Join-Path $scratch 'AUTOEXEC.BAT'
  }
  $config=(Get-Content -Raw (Join-Path $distribution 'TestInjection/CONFIG.R4S')) -replace '(?m)^SHELL=.*','SHELL=/R4OS/SOFTWARE/TERMINAL/TERMINAL.R4X' -replace '(?m)^SHELL_ARGS=.*','SHELL_ARGS='
  $config=$config -replace '(?m)^OPTION SMP selftest=yes\r?\n','' -replace '(?m)^DRIVER=(DISPBLIT|EXAMPLE)\r?\n',''
- $driverMode=if($firmware){'firmware-check'}elseif($nvidia){'passive'}elseif($Variant -eq 'probe'){'probe'}elseif($Variant -eq 'timeout'){'timeout'}else{'native'}
+ $driverMode=if($runtime){'runtime-check'}elseif($firmware){'firmware-check'}elseif($nvidia){'passive'}elseif($Variant -eq 'probe'){'probe'}elseif($Variant -eq 'timeout'){'timeout'}else{'native'}
  $config+="`nDRIVER=$driverName`nOPTION $driverName mode=$driverMode`nGRAPHICS=AUTO`n"
  $configPath=Join-Path $scratch "CONFIG-$Variant.R4S"
  [IO.File]::WriteAllText($configPath,$config,[Text.UTF8Encoding]::new($true))
@@ -240,14 +241,26 @@ try{
     if($Variant -eq 'timeout' -and -not $serial.Contains('DISPLAYD virtio recovery: OK')){throw 'Missing timeout/reset/fallback proof'}
     if($Variant -eq 'fallback' -and -not $serial.Contains('VIRTGPU native: error=NotFound')){throw 'Missing absent-device proof'}
     if($nvidia){
+        $unbind=if($runtime){'NVIDIA unbind: driver-state=closed cpu-owner-cleanup=pending native-writes=disabled fallback=preserved'}else{'NVIDIA unbind: OK resources=0 native-writes=disabled fallback=preserved'}
         foreach($marker in @('NVIDIA resource: lock=verified',
             'source=loaded-r4d native-writes=disabled',
-            'NVIDIA unbind: OK resources=0 native-writes=disabled fallback=preserved',
+            $unbind,
             'DISPLAYD nvidia: records=available source=boot-log hardware-acceptance=separate',
             'DISPLAYD state: OK state=bootfb')){
             if(!$serial.Contains($marker)){throw "Missing passive NVIDIA proof: $marker"}
         }
-        if(!$firmwareFault -and !$serial.Contains('NVIDIA bind: absent inventory=canonical native-writes=disabled fallback=preserved')){throw 'Missing absent NVIDIA proof'}
+        if(!$runtime -and !$firmwareFault -and !$serial.Contains('NVIDIA bind: absent inventory=canonical native-writes=disabled fallback=preserved')){throw 'Missing absent NVIDIA proof'}
+    }
+    if($runtime){
+        foreach($marker in @(
+            'NVIDIA runtime-check: memory=OK init=64 worker=64 alignment=16 content=verified live=0',
+            'NVIDIA runtime-check: OK result=diagnostic-init-stop native-writes=disabled fallback=preserved',
+            'NVIDIA runtime-check: shutdown=OK admission=closed live=2 bytes=4185 workers=quiesced',
+            '[R4D] init failed code=-8')){
+            if(!$serial.Contains($marker)){throw "Missing driver CPU heap proof: $marker"}
+        }
+        if($serial -notmatch '\[R4D\] cleanup owner=\d+ irq=0 work=0 dma=0 cpu-heap=2 cpu-bytes=4185 '){throw 'Missing actual quiesced CPU backing cleanup'}
+        if($serial -match 'NVIDIA runtime-check: FAILED|NVIDIA pci=|NVIDIA bind: absent'){throw 'CPU diagnostic failed or entered PCI after its diagnostic stop'}
     }
     if($firmware -and !$firmwareFault){
         $pin=Get-Content -Raw (Join-Path $context.repositories 'Drivers/NVIDIA/src/firmware-lock.json')|ConvertFrom-Json

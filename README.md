@@ -188,3 +188,12 @@ inventory, and checks failed-load cleanup, driver records and usable bootfb
 with four vCPUs and no guest network. The default `all` selection continues
 to run the three Virtio cases. No NVIDIA hardware behavior is emulated by
 the absence case, and normal profiles do not include NVIDIA.R4D.
+
+`graphics-test Test nvidia-runtime` exercises NVIDIA 0.1.4's resident CPU heap
+provider on kernel 0.1.141 / DriverApi30. Init and a real worker each verify
+64 allocations; a worker observes actual shutdown admission, rejects new
+allocation and releases its buffer. The intentional diagnostic init stop then
+requires generic cleanup of two remaining allocations, 4185 CPU payload bytes,
+with no retained owner or crash. The same run checks usable bootfb and normal
+poweroff. It uses no NVIDIA device, PCI probe or guest network, and does not
+claim RM/GSP or hardware execution. It is absent from the default all selection.
