@@ -205,3 +205,12 @@ heap/clock use, finite join and targeted cooperative cancellation, and close
 waking a dedicated sleeper. Generic cleanup must retire three completed Task
 records before freeing the two remaining CPU allocations. No extra guest
 variant, network, GPU emulation or default test selection is introduced.
+
+Headless Test includes a fresh 16-MB raw NVMe namespace alongside the SATA
+boot disk. This is the virtual device required by the existing NVMEIRQ and
+NVMEIRQPROBE acceptance markers; it is created in the run directory with a
+host file lock and never changes the canonical image or interactive profile.
+The common PS7 headless helper receives the explicit local namespace path
+through a saved/restored environment value and attaches the NVMe controller.
+Both Windows and Linux use this same preparation/argument path. Short clock
+runs keep four CPUs, no guest network and their existing QUICKPROBE stop.

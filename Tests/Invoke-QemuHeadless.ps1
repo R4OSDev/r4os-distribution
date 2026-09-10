@@ -77,7 +77,14 @@ if ($env:R4OS_QEMU_WAV_OUTPUT) {
     $audioDevice = 'driver=wav,id=headless-audio,path=' + $wavPath.Replace(',', ',,')
 }
 
-$argumentLine = @(
+$nvmeTestDisk = $env:R4OS_QEMU_NVME_TEST_DISK
+if ($nvmeTestDisk) { Assert-File $nvmeTestDisk 'NVMe IRQ test namespace' }
+$nvmeArguments = if ($nvmeTestDisk) {
+    @('-drive', (Quote-Argument ('if=none,id=r4nvme,format=raw,file=' + $nvmeTestDisk.Replace(',', ',,'))),
+      '-device', 'nvme,drive=r4nvme,serial=R4OS-NVMEIRQ')
+} else { @() }
+
+$argumentLine = (@(
     '-readconfig', (Quote-Argument $config),
     '-cpu', $hostProfile.CpuModel,
     '-m', '1G',
@@ -90,7 +97,7 @@ $argumentLine = @(
     '-display', 'none',
     '-no-reboot',
     '-name', (Quote-Argument ('R4OS test ' + $cpuCount + 'cpu'))
-) -join ' '
+) + $nvmeArguments) -join ' '
 
 Write-Host ('=== QEMU headless smoke; host=' + $hostProfile.Name + '; cpus=' + $cpuCount + ' timeout ' + $timeoutSeconds + 's ===')
 Normalize-StartProcessEnvironment

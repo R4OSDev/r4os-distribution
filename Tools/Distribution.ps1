@@ -97,11 +97,20 @@ function Start-R4DistributionHeadless($Context,[string]$Name,[string]$Variant) {
  if($Name -cne 'Test' -or $profile.TEST_OVERLAY -cne '1' -or $Variant -cnotin @('','browser','smp4','clock4','smpfail4')){throw 'Headless acceptance requires Test and four vCPUs.'}
  . (Join-Path $PSScriptRoot 'Qemu-Media.ps1')
  $run=New-R4QemuMedia -SourceRoot (Join-Path $Context.output 'Profiles/Test') -Mode Fresh -Name ('headless-'+$(if($Variant){$Variant}else{'standard'}))
+ # The existing Test-profile NVMEIRQ probe requires a real virtual controller
+ # and namespace. Keep its disposable zero-filled media in this fresh run;
+ # the standard interactive configuration remains the SATA boot profile.
+ $nvmePath=Join-Path $run 'nvme-irq.img'
+ $nvmeFile=[IO.File]::Open($nvmePath,[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+ try{
+  $nvmeFile.Lock(0,[Math]::Max([long]1,$nvmeFile.Length))
+  $nvmeFile.SetLength(0);$nvmeFile.SetLength(16MB);$nvmeFile.Flush($true)
+ }finally{$nvmeFile.Dispose()}
  [IO.Directory]::CreateDirectory($Context.logs)|Out-Null
  $log=Join-Path $Context.logs "qemu-test-$Variant.log";$errors=Join-Path $Context.logs "qemu-test-$Variant.err"
  foreach($path in @($log,$errors)){if(Test-Path $path){Remove-Item -LiteralPath $path -Force}}
  $values=@{R4OS_QEMU_EXE=$Context.qemu;R4OS_QEMU_CONFIG=Join-Path $Context.root 'QEMU/standard.conf';R4OS_QEMU_LOG=$log;R4OS_QEMU_ERROR_LOG=$errors;R4OS_QEMU_WORKING_DIRECTORY=$run;R4OS_QEMU_CPUS='4';
-  R4OS_QEMU_STOP_MARKER=$(if($Variant -ceq 'clock4'){'[QUICKPROBE] result=DONE'}else{''});QEMU_TEST_TIMEOUT_SECONDS=$(if($env:QEMU_TEST_TIMEOUT_SECONDS){$env:QEMU_TEST_TIMEOUT_SECONDS}elseif($Variant -ceq 'clock4'){'60'}else{'1200'})}
+  R4OS_QEMU_NVME_TEST_DISK=$nvmePath;R4OS_QEMU_STOP_MARKER=$(if($Variant -ceq 'clock4'){'[QUICKPROBE] result=DONE'}else{''});QEMU_TEST_TIMEOUT_SECONDS=$(if($env:QEMU_TEST_TIMEOUT_SECONDS){$env:QEMU_TEST_TIMEOUT_SECONDS}elseif($Variant -ceq 'clock4'){'60'}else{'1200'})}
  $saved=@{};foreach($key in $values.Keys){$saved[$key]=[Environment]::GetEnvironmentVariable($key);[Environment]::SetEnvironmentVariable($key,[string]$values[$key])}
  try{& pwsh -NoProfile -File (Join-Path $Context.root 'Tests/Invoke-QemuHeadless.ps1');$code=$LASTEXITCODE}
  finally{foreach($key in $saved.Keys){[Environment]::SetEnvironmentVariable($key,$saved[$key])}}
