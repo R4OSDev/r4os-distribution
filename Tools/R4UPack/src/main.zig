@@ -4,7 +4,10 @@ const contract = artifact.contract;
 
 const checksum_seed: u32 = 2166136261;
 const stream_buffer_bytes = 64 * 1024;
-const maximum_payload_bytes = 32 * 1024 * 1024;
+// SYSUPD and UPDSVC stream through bounded buffers, but their file offsets
+// still use the R4SYS u32 interface. Bound the complete package, including
+// its envelope, instead of rejecting firmware-bearing modules above 32 MB.
+const maximum_package_bytes: u64 = std.math.maxInt(u32);
 
 const Payload = struct {
     src: []const u8,
@@ -190,6 +193,9 @@ pub fn main(init: std.process.Init) !void {
 }
 
 fn writePackage(cwd: std.Io.Dir, io: std.Io, output_path: []const u8, manifest: []const u8, payloads: []const Payload, payload_size: u64, reboot: bool, scratch: []u8) !u32 {
+    if (manifest.len > maximum_package_bytes - contract.header_size or
+        payload_size > maximum_package_bytes - contract.header_size - manifest.len)
+        return error.PackageTooLarge;
     // The final path changes only after all source bytes and hashes agree.
     // An I/O error or a source changed between passes preserves prior output.
     var output = try cwd.createFileAtomic(io, output_path, .{ .replace = true });
@@ -286,7 +292,7 @@ fn printUsage() !void {
         \\
         \\Versioned payload KIND values are boot-kernel, system-library, driver, protocol, service and software.
         \\R4UPack reads component identity and version from the ELF/R4M0 artifact. Font, config and sdk payloads carry no invented component version and require a concrete --require.
-        \\At most 32 payloads and 32 requirements, a 32-KB manifest and 32 MB per payload are supported.
+        \\At most 32 payloads and 32 requirements, a 32-KB manifest and 4294967295 bytes per complete package are supported. Payloads stream through a 64-KB buffer.
         \\The data kind and foreign-drive targets are not supported by R4UPack.
         \\
     , .{});
@@ -316,7 +322,7 @@ fn parsePayloadSpec(allocator: std.mem.Allocator, cwd: std.Io.Dir, io: std.Io, s
     errdefer file.close(io);
     const stat = try file.stat(io);
     if (stat.kind != .file) return error.PayloadNotFile;
-    if (stat.size > maximum_payload_bytes) return error.PayloadTooLarge;
+    if (stat.size > maximum_package_bytes - contract.header_size) return error.PayloadTooLarge;
     const reader = FileReader{ .file = file, .io = io };
 
     var identity: ?artifact.Identity = null;
@@ -686,6 +692,56 @@ test "changed streamed source preserves the previous complete output" {
     const unchanged = try temporary.dir.readFileAlloc(io, "output.r4u", std.testing.allocator, .limited(64));
     defer std.testing.allocator.free(unchanged);
     try std.testing.expectEqualStrings("previous-package", unchanged);
+}
+
+test "large firmware payloads stream while the complete package stays within guest file offsets" {
+    const io = std.testing.io;
+    var temporary = std.testing.tmpDir(.{});
+    defer temporary.cleanup();
+    const size = 33 * 1024 * 1024 + 137;
+    {
+        const source = try temporary.dir.createFile(io, "large.bin", .{});
+        defer source.close(io);
+        try source.setLength(io, size);
+        try source.writePositionalAll(io, "beyond-the-old-limit", size - "beyond-the-old-limit".len);
+    }
+    var scratch: [stream_buffer_bytes]u8 = undefined;
+    var payload = try parsePayloadSpec(std.testing.allocator, temporary.dir, io, "large.bin|C:\\R4OS\\SDK\\LARGE.BIN|sdk", &scratch);
+    defer payload.file.close(io);
+    defer std.testing.allocator.free(payload.canonical_target);
+    try std.testing.expectEqual(@as(u64, size), payload.size);
+    const manifest = "large-payload-fixture";
+    _ = try writePackage(temporary.dir, io, "large.r4u", manifest, &.{payload}, payload.size, false, &scratch);
+    const package = try temporary.dir.openFile(io, "large.r4u", .{});
+    defer package.close(io);
+    const envelope = contract.header_size + manifest.len;
+    try std.testing.expectEqual(@as(u64, envelope + size), (try package.stat(io)).size);
+    var header: [contract.header_size]u8 = undefined;
+    try std.testing.expectEqual(header.len, try package.readPositionalAll(io, &header, 0));
+    const PayloadReader = struct {
+        file: FileReader,
+        pub fn readAt(self: @This(), offset: u64, out: []u8) bool {
+            return self.file.readAt(envelope + offset, out);
+        }
+    };
+    try std.testing.expectEqual(payload.checksum, try streamPayload(PayloadReader{ .file = .{ .file = package, .io = io } }, DiscardWriter{}, size, &scratch));
+    // Each payload could fit by itself while the envelope makes the package
+    // unreadable through the existing guest API. Reject before replacement.
+    try std.testing.expectError(error.PackageTooLarge, writePackage(temporary.dir, io, "large.r4u", manifest, &.{}, maximum_package_bytes - contract.header_size, false, &scratch));
+    try std.testing.expectError(error.PackageTooLarge, writePackage(temporary.dir, io, "large.r4u", manifest, &.{}, std.math.maxInt(u64), false, &scratch));
+    const preserved = try temporary.dir.openFile(io, "large.r4u", .{});
+    defer preserved.close(io);
+    try std.testing.expectEqual(@as(u64, envelope + size), (try preserved.stat(io)).size);
+    var after: [contract.header_size]u8 = undefined;
+    try std.testing.expectEqual(after.len, try preserved.readPositionalAll(io, &after, 0));
+    try std.testing.expectEqualSlices(u8, &header, &after);
+    {
+        const oversized = try temporary.dir.createFile(io, "oversized.bin", .{});
+        defer oversized.close(io);
+        try oversized.setLength(io, maximum_package_bytes - contract.header_size + 1);
+    }
+    // Sparse length rejection occurs before attempting a multi-GB checksum.
+    try std.testing.expectError(error.PayloadTooLarge, parsePayloadSpec(std.testing.allocator, temporary.dir, io, "oversized.bin|C:\\R4OS\\SDK\\LARGE.BIN|sdk", &scratch));
 }
 
 fn pathHasPrefix(path: []const u8, prefix: []const u8) bool {
