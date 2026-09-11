@@ -89,10 +89,10 @@ are included in this file and in the nonallocated driver resource. Existing
 PRAMIN and firmware notices still apply. The boot-check preserves full boot
 mapping dependency pages; it does not start firmware or program scanout.
 
-NVIDIA boot display observation (NVIDIA.R4D 0.1.35)
+NVIDIA boot display/window observation (NVIDIA.R4D 0.1.36)
 File: NVIDIA-BOOT-DISPLAY-LICENSE.txt
 Armed display-state mirror/topology reads adapt Nouveau GA102/GV100 MIT
-sources; field meanings follow NVIDIA 570.144 C67D under MIT. Full original
+sources; field meanings follow NVIDIA 570.144 C67D/C67E and NVKMS under MIT. Full original
 copyright and permission notices accompany the driver and this directory.
-The read-only boot capture provides programmed timings and routing; native
+The read-only capture retains timings, routes and plane/context metadata; native
 console modesetting, visible completion and full recovery remain separate.
