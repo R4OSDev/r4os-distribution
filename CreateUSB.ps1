@@ -44,7 +44,7 @@ try {
   $selectedTargets=@($targets|Where-Object {$_.path -ceq $Target})
   if($selectedTargets.Count -ne 1){throw 'Ziel ist kein eindeutig erkannter beschreibbarer USB-Datentraeger.'};$selected=$selectedTargets[0]
  }
- if($selected.sectorBytes -ne 512 -or $selected.bytes%512 -ne 0 -or $selected.bytes -lt (3411968L+32769+33)*512){throw 'USB-Geometrie ungeeignet: 512-Byte-Sektoren und mindestens 1683 MB erforderlich.'}
+ if($selected.sectorBytes -ne 512 -or $selected.bytes%512 -ne 0 -or $selected.bytes -lt (22286336L+32769+33)*512){throw 'USB-Geometrie ungeeignet: 512-Byte-Sektoren und mindestens 10899 MB erforderlich (16-GB-Stick empfohlen).'}
  $paths=@($ReleaseZip,$PSScriptRoot,$ImageCreator,$WorkRoot)
  Assert-R4UsbSources $selected $paths
  $fingerprint=Get-R4UsbFingerprint $selected

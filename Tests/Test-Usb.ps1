@@ -34,7 +34,7 @@ if($PackagedStarter){
 $starter=if($PackagedStarter -and $IsLinux){'sh'}else{'pwsh'}
 [string[]]$starterArguments=@(if($PackagedStarter -and $IsLinux){Join-Path $bundle 'CreateUSB.sh'}else{'-NoProfile';'-File';Join-Path $bundle 'CreateUSB.ps1'})
 if($IsLinux){[IO.File]::SetUnixFileMode((Join-Path $bundle 'Tools/USB/linux-x86_64/imagecreater'),[IO.UnixFileMode]::UserRead -bor [IO.UnixFileMode]::UserWrite)}
-$image=Join-Path $output 'stick.img';Blank $image (3GB+13*512)
+$image=Join-Path $output 'stick.img';Blank $image (16GB+13*512)
 $snapshot=Get-R4UsbFingerprint (Virtual $image)
 # Bad confirmation uses the complete public entry point and must not mutate.
 & $starter @starterArguments -ReleaseZip $ReleaseZip -VirtualImage $image -WorkRoot (Join-Path $output 'work') -ConfirmErase WRONG
@@ -47,7 +47,7 @@ $report=Get-ChildItem -LiteralPath (Join-Path $output 'work') -Filter result.jso
 $created=Get-Content -Raw -LiteralPath $report.FullName|ConvertFrom-Json -AsHashtable
 $work=$report.DirectoryName;$plan=Get-Content -Raw -LiteralPath (Join-Path $work 'write-plan.json')|ConvertFrom-Json -AsHashtable
 $prepared=Join-Path $work 'prepared.img';$source=Join-Path $work 'release/disk.img';$target=Virtual $image
-Require ($created.bytes -eq 3GB+13*512 -and $created.structure.installation.partitions.DATA.sectorCount -eq $target.bytes/512-33-3411968) 'Real DATA rest differs.'
+Require ($created.bytes -eq 16GB+13*512 -and $created.structure.installation.partitions.DATA.sectorCount -eq $target.bytes/512-33-22286336) 'Real DATA rest differs.'
 Require ($created.sourceZipSha256 -ceq (Get-FileHash -LiteralPath $ReleaseZip -Algorithm SHA256).Hash.ToLowerInvariant()) 'Original ZIP differs.'
 $after=Get-R4UsbFingerprint $target
 Reject {Invoke-R4UsbWrite $target $plan $prepared $source ('0'*64) $null} 'Stale target accepted.'

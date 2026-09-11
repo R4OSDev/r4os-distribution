@@ -49,7 +49,7 @@ function New-R4OSReleasePackage {
     $imageStream=[IO.File]::Open($Image,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
     try {
     foreach($version in @($ReleaseVersion,$KernelVersion)){if($version -cnotmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'){throw 'Invalid package version.'}}
-    if($imageStream.Length -ne 2147483648){throw 'r4os-gpt-1 requires the standard 2048 MB source image.'}
+    if($imageStream.Length -ne 12GB){throw 'r4os-gpt-1 requires the standard 12288 MB source image with 10240 MB SYSTEM.'}
     $pair=[IO.Compression.ZipFile]::OpenRead($RecoveryPackage)
     try {
         $entry=$pair.GetEntry('manifest.json')
@@ -64,6 +64,7 @@ function New-R4OSReleasePackage {
     if(!$Technical){
         . (Join-Path $PSScriptRoot 'InstallationImage.Check.ps1')
         $checked=Test-R4OSInstallationImage -Stream $imageStream -ImageBytes $imageStream.Length -Medium local
+        if($checked.installation.partitions.SYSTEM.sectorCount -ne 10GB/512){throw 'Release SYSTEM must use the 10 GB default.'}
         if($checked.installation.releaseVersion -cne $ReleaseVersion -or $checked.installation.kernelVersion -cne $KernelVersion -or
             $checked.recoveryVersion -cne $recovery.recoveryVersion -or $checked.recoveryManifestSha256 -cne $recoveryManifestHash){throw 'Release image, versions and pinned Recovery do not agree.'}
         foreach($path in $checked.bootHashes.Keys){if((Get-FileHash -LiteralPath (Join-Path $BootRoot $path) -Algorithm SHA256).Hash.ToLowerInvariant() -cne $checked.bootHashes[$path]){throw 'Release BOOT source differs from its image.'}}

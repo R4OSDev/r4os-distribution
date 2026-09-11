@@ -138,8 +138,15 @@ public sealed class InstallationImageCheck : IDisposable {
             var other=Read((sectors-33)*512,16384);
             Require(Crc(other)==U32(backup,88) && entries.AsSpan().SequenceEqual(other),"Backup GPT array agreement");
             DiskGuid=new Guid(primary.AsSpan(56,16)).ToString(); var ids=new HashSet<string>(); Require(DiskGuid!=Guid.Empty.ToString() && ids.Add(DiskGuid),"Disk GUID");
-            string[] roles={"BIOSBOOT","BOOT","SYSTEM","RECOVERY","DATA"}; long[] first={2048,4096,266240,2363392,3411968};
-            long[] count={2048,262144,2097152,1048576,sectors-33-3411968};
+            // Keep old installations readable; source package producers select the
+            // new default explicitly. Nonstandard SYSTEM targets may be smaller
+            // within their existing boundary, but never move RECOVERY or DATA.
+            long recoveryFirst=checked((long)U64(entries,3*128+32));
+            Require(recoveryFirst==2363392 || recoveryFirst==21237760,"Supported SYSTEM layout");
+            long dataFirst=recoveryFirst+1048576;
+            Require(sectors>=dataFirst+32769+33,"Minimum DATA extent");
+            string[] roles={"BIOSBOOT","BOOT","SYSTEM","RECOVERY","DATA"}; long[] first={2048,4096,266240,recoveryFirst,dataFirst};
+            long[] count={2048,262144,recoveryFirst-266240,1048576,sectors-33-dataFirst};
             string[] types={"21686148-6449-6e6f-744e-656564454649","c12a7328-f81f-11d2-ba4b-00a0c93ec93b","ebd0a0a2-b9e5-4433-87c0-68b6b72699c7"};
             for(int i=0;i<128;i++) {
                 int at=i*128;

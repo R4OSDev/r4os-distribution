@@ -502,5 +502,5 @@ fn runCreateInstallation(gpa: std.mem.Allocator, io: std.Io, cwd: std.Io.Dir, ar
     target.release();
     try output_file.replace(io);
     if (manifest_output) |path| try cwd.writeFile(io, .{ .sub_path = path, .data = manifest });
-    std.debug.print("R4OS five-partition image: {s}, 2048 MB, disk {s}, default {s}\n", .{ destination, common.guid.format(ids.disk), @tagName(medium) });
+    std.debug.print("R4OS five-partition image: {s}, {d} MB, SYSTEM {d} MB, disk {s}, default {s}\n", .{ destination, common.standard_bytes / (1024 * 1024), common.system_mb, common.guid.format(ids.disk), @tagName(medium) });
 }
