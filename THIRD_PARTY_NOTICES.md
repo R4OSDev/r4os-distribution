@@ -89,7 +89,17 @@ are included in this file and in the nonallocated driver resource. Existing
 PRAMIN and firmware notices still apply. The boot-check preserves full boot
 mapping dependency pages; it does not start firmware or program scanout.
 
-NVIDIA color/cursor state (NVIDIA.R4D 0.1.38)
+NVIDIA cursor/LUT payload backup (NVIDIA.R4D 0.1.39)
+The driver resolves active cursor and memory-LUT attachments and preserves
+local-VRAM contents in an immutable BO. Original C67D/C67E, NVKMS and
+Nouveau cursor references retain their full MIT terms. The new
+NVIDIA-DISPLAY-ASSETS-LICENSE.txt contains eight complete source notices,
+10098 bytes matching the module resource and Distribution overlay. Legal
+staging includes it beside the prior unchanged licenses. Source pins and
+38 complete original files are in display-assets-20260911. Original R4OS
+policy remains Apache-2.0; no system-memory or native restoration claim.
+
+Previous NVIDIA color/cursor state (NVIDIA.R4D 0.1.38)
 The driver retains armed color and cursor parameters using original MIT
 NVIDIA definitions and NVKMS semantics. NVIDIA-DISPLAY-COLOR-LICENSE.txt
 contains six complete original source notices, 7664 bytes matching the
