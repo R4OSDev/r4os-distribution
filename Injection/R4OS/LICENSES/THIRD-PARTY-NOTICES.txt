@@ -115,3 +115,11 @@ copyright lines are included identically in the module and image overlay.
 R4OS snapshot ownership, SDK bindings and failure handling are Apache-2.0.
 The explicit boot-check may select and restore the CPU BAR0/PRAMIN window;
 it does not execute firmware, relocate VGA or initialize native scanout.
+
+NVIDIA 570.144 BAR1 / GMMU boot mapping (NVIDIA.R4D 0.1.34)
+File: NVIDIA-570.144-BAR1-LICENSE.txt
+The linked bounded BAR1 resolver and physical-function register reader adapt
+MIT definitions from the pinned NVIDIA source. Complete original notices
+are included in this file and in the nonallocated driver resource. Existing
+PRAMIN and firmware notices still apply. The boot-check preserves full boot
+mapping dependency pages; it does not start firmware or program scanout.
