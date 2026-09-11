@@ -186,3 +186,10 @@ NVIDIA-GSP-LOG-LICENSE.txt preserves the complete original MIT notice of
 raw PUT/word-ring layout is adapted; no printf or ELF decoder is imported.
 The identical license is embedded in NVIDIA.R4D. R4OS observation and DMA
 lifecycle code remains Apache-2.0.
+
+NVIDIA GSP runtime service (0.79.10, NVIDIA 0.1.53):
+NVIDIA-GSP-RUNTIME-LICENSE.txt contains the complete source notices
+for the NVIDIA 570.144 and Nouveau queue/event/sequencer adapters
+and the existing boot/core/teardown code. It is also an unchanged
+module resource. Original R4OS ownership code remains Apache-2.0;
+firmware binaries retain their separate license texts.
