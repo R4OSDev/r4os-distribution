@@ -31,12 +31,13 @@ $autoexec=Join-Path $scratch 'AUTOEXEC.BAT'
  $catalog=Join-Path $context.sdk ('zig-out/bin/module-catalog'+$context.suffix)
  $regular=Get-Content -Raw (Join-Path $context.output 'Generated/MODULES.JSON')|ConvertFrom-Json
  $target="/R4OS/DRIVERS/$driverName.R4D"
+ $diagnosticTarget='/R4OS/SOFTWARE/TERMINAL/DIAG/DISPLAYD.R4X'
  $privateInventory=Join-Path $scratch "MODULES-$Variant.JSON"
  $extraPlan=Join-Path $scratch "components-$Variant.plan"
  $map=Join-Path $context.input 'WorkspaceModules.map'
  $selection=@('workspace-image-plan','--workspace-map',$map,'--image-mode','test',
      '--output',$extraPlan,'--inventory-output',$privateInventory,'--kernel-version-source',(Join-Path $context.repositories 'Kernel/VERSION.R4S'),
-     '--kernel-artifact',(Join-Path $context.repositories 'Kernel/zig-out/bin/r4os.elf'),'--include-target',$target)
+     '--kernel-artifact',(Join-Path $context.repositories 'Kernel/zig-out/bin/r4os.elf'),'--include-target',$target,'--include-target',$diagnosticTarget)
  & $catalog @selection
  if($LASTEXITCODE -ne 0){throw 'Private Virtio catalog failed'}
  $base=Get-Content -Raw $privateInventory|ConvertFrom-Json
@@ -46,9 +47,11 @@ $autoexec=Join-Path $scratch 'AUTOEXEC.BAT'
  & $catalog @selection
  if($LASTEXITCODE -ne 0){throw 'Private Virtio catalog with regular Test includes failed'}
  $final=Get-Content -Raw $privateInventory|ConvertFrom-Json
- if(@(Compare-Object (@($regular.entries.target)+$target|Sort-Object -Unique) ($final.entries.target|Sort-Object -Unique)).Count){throw 'Unexpected private selection'}
+ if(@(Compare-Object (@($regular.entries.target)+$target+$diagnosticTarget|Sort-Object -Unique) ($final.entries.target|Sort-Object -Unique)).Count){throw 'Unexpected private selection'}
  $extra=@(Get-Content $extraPlan|Where-Object {$_.EndsWith(':'+$target,[StringComparison]::OrdinalIgnoreCase)})
  if($extra.Count -ne 1){throw 'Expected canonical Virtio GPU artifact'}
+ $diagnosticEntry=@(Get-Content $extraPlan|Where-Object {$_.EndsWith(':'+$diagnosticTarget,[StringComparison]::OrdinalIgnoreCase)})
+ if($diagnosticEntry.Count -ne 1){throw 'Expected canonical DISPLAYD artifact'}
  if($firmwareFault){
     # Deliberately invalid private test copy. Canonical module and prepared
     # proprietary originals remain unchanged; only the test image sees this.
@@ -107,6 +110,9 @@ $autoexec=Join-Path $scratch 'AUTOEXEC.BAT'
      else{$_}
  })
  $plan+=$extra
+ # DISPLAYD is a Full module; the explicit graphics runner owns its Test
+ # inclusion even when ordinary Test no longer selects that diagnostic.
+ if(-not @($plan|Where-Object {$_.EndsWith(':'+$diagnosticTarget,[StringComparison]::OrdinalIgnoreCase)}).Count){$plan+=$diagnosticEntry}
  $planPath=Join-Path $scratch "image-adds-$Variant.txt"
  [IO.File]::WriteAllLines($planPath,$plan,[Text.UTF8Encoding]::new($false))
  & $starter image Test -InputList $planPath -OutputRoot $output
