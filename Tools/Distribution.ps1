@@ -24,8 +24,8 @@ function Build-R4DistributionTools($Context,[switch]$Tests) {
 function Get-R4DistributionProfile($Context,[string]$Name) {
  if($Name -cnotin @('Slim','Full','Test','Benchmark')){throw 'Profile must be Slim, Full, Test or Benchmark.'}
  $profile=Get-InstallationFields (Join-Path $Context.root "Profiles/$Name.R4S")
- if($profile.PROFILE -cne $Name -or $profile.LAYOUT -cne 'r4os-gpt-1' -or $profile.IMAGE_MB -cne '12288' -or
-    $profile.BOOT_MB -cne '128' -or $profile.SYSTEM_MB -cne '10240' -or $profile.RECOVERY_MB -cne '512' -or $profile.DATA_SIZE -cne 'rest'){throw "Invalid common layout in $Name profile."}
+ if($profile.PROFILE -cne $Name -or $profile.LAYOUT -cne 'r4os-gpt-1' -or $profile.IMAGE_MB -cne '16384' -or
+    $profile.BOOT_MB -cne '128' -or $profile.SYSTEM_MB -cne '10240' -or $profile.RECOVERY_MB -cne '5120' -or $profile.DATA_SIZE -cne 'rest'){throw "Invalid common layout in $Name profile."}
  return $profile
 }
 function Get-R4DistributionLegalNames {return @('R4OS-LICENSE.txt','R4OS-NOTICE.txt','THIRD-PARTY-NOTICES.txt','Limine-BSD-2-Clause.txt','FreeType-FTL.txt','Brotli-MIT.txt','zlib.txt','stb_image-MIT.txt','RTL8168-GPL-2.0-only.txt','libdisplay-info-MIT.txt','NVIDIA-570.144-LICENSE.txt','NVIDIA-570.144-HEADERS-LICENSE.txt','NVIDIA-570.144-GSP-BOOT-LICENSE.txt','NVIDIA-570.144-PRAMIN-LICENSE.txt','NVIDIA-570.144-BAR1-LICENSE.txt','NVIDIA-BOOT-DISPLAY-LICENSE.txt','NVIDIA-DISPLAY-CONTEXT-LICENSE.txt','NVIDIA-DISPLAY-COLOR-LICENSE.txt','NVIDIA-DISPLAY-ASSETS-LICENSE.txt','NVIDIA-CONNECTORS-LICENSE.txt')}

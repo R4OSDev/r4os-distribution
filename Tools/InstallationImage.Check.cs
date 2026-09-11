@@ -143,10 +143,11 @@ public sealed class InstallationImageCheck : IDisposable {
             // within their existing boundary, but never move RECOVERY or DATA.
             long recoveryFirst=checked((long)U64(entries,3*128+32));
             Require(recoveryFirst==2363392 || recoveryFirst==21237760,"Supported SYSTEM layout");
-            long dataFirst=recoveryFirst+1048576;
+            long recoveryCount=recoveryFirst==2363392 ? 1048576 : 10485760;
+            long dataFirst=recoveryFirst+recoveryCount;
             Require(sectors>=dataFirst+32769+33,"Minimum DATA extent");
             string[] roles={"BIOSBOOT","BOOT","SYSTEM","RECOVERY","DATA"}; long[] first={2048,4096,266240,recoveryFirst,dataFirst};
-            long[] count={2048,262144,recoveryFirst-266240,1048576,sectors-33-dataFirst};
+            long[] count={2048,262144,recoveryFirst-266240,recoveryCount,sectors-33-dataFirst};
             string[] types={"21686148-6449-6e6f-744e-656564454649","c12a7328-f81f-11d2-ba4b-00a0c93ec93b","ebd0a0a2-b9e5-4433-87c0-68b6b72699c7"};
             for(int i=0;i<128;i++) {
                 int at=i*128;

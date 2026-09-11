@@ -49,7 +49,7 @@ function New-R4OSReleasePackage {
     $imageStream=[IO.File]::Open($Image,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
     try {
     foreach($version in @($ReleaseVersion,$KernelVersion)){if($version -cnotmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'){throw 'Invalid package version.'}}
-    if($imageStream.Length -ne 12GB){throw 'r4os-gpt-1 requires the standard 12288 MB source image with 10240 MB SYSTEM.'}
+    if($imageStream.Length -ne 16GB){throw 'r4os-gpt-1 requires the standard 16384 MB source image with 10240 MB SYSTEM.'}
     $pair=[IO.Compression.ZipFile]::OpenRead($RecoveryPackage)
     try {
         $entry=$pair.GetEntry('manifest.json')

@@ -46,7 +46,7 @@ try {
     if(Test-Path $resultPath){Remove-Item $resultPath -Force}
     $profile=Resolve-R4QemuHostProfile $Qemu
     $initial=Test-R4OSInstallationImage -Image $Image
-    if($initial.bytes -ne 12GB){throw 'This acceptance requires the standard 12288-MB image.'}
+    if($initial.bytes -ne 16GB){throw 'This acceptance requires the standard 16384-MB image.'}
     $inputHash=(Get-FileHash -LiteralPath $Image -Algorithm SHA256).Hash.ToLowerInvariant()
     $view=[InstallationImageCheck]::new($Image)
     try {

@@ -47,7 +47,7 @@ $report=Get-ChildItem -LiteralPath (Join-Path $output 'work') -Filter result.jso
 $created=Get-Content -Raw -LiteralPath $report.FullName|ConvertFrom-Json -AsHashtable
 $work=$report.DirectoryName;$plan=Get-Content -Raw -LiteralPath (Join-Path $work 'write-plan.json')|ConvertFrom-Json -AsHashtable
 $prepared=Join-Path $work 'prepared.img';$source=Join-Path $work 'release/disk.img';$target=Virtual $image
-Require ($created.bytes -eq 16GB+13*512 -and $created.structure.installation.partitions.DATA.sectorCount -eq $target.bytes/512-33-22286336) 'Real DATA rest differs.'
+Require ($created.bytes -eq 16GB+13*512 -and $created.structure.installation.partitions.DATA.sectorCount -eq $target.bytes/512-33-31723520) 'Real DATA rest differs.'
 Require ($created.sourceZipSha256 -ceq (Get-FileHash -LiteralPath $ReleaseZip -Algorithm SHA256).Hash.ToLowerInvariant()) 'Original ZIP differs.'
 $after=Get-R4UsbFingerprint $target
 Reject {Invoke-R4UsbWrite $target $plan $prepared $source ('0'*64) $null} 'Stale target accepted.'

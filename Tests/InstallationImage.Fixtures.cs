@@ -12,7 +12,7 @@ public static class InstallationImageFixtures {
     public static void Prepare(string path,string manifestId,string diskId,string[] partitionIds,long[] manifestSectors,byte[] manifest,long[] configSectors,byte[] config,bool reidentify,bool usb,bool damageSystem) {
         if(Path.GetExtension(path)!=".img")throw new IOException("Only a test .img is accepted.");
         using(var file=new FileStream(path,FileMode.Open,FileAccess.ReadWrite,FileShare.None)) {
-            if(file.Length!=2048L*1024*1024 && file.Length!=12L*1024*1024*1024)throw new IOException("Unexpected test image size.");
+            if(file.Length!=2048L*1024*1024 && file.Length!=16L*1024*1024*1024)throw new IOException("Unexpected test image size.");
             string json=Encoding.UTF8.GetString(manifest),text=Encoding.UTF8.GetString(config);
             if(reidentify) {
                 var replacements=new Dictionary<string,string>();replacements.Add(manifestId,Guid.NewGuid().ToString());replacements.Add(diskId,Guid.NewGuid().ToString());

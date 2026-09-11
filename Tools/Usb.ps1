@@ -77,12 +77,12 @@ function Expand-R4UsbRelease([string]$Package,[string]$Output) {
      $file.bytes -isnot [long] -and $file.bytes -isnot [int] -or $file.bytes -lt 0){throw 'Ungueltige Release-Dateiliste.'}
    $expected.Add($file.path,$file)
   }
-  if(!$expected.ContainsKey('disk.img') -or $expected['disk.img'].bytes -ne 12GB -or !$expected.ContainsKey('recovery.zip') -or
+  if(!$expected.ContainsKey('disk.img') -or $expected['disk.img'].bytes -ne 16GB -or !$expected.ContainsKey('recovery.zip') -or
      $expected.Count+1 -ne $zip.Entries.Count){throw 'Unvollstaendiges Release.'}
   $seen=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase);[long]$expanded=0
   foreach($entry in $zip.Entries){
    $name=$entry.FullName;$expanded+=$entry.Length
-   if(!$seen.Add($name) -or $name.Length -gt 255 -or $name -cmatch '[^\x20-\x7e]|[<>:"\\|?*]' -or $expanded -gt 16GB){throw 'Ungueltiger ZIP-Pfad oder Paketumfang.'}
+   if(!$seen.Add($name) -or $name.Length -gt 255 -or $name -cmatch '[^\x20-\x7e]|[<>:"\\|?*]' -or $expanded -gt 20GB){throw 'Ungueltiger ZIP-Pfad oder Paketumfang.'}
    foreach($part in $name.Split('/')){if(!$part -or $part -in @('.','..') -or $part.EndsWith('.') -or $part.EndsWith(' ')){throw 'Ungueltiger ZIP-Pfad.'}}
    if($name -ceq 'manifest.json'){continue}
    if(!$expected.ContainsKey($name) -or $name -cne $expected[$name].path -or $entry.Length -ne $expected[$name].bytes){throw "Release-Inhalt stimmt nicht: $name"}
