@@ -88,11 +88,21 @@ the NVIDIA module and images. R4OS adapters remain original Apache-2.0 code.
 No Linux kernel implementation or complete RM engine is linked by this CPU
 adapter integration. Header provenance is in NVIDIA/ThirdParty/Nvidia570.144.
 
-NVIDIA GSP boot image and WPR/layout preparation (NVIDIA.R4D 0.1.23)
+NVIDIA GSP boot image and WPR/layout/init preparation (NVIDIA.R4D)
 File: NVIDIA-570.144-GSP-BOOT-LICENSE.txt
 The unchanged GA102 production boot image and descriptor are exported from
 the original generated source at the same pinned commit. The native module
 also uses MIT-derived WPR metadata/layout calculations with their original
-source attribution. All five original MIT notices and the complete package
+source attribution. All eleven original MIT notices and the complete package
 COPYING are included, identically in the module and this image overlay.
 These CPU/DMA preparation paths do not execute firmware or enable scanout.
+
+NVIDIA GA102 Booter Load/Unload production firmware (NVIDIA.R4D 0.1.27)
+File: NVIDIA-570.144-BOOTER-LICENSE.txt
+Fourteen unchanged production parts are exported by the original NVIDIA
+570.144 decoder at commit 8ec351aeb96a93a4bb69ccc12a542bf8a8df2b6f.
+The full COPYING and four complete per-source MIT notices accompany the
+module and this overlay. Original source bytes and signatures remain intact
+in resources; private DMA images receive the signature selected by SEC2's
+own measured ucode3 fuse version. GPU authentication/start is not claimed.
+Original R4OS resource, deadline and lifetime code remains Apache-2.0.
