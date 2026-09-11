@@ -28,7 +28,7 @@ function Get-R4DistributionProfile($Context,[string]$Name) {
     $profile.BOOT_MB -cne '128' -or $profile.SYSTEM_MB -cne '1024' -or $profile.RECOVERY_MB -cne '512' -or $profile.DATA_SIZE -cne 'rest'){throw "Invalid common layout in $Name profile."}
  return $profile
 }
-function Get-R4DistributionLegalNames {return @('R4OS-LICENSE.txt','R4OS-NOTICE.txt','THIRD-PARTY-NOTICES.txt','Limine-BSD-2-Clause.txt','FreeType-FTL.txt','Brotli-MIT.txt','zlib.txt','stb_image-MIT.txt','RTL8168-GPL-2.0-only.txt','libdisplay-info-MIT.txt','NVIDIA-570.144-LICENSE.txt','NVIDIA-570.144-HEADERS-LICENSE.txt','NVIDIA-570.144-GSP-BOOT-LICENSE.txt')}
+function Get-R4DistributionLegalNames {return @('R4OS-LICENSE.txt','R4OS-NOTICE.txt','THIRD-PARTY-NOTICES.txt','Limine-BSD-2-Clause.txt','FreeType-FTL.txt','Brotli-MIT.txt','zlib.txt','stb_image-MIT.txt','RTL8168-GPL-2.0-only.txt','libdisplay-info-MIT.txt','NVIDIA-570.144-LICENSE.txt','NVIDIA-570.144-HEADERS-LICENSE.txt','NVIDIA-570.144-GSP-BOOT-LICENSE.txt','NVIDIA-570.144-PRAMIN-LICENSE.txt')}
 function Test-R4DistributionLegal($Context,[string]$Plan='',[string]$Staged='') {
  $text=if($Plan){Get-Content -Raw -LiteralPath $Plan}else{''}
  foreach($name in Get-R4DistributionLegalNames){

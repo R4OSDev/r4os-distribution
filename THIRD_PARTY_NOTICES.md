@@ -71,3 +71,12 @@ trust information.
 `TestInjection/R4OS/CONFIG/TLS/R4TLSDEV.KEY` is an intentionally committed
 test-only private key. It is public, provides no secrecy, and must never be
 used for production, personal, or externally trusted systems.
+
+NVIDIA 570.144 PRAMIN / VGA-workspace capture (NVIDIA.R4D 0.1.29)
+File: NVIDIA-570.144-PRAMIN-LICENSE.txt
+The attributed GM107 window access and VGA-workspace geometry follow the
+pinned NVIDIA 570.144 source. All five complete per-source MIT notices and
+copyright lines are included identically in the module and image overlay.
+R4OS snapshot ownership, SDK bindings and failure handling are Apache-2.0.
+The explicit boot-check may select and restore the CPU BAR0/PRAMIN window;
+it does not execute firmware, relocate VGA or initialize native scanout.
