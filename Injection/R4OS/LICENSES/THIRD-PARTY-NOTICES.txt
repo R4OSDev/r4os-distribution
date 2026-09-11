@@ -124,7 +124,17 @@ are included in this file and in the nonallocated driver resource. Existing
 PRAMIN and firmware notices still apply. The boot-check preserves full boot
 mapping dependency pages; it does not start firmware or program scanout.
 
-NVIDIA display instance/context decoding (NVIDIA.R4D 0.1.37)
+NVIDIA color/cursor state (NVIDIA.R4D 0.1.38)
+The driver retains armed color and cursor parameters using original MIT
+NVIDIA definitions and NVKMS semantics. NVIDIA-DISPLAY-COLOR-LICENSE.txt
+contains six complete original source notices, 7664 bytes matching the
+driver resource and Distribution overlay. The legal staging list includes
+this file beside the previous unchanged licenses. Original R4OS observation
+and lifetime policy remains Apache-2.0. Full source pins are retained in the
+display-color-20260911 archive. No complete indexed-table or native display
+restoration is claimed.
+
+Previous NVIDIA display instance/context decoding (NVIDIA.R4D 0.1.37)
 The driver preserves display instance bytes and resolves used window-plane
 spans using the original MIT GA102 display manual, RM and NVKMS definitions.
 NVIDIA-DISPLAY-CONTEXT-LICENSE.txt contains twelve complete source notices;
