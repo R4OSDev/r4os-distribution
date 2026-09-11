@@ -37,7 +37,12 @@ $autoexec=Join-Path $scratch 'AUTOEXEC.BAT'
  $map=Join-Path $context.input 'WorkspaceModules.map'
  $selection=@('workspace-image-plan','--workspace-map',$map,'--image-mode','test',
      '--output',$extraPlan,'--inventory-output',$privateInventory,'--kernel-version-source',(Join-Path $context.repositories 'Kernel/VERSION.R4S'),
-     '--kernel-artifact',(Join-Path $context.repositories 'Kernel/zig-out/bin/r4os.elf'),'--include-target',$target,'--include-target',$diagnosticTarget)
+     '--kernel-artifact',(Join-Path $context.repositories 'Kernel/zig-out/bin/r4os.elf'))
+ # Slim/core modules are already selected; explicit includes admit only
+ # additional scopes. NVIDIA has belonged to Slim since 0.79.9.
+ foreach($requiredTarget in @($target,$diagnosticTarget)){
+     if($requiredTarget -notin $regular.entries.target){$selection+=@('--include-target',$requiredTarget)}
+ }
  & $catalog @selection
  if($LASTEXITCODE -ne 0){throw 'Private Virtio catalog failed'}
  $base=Get-Content -Raw $privateInventory|ConvertFrom-Json
@@ -109,7 +114,11 @@ $autoexec=Join-Path $scratch 'AUTOEXEC.BAT'
      elseif($_.EndsWith(':/R4OS/CONFIG/MODULES.JSON',[StringComparison]::OrdinalIgnoreCase)){$privateInventory.Replace('\','/')+':/R4OS/CONFIG/MODULES.JSON'}
      else{$_}
  })
- $plan+=$extra
+ if(-not @($plan|Where-Object {$_.EndsWith(':'+$target,[StringComparison]::OrdinalIgnoreCase)}).Count){
+     $plan+=$extra
+ }elseif($firmwareFault){
+     $plan=@($plan|ForEach-Object {if($_.EndsWith(':'+$target,[StringComparison]::OrdinalIgnoreCase)){$extra[0]}else{$_}})
+ }
  # DISPLAYD is a Full module; the explicit graphics runner owns its Test
  # inclusion even when ordinary Test no longer selects that diagnostic.
  if(-not @($plan|Where-Object {$_.EndsWith(':'+$diagnosticTarget,[StringComparison]::OrdinalIgnoreCase)}).Count){$plan+=$diagnosticEntry}
@@ -262,6 +271,7 @@ try{
             'NVIDIA runtime-check: memory=OK init=64 worker=64 alignment=16 content=verified live=0',
             'NVIDIA runtime-check: clock=OK init=64 worker=64 monotonic-ns=verified',
             'NVIDIA runtime-check: threads=OK callbacks=4 cpu-mask=',
+            'NVIDIA runtime-check: thread-work=OK queued-from-task executed=serialized owner-epoch=matched',
             'NVIDIA runtime-check: native-c=OK adapters=21 contexts=init,worker providers=driver-api link=actual',
             'NVIDIA runtime-check: native-format=OK adapters=9 contexts=init,worker integers=64 truncation=reported invalid=rejected log=driver-owner',
             'NVIDIA runtime-check: native-format-task=OK context=dedicated log=driver-owner',
