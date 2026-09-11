@@ -41,6 +41,10 @@ fn regionBytes(a: std.mem.Allocator, device: block.Device, range: tools.partitio
     try device.read(range.first, bytes);
     return bytes;
 }
+fn readSourceBytes(raw: *const anyopaque, offset: usize, out: []u8) !void {
+    const source: *const tools.host_file.File = @ptrCast(@alignCast(raw));
+    if (try source.file.readPositionalAll(source.io, out, offset) != out.len) return error.UnexpectedEndOfFile;
+}
 pub fn run(gpa: std.mem.Allocator, io: std.Io, cwd: std.Io.Dir, args: []const []const u8) !void {
     var arena = std.heap.ArenaAllocator.init(gpa);
     defer arena.deinit();
@@ -80,9 +84,16 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, cwd: std.Io.Dir, args: []const []
     const boot = try tools.fat32_update.prepare(a, boot_bytes, boot_range.first, &.{
         .{ .path = "boot/r4os-installation.json", .bytes = new_manifest }, .{ .path = "boot/limine.conf", .bytes = config },
     });
-    const recovery_bytes = try regionBytes(a, source.device(null), recovery_range);
     const original = try cwd.readFileAlloc(io, zip orelse return error.Arguments, a, .limited(1024 * 1024 * 1024));
-    const recovery = try tools.fat32_update.prepare(a, recovery_bytes, recovery_range.first, &.{.{ .path = "INSTALL/RELEASE.ZIP", .bytes = original }});
+    const source_bytes = tools.byte_source.Source{ .context = &source, .length = @intCast(source.sectors * 512), .read_fn = readSourceBytes };
+    // Use the same bounded FAT preparation as Recovery. A 5-GB partition
+    // must not require an equally large host allocation or the flat API.
+    const recovery = prepared: {
+        var scratch = std.heap.ArenaAllocator.init(gpa);
+        defer scratch.deinit();
+        var backing = try tools.fat32_update.Backing.init(scratch.allocator(), try source_bytes.range(@intCast(recovery_range.first * 512), @intCast(recovery_range.count * 512)), recovery_range.first);
+        break :prepared try tools.fat32_update.prepareBacking(a, &backing, &.{.{ .path = "INSTALL/RELEASE.ZIP", .bytes = original }});
+    };
     const data_range = layout.part(.DATA);
     var data_builder = try tools.ntfs.Builder.init(a, data_range.count * 512, "DATA", @intCast(data_range.first), tools.standardNtfsMetadata(), 0, std.mem.readInt(u64, ids.partitions[4][0..8], .little));
     for ([_][]const u8{ "DOCS", "MEDIA", "TEMP" }) |name| _ = try data_builder.addDirectory(data_builder.root(), name);
@@ -112,7 +123,8 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, cwd: std.Io.Dir, args: []const []
     try layout.bind(&table);
     try table.commit(disk, work);
     try disk.write(boot_range.first, boot.bytes);
-    try disk.write(recovery_range.first, recovery.bytes);
+    var recovery_region = block.Region{ .parent = disk, .first = recovery_range.first, .count = recovery_range.count };
+    try recovery.execute(try recovery_region.device(), work);
     const recorder = try a.create(Recorder);
     recorder.* = .{ .target = disk };
     var data_region = block.Region{ .parent = recorder.device(), .first = data_range.first, .count = data_range.count };
