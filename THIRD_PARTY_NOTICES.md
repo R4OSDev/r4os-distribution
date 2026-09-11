@@ -16,7 +16,7 @@ under `Injection/R4OS/LICENSES`.
 | RTL8168 firmware tables derived from the Realtek vendor driver | GPL-2.0-only | `RTL8168-GPL-2.0-only.txt` |
 | libdisplay-info timing data and EDID fixtures | MIT | `libdisplay-info-MIT.txt` |
 | Original NVIDIA GSP 570.144 containers in explicitly selected NVIDIA.R4D | NVIDIA's original license; not Apache-2.0 | `NVIDIA-570.144-LICENSE.txt` |
-| NVIDIA 570.144 production GSP boot artifacts and derived WPR/layout preparation | Original MIT notices and package COPYING | `NVIDIA-570.144-GSP-BOOT-LICENSE.txt` |
+| NVIDIA 570.144 production GSP boot artifacts and derived WPR/layout/init preparation | Original MIT notices and package COPYING | `NVIDIA-570.144-GSP-BOOT-LICENSE.txt` |
 
 Original R4OS material remains under Apache License 2.0. The matching
 `R4OS-LICENSE.txt`, `R4OS-NOTICE.txt`, and aggregate
@@ -31,9 +31,10 @@ The shared license overlay preserves the same complete license text beside
 the image and under `/R4OS/LICENSES`; it does not enable the driver or imply
 hardware support. Original proprietary firmware is not relicensed or altered.
 
-NVIDIA.R4D 0.1.23 additionally carries the unchanged production GA102 boot
+NVIDIA.R4D 0.1.24 carries the unchanged production GA102 boot
 image/descriptor and complete notices for their generated source and the
-MIT-derived WPR metadata/layout code. The central pin binds all hashes;
+MIT-derived WPR metadata/layout and Libos/RM/queue initialization code.
+The central pin binds all twelve source/notice inputs and artifact hashes;
 the same full notices accompany the image and module. Boot resource staging
 does not establish firmware execution, display ownership or HDMI audio.
 
