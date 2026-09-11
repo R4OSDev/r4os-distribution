@@ -193,3 +193,8 @@ for the NVIDIA 570.144 and Nouveau queue/event/sequencer adapters
 and the existing boot/core/teardown code. It is also an unchanged
 module resource. Original R4OS ownership code remains Apache-2.0;
 firmware binaries retain their separate license texts.
+
+GSP preboot inputs (NVIDIA0.1.54):
+The existing NVIDIA-GSP-RUNTIME-LICENSE.txt now also includes complete
+NVIDIA/Nouveau notices for system information, registry serialization and
+early queue ordering. Earlier notice bytes remain unchanged as a prefix.
