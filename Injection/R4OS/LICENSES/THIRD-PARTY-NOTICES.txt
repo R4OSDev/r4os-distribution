@@ -124,7 +124,17 @@ are included in this file and in the nonallocated driver resource. Existing
 PRAMIN and firmware notices still apply. The boot-check preserves full boot
 mapping dependency pages; it does not start firmware or program scanout.
 
-NVIDIA boot display/window observation (NVIDIA.R4D 0.1.36)
+NVIDIA display instance/context decoding (NVIDIA.R4D 0.1.37)
+The driver preserves display instance bytes and resolves used window-plane
+spans using the original MIT GA102 display manual, RM and NVKMS definitions.
+NVIDIA-DISPLAY-CONTEXT-LICENSE.txt contains twelve complete source notices;
+its 14984 bytes match the driver resource and the Distribution overlay.
+It is included in the legal staging list alongside the preceding unchanged
+licenses. R4OS ownership/validation remains Apache-2.0. Full originals and
+pins are documented in the driver and display-context-20260911 archive.
+No firmware execution or native display recovery is claimed.
+
+Previous NVIDIA boot display/window observation (NVIDIA.R4D 0.1.36)
 File: NVIDIA-BOOT-DISPLAY-LICENSE.txt
 Armed display-state mirror/topology reads adapt Nouveau GA102/GV100 MIT
 sources; field meanings follow NVIDIA 570.144 C67D/C67E and NVKMS under MIT. Full original
