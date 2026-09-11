@@ -179,3 +179,10 @@ the R4D and Distribution. All earlier 2620 notice bytes remain an exact
 prefix. Fourteen full pinned originals accompany gpio-20260911; ga102.c
 register/ownership code remains reference-only. Original R4OS copy, bounds,
 matching and ambiguity policy is Apache-2.0. No live GPIO or firmware call.
+
+NVIDIA GSP raw log rings (0.79.10, NVIDIA0.1.50):
+NVIDIA-GSP-LOG-LICENSE.txt preserves the complete original MIT notice of
+570.144 liblogdecode.c, credited to Rich Felker et al. and NVIDIA. Only its
+raw PUT/word-ring layout is adapted; no printf or ELF decoder is imported.
+The identical license is embedded in NVIDIA.R4D. R4OS observation and DMA
+lifecycle code remains Apache-2.0.
