@@ -161,3 +161,12 @@ sources; field meanings follow NVIDIA 570.144 C67D/C67E and NVKMS under MIT. Ful
 copyright and permission notices accompany the driver and this directory.
 The read-only capture retains timings, routes and plane/context metadata; native
 console modesetting, visible completion and full recovery remain separate.
+
+NVIDIA connector/CCB metadata (NVIDIA 0.1.43)
+--------------------------------------------
+NVIDIA-CONNECTORS-LICENSE.txt contains the complete original MIT notices
+from Nouveau bios/i2c.c and conn.c (Copyright 2012 Red Hat Inc.; Ben Skeggs).
+These sources cross-check the pinned NVIDIA DCB wiring specification.
+Original R4OS catalog/bounds/grouping remains Apache-2.0. Native bus and
+firmware EDID controls remain reference-only. The same 2620-byte notice is
+packaged as a nonallocated NVIDIA.R4D resource and in this directory.
