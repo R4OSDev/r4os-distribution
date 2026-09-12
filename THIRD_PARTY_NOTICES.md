@@ -126,3 +126,12 @@ sources; field meanings follow NVIDIA 570.144 C67D/C67E and NVKMS under MIT. Ful
 copyright and permission notices accompany the driver and this directory.
 The read-only capture retains timings, routes and plane/context metadata; native
 console modesetting, visible completion and full recovery remain separate.
+
+Native private control-buffer mappings (NVIDIA 0.1.67, 2026-09-12):
+Original NVIDIA570.144 nvos/class/RPC/SDK-structure and virtual-memory
+contracts are MIT. Complete source notices accompany gsp_buffer_wire.zig
+and extend the existing131,939-byte runtime license prefix to137,137 bytes.
+Only trailing whitespace in appended notices is normalized. The driver
+resource and Distribution overlay are byte-identical; full originals and
+the original-C fixture remain in0.79.11/buffer-map-20260912. Original R4OS
+storage, graph and lifecycle code remains Apache-2.0.
