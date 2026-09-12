@@ -220,3 +220,9 @@ for client/object creation, display-event subscriptions and handle names.
 Native topology and EDID acquisition (NVIDIA 0.1.59):
 NVIDIA-GSP-RUNTIME-LICENSE.txt includes the complete NVIDIA/Nouveau
 query-source notices and libdisplay-info CTA-table MIT license.
+
+NVIDIA 0.1.62 DDC acquisition uses the pinned NVIDIA 570.144 formats and
+class hierarchy. Complete original notices accompany the bounded codec
+and are included in NVIDIA-GSP-RUNTIME-LICENSE.txt without replacing any
+previous notice. The original FINN serializer is used only as a host
+reference oracle and is not newly linked into NVIDIA.R4D.
