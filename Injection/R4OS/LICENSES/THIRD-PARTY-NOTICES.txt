@@ -198,3 +198,8 @@ GSP preboot inputs (NVIDIA0.1.54):
 The existing NVIDIA-GSP-RUNTIME-LICENSE.txt now also includes complete
 NVIDIA/Nouveau notices for system information, registry serialization and
 early queue ordering. Earlier notice bytes remain unchanged as a prefix.
+
+GSP static configuration (NVIDIA0.1.55):
+The existing NVIDIA-GSP-RUNTIME-LICENSE.txt includes complete NVIDIA/Nouveau
+notices for post-init static information and FB region semantics. Earlier
+notice bytes remain unchanged as a prefix.
