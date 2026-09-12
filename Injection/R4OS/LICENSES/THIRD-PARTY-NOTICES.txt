@@ -226,3 +226,8 @@ class hierarchy. Complete original notices accompany the bounded codec
 and are included in NVIDIA-GSP-RUNTIME-LICENSE.txt without replacing any
 previous notice. The original FINN serializer is used only as a host
 reference oracle and is not newly linked into NVIDIA.R4D.
+
+NVIDIA 0.1.63 AUX acquisition retains the complete NVIDIA/Nouveau MIT and
+Keith Packard display-helper permission/disclaimer notices in the existing
+NVIDIA-GSP-RUNTIME-LICENSE.txt. No prior notice is removed; no upstream C
+implementation is newly linked by this integration.
