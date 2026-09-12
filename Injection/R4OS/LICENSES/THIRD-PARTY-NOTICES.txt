@@ -208,3 +208,7 @@ GSP internal post-init discovery (NVIDIA 0.1.56):
 The existing NVIDIA-GSP-RUNTIME-LICENSE.txt includes the complete NVIDIA/
 Nouveau notices for engine/interrupt queries and their fixed wire layouts.
 Earlier notice bytes remain unchanged as a prefix.
+
+GA106 GSP interrupts (NVIDIA 0.1.57):
+NVIDIA-GSP-RUNTIME-LICENSE.txt includes full original NVIDIA and Nouveau
+notices for VFN/Falcon interrupt handling and GA106 MSI rearm.
