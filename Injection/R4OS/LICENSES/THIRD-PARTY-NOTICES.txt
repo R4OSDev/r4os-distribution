@@ -212,3 +212,7 @@ Earlier notice bytes remain unchanged as a prefix.
 GA106 GSP interrupts (NVIDIA 0.1.57):
 NVIDIA-GSP-RUNTIME-LICENSE.txt includes full original NVIDIA and Nouveau
 notices for VFN/Falcon interrupt handling and GA106 MSI rearm.
+
+Runtime RM objects and display events (NVIDIA 0.1.58):
+NVIDIA-GSP-RUNTIME-LICENSE.txt includes the full NVIDIA/Nouveau notices
+for client/object creation, display-event subscriptions and handle names.
