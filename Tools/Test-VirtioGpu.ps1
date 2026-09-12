@@ -23,6 +23,7 @@ $autoexec=Join-Path $scratch 'AUTOEXEC.BAT'
  $lines=@('@ECHO OFF','VER','C:\R4OS\SOFTWARE\TERMINAL\DIAG\DISPLAYD.R4X /STATE')
  if($Variant -eq 'native'){$lines+='C:\R4OS\SOFTWARE\TERMINAL\DIAG\DISPLAYD.R4X /VIRTIO /RESIZE'}
  if($Variant -eq 'timeout'){$lines+='C:\R4OS\SOFTWARE\TERMINAL\DIAG\DISPLAYD.R4X /VIRTIO /FAIL'}
+ if($runtime){$lines+='C:\R4OS\SOFTWARE\TERMINAL\DIAG\DISPLAYD.R4X /RECEIVERS'}
  $driverReport=if($nvidia){'/NVIDIA'}else{'/VIRTIO'}
  $lines+=@('C:\R4OS\SOFTWARE\TERMINAL\DIAG\DISPLAYD.R4X','SET',"C:\R4OS\SOFTWARE\TERMINAL\DIAG\DISPLAYD.R4X $driverReport",'ECHO [GFX07908] complete','POWEROFF')
  [IO.File]::WriteAllText($autoexec,(($lines -join "`r`n")+"`r`n"),[Text.UTF8Encoding]::new($false))
@@ -270,6 +271,8 @@ try{
         foreach($marker in @(
             'NVIDIA runtime-check: memory=OK init=64 worker=64 alignment=16 content=verified live=0',
             'NVIDIA runtime-check: clock=OK init=64 worker=64 monotonic-ns=verified',
+            'NVIDIA runtime-check: receivers=OK contexts=init,worker publish=atomic stale=rejected sources=closed hardware-writes=none',
+            'DISPLAYD receivers: complete hardware-writes=none',
             'NVIDIA runtime-check: threads=OK callbacks=4 cpu-mask=',
             'NVIDIA runtime-check: thread-work=OK queued-from-task executed=serialized owner-epoch=matched',
             'NVIDIA runtime-check: native-c=OK adapters=21 contexts=init,worker providers=driver-api link=actual',
@@ -293,6 +296,7 @@ try{
             if(!$serial.Contains($marker)){throw "Missing driver CPU heap proof: $marker"}
         }
         if($serial -notmatch '\[R4D\] cleanup owner=\d+ irq=0 work=0 threads=3 semaphores=2 dma=0 cpu-heap=2 cpu-bytes=4185 '){throw 'Missing actual quiesced thread/semaphore/CPU backing cleanup'}
+        if($serial -notmatch 'DISPLAYD receivers: revision=\d+ count=1' -or $serial.Contains('source=receiver-only')){throw 'Synthetic receiver metadata survived CPU probe cleanup'}
         $nativeLogOwner=[regex]::Match($serial,'\[LOG1\] source=Driver severity=Info owner=(\d+) text=NVIDIA runtime-check: native-format=OK')
         if(!$nativeLogOwner.Success -or $nativeLogOwner.Groups[1].Value -eq '0'){throw 'Native formatting has no actual driver owner'}
         $nativeOwner=$nativeLogOwner.Groups[1].Value
