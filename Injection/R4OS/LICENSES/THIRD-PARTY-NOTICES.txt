@@ -234,3 +234,6 @@ implementation is newly linked by this integration.
 
 NVIDIA 0.1.64 retains the complete Nouveau external GPIO source notice
 in NVIDIA-CONNECTORS-LICENSE.txt; previous notices remain intact.
+
+NVIDIA 0.1.66: complete original cl90f1/vaspace_api MIT notices are
+in NVIDIA-GSP-RUNTIME-LICENSE.txt; the previous notice bytes are retained.
