@@ -237,3 +237,14 @@ in NVIDIA-CONNECTORS-LICENSE.txt; previous notices remain intact.
 
 NVIDIA 0.1.66: complete original cl90f1/vaspace_api MIT notices are
 in NVIDIA-GSP-RUNTIME-LICENSE.txt; the previous notice bytes are retained.
+
+
+HDMI audio / ELD (NVIDIA 0.1.101, 0.79.15):
+The RM control layouts and HDMI device-entry/port convention follow the MIT
+NVIDIA 570.144 sources pinned at 8ec351aeb96a93a4bb69ccc12a542bf8a8df2b6f.
+Full ctrl0073dfp.h, ctrl0073specific.h and nvkms-hdmi.c notices are preserved
+in the embedded and identical distribution runtime license. No previous
+license byte was changed. Five originals, original-header C payloads and
+hashes are archived under 0.79.15/hdmi-audio-20260913 in the GFX references.
+The C generator is host-only; firmware is unchanged. R4OS sequencing,
+metadata ownership and the ELD protocol encoder are original Apache-2.0 code.
