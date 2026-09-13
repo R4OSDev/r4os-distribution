@@ -1,4 +1,4 @@
-param([string]$RecoveryCandidate='', [string]$Qemu='')
+param([string]$RecoveryCandidate='', [string]$Qemu='', [switch]$CopyOnly)
 $ErrorActionPreference='Stop';Set-StrictMode -Version Latest
 $root=Split-Path $PSScriptRoot -Parent
 . (Join-Path $root 'Tools/Distribution.ps1')
@@ -15,6 +15,7 @@ function Digest([string]$Path){return (Get-FileHash -LiteralPath $Path -Algorith
 $process=$null;$savedCandidate=$env:R4OS_RECOVERY_CANDIDATE
 try {
  $env:R4OS_RECOVERY_CANDIDATE=$null
+ if(!$CopyOnly){
  $pinRoot=Join-Path $work 'pin';[IO.Directory]::CreateDirectory($pinRoot)|Out-Null
  Json (Join-Path $pinRoot 'RecoveryPin.json') @{schema=1;product='r4os-recovery';architecture='x86_64';status='unconfigured'}
  Reject {Resolve-R4RecoveryPackage $pinRoot $pinRoot} 'unconfigured production pin'
@@ -31,11 +32,17 @@ try {
  if($offline.technical -or $offline.sha256 -cne $candidate.sha256){throw 'Cached pin failed.'}
  $pin.sha256='0'*64;Json (Join-Path $pinRoot 'RecoveryPin.json') $pin
  Reject {Resolve-R4RecoveryPackage $pinRoot $pinRoot} 'wrong cached hash'
+ }
 
  # Tiny disposable source tests lifecycle and actual QEMU image locks. It
  # is never booted; -S keeps its four CPUs paused throughout the lock proof.
  $source=Join-Path $work 'source';[IO.Directory]::CreateDirectory($source)|Out-Null
- $disk=Join-Path $source 'disk.img';[IO.File]::WriteAllBytes($disk,[byte[]]::new(1MB))
+ $disk=Join-Path $source 'disk.img'
+ $f=[IO.File]::OpenWrite($disk)
+ try{
+  $f.SetLength(4MB+137)
+  foreach($position in @(0,(1MB-1),(2MB+17))){$f.Position=$position;$f.WriteByte(73)}
+ }finally{$f.Dispose()}
  Json (Join-Path $source 'image.json') @{sha256=Digest $disk}
  $first=New-R4QemuMedia $source Fresh 'probe';$persistent=New-R4QemuMedia $source Persistent
  $persistentDisk=Join-Path $persistent 'disk.img'
@@ -44,7 +51,11 @@ try {
  if((New-R4QemuMedia $source Persistent) -cne $persistent -or (Digest $persistentDisk) -cne $changed){throw 'Persistent state was lost.'}
  $freshDisk=Join-Path $first 'disk.img';[IO.File]::WriteAllBytes($freshDisk,[byte[]]@(1,2,3))
  $null=New-R4QemuMedia $source Fresh 'probe'
- if((Digest $freshDisk) -cne (Digest $disk)){throw 'Fresh run inherited data.'}
+ if((Get-Item -LiteralPath $freshDisk).Length -ne (4MB+137) -or (Digest $freshDisk) -cne (Digest $disk)){throw 'Fresh run changed data or the trailing hole.'}
+ if($IsLinux){
+  $blocks=& stat --format=%b -- $freshDisk
+  if($LASTEXITCODE -ne 0 -or ([long]$blocks*512) -ge 3MB){throw 'Sparse work copy allocated its empty ranges.'}
+ }
  $start=[Diagnostics.ProcessStartInfo]::new($Qemu);$start.UseShellExecute=$false;$start.RedirectStandardError=$true
  foreach($arg in @('-machine','q35,accel=tcg','-smp','4','-m','128','-S','-display','none','-monitor','none','-serial','none','-nic','none','-drive',"if=none,format=raw,file=$freshDisk")){$start.ArgumentList.Add($arg)}
  $process=[Diagnostics.Process]::Start($start);$stderr=$process.StandardError.ReadToEndAsync()
@@ -58,6 +69,12 @@ try {
  Reject {New-R4QemuMedia $source Fresh 'probe'} 'modified source seal'
  Json (Join-Path $source 'image.json') @{sha256=Digest $disk}
  if((New-R4QemuMedia $source Persistent) -ceq $persistent -or (Digest $persistentDisk) -cne $changed){throw 'Source generations were mixed.'}
+
+ if($CopyOnly){
+  Json (Join-Path (Split-Path $work -Parent) 'copy-results.json') @{schema=1;result='PASS';cpus=4;booted=$false;host=$(if($IsLinux){'Linux'}else{'Windows'});runnerSha256=Digest $PSCommandPath;checks=@('sparse-data-and-trailing-hole','fresh-state','persistent-generation','active-qemu-lock','source-seal')}
+  Write-Host 'Distribution media copy acceptance PASS (SMP4 paused lock probe; no guest boot).'
+  return
+ }
 
  $profiles=@()
  foreach($name in @('Slim','Full','Test','Benchmark')){

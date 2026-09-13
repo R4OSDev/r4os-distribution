@@ -1,4 +1,38 @@
 # Canonical profile images are never an interactive guest's writable disk.
+if(-not ('R4OS.Distribution.QemuMediaCopy' -as [type])){
+ Add-Type -TypeDefinition @'
+using System;
+using System.IO;
+using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
+namespace R4OS.Distribution {
+ public static class QemuMediaCopy {
+  [DllImport("kernel32.dll", SetLastError=true)]
+  private static extern bool DeviceIoControl(SafeFileHandle file, uint code,
+   IntPtr input, uint inputBytes, IntPtr output, uint outputBytes,
+   out uint returned, IntPtr overlapped);
+  public static void Copy(FileStream source, FileStream destination) {
+   // Linux creates holes through seek; Windows first needs FSCTL_SET_SPARSE.
+   // Filesystems without sparse support keep the previous ordinary copy.
+   if (OperatingSystem.IsWindows() && !DeviceIoControl(destination.SafeFileHandle,
+       0x000900C4, IntPtr.Zero, 0, IntPtr.Zero, 0, out _, IntPtr.Zero)) {
+    source.CopyTo(destination);
+    return;
+   }
+   var buffer = new byte[1024 * 1024];
+   int count;
+   while ((count = source.Read(buffer, 0, buffer.Length)) != 0) {
+    if (buffer.AsSpan(0, count).IndexOfAnyExcept((byte)0) < 0)
+     destination.Seek(count, SeekOrigin.Current);
+    else destination.Write(buffer, 0, count);
+   }
+   // A trailing hole must retain the exact logical disk length.
+   destination.SetLength(destination.Position);
+  }
+ }
+}
+'@
+}
 function New-R4QemuMedia {
  param([Parameter(Mandatory)][string]$SourceRoot,[ValidateSet('Fresh','Persistent')][string]$Mode='Fresh',[string]$Name='run')
  $ErrorActionPreference='Stop'
@@ -21,7 +55,7 @@ function New-R4QemuMedia {
    # the fcntl/share lock used by .NET. QEMU's own image lock is checked by
    # a nonblocking platform file lock before any length or payload change.
    $outputFile.Lock(0,[Math]::Max([long]1,$outputFile.Length))
-   $outputFile.SetLength(0);$inputFile.CopyTo($outputFile);$outputFile.Flush($true)
+   $outputFile.SetLength(0);[R4OS.Distribution.QemuMediaCopy]::Copy($inputFile,$outputFile);$outputFile.Flush($true)
   }finally{if($outputFile){$outputFile.Dispose()};$inputFile.Dispose()}
   if((Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant() -cne $digest){throw 'QEMU work copy differs from its source.'}
   [IO.File]::WriteAllText($stamp,((@{schema=1;sourceSha256=$digest;mode=$Mode}|ConvertTo-Json)+"`n"),[Text.UTF8Encoding]::new($false))

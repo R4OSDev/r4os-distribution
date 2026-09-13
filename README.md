@@ -115,7 +115,15 @@ QEMU configuration, legal files, and a manifest with all file hashes.
 `-TechnicalCandidate -RecoveryCandidate <ZIP>` passed to `Tools/Release.ps1`
 allows local acceptance packages; publication rejects that mode.
 GUI/SSH use persistent image copies keyed by the source SHA256; automated
-runners start from fresh copies. Release images contain no original-ZIP cache.
+runners start from fresh copies. Their shared copy helper skips zero-filled
+1-MB ranges, preserves the exact logical length and verifies the full SHA256.
+Linux creates sparse holes by seeking; Windows first enables sparse files
+and falls back to ordinary copying when the filesystem rejects that request.
+The existing host lock is acquired before truncation, including for an
+already-running QEMU disk. `Tests/Test-DistributionMedia.ps1 -CopyOnly`
+checks this lifecycle with a small disposable image and a paused SMP4 QEMU;
+it needs no Recovery candidate or four-profile rebuild.
+Release images contain no original-ZIP cache.
 
 `publish` performs the same preparation, creates a draft release in
 `R4OSDev/r4os-distribution`, uploads every asset, and only then publishes the
