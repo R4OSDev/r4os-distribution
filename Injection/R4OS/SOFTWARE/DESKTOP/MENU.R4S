@@ -32,6 +32,7 @@ SUBITEM;menu=settings;title=Network;path=/R4OS/SOFTWARE/DESKTOP/NETCFG.R4X;class
 SUBITEM;menu=settings;title=Services;path=/R4OS/SOFTWARE/DESKTOP/SERVICES.R4X;class=gui;policy=gui
 SUBITEM;menu=settings;title=Log Center;path=/R4OS/SOFTWARE/DESKTOP/LOGCENTER.R4X;class=gui;policy=gui
 SUBITEM;menu=settings;title=Time Settings;path=/R4OS/SOFTWARE/DESKTOP/TIMESET.R4X;class=gui;policy=gui
+SUBITEM;menu=settings;title=Display;path=/R4OS/SOFTWARE/DESKTOP/APPEARANCE.R4X;args=/DISPLAY;class=gui;policy=gui
 ACTION;title=Tasks;action=tasks
 ACTION;title=Restart;action=restart
 ACTION;title=Poweroff;action=poweroff
