@@ -266,3 +266,15 @@ and MIT NIL/NVK sources. NVIDIA-GSP-RUNTIME-LICENSE.txt contains their full
 NVIDIA, Collabora and Red Hat notices, retaining all earlier attribution.
 The six fixed shaders are compiled original R4OS shader descriptions;
 the host Mesa NIR/NAK compiler is not installed in the system image.
+
+
+DisplayPort SST and audio (0.79.23, NVIDIA 0.1.115):
+The bounded link owner uses the MIT NVIDIA 570.144 control definitions and
+SST watermark arithmetic at source pin 8ec351aeb96a93a4bb69ccc12a542bf8a8df2b6f.
+GSP PHY training/audio sequencing follows MIT Nouveau r535 display code
+(Copyright 2023 Red Hat Inc.). Full original notices accompany derived code
+and the identical packaged/distribution runtime license. Existing license
+bytes are preserved. Original sources and an independent original-header C++
+fixture, including the original SST function body, are archived under
+GFX/Nvidia/0.79.23/displayport-20260914. The C++ reference is host-only.
+R4OS work scheduling, ownership and protocol integration remain Apache-2.0.
