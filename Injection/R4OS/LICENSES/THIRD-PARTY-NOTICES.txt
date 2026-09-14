@@ -278,3 +278,8 @@ bytes are preserved. Original sources and an independent original-header C++
 fixture, including the original SST function body, are archived under
 GFX/Nvidia/0.79.23/displayport-20260914. The C++ reference is host-only.
 R4OS work scheduling, ownership and protocol integration remain Apache-2.0.
+
+LittleCMS ICC core 2.18 (R4GFX)
+  Copyright (c) 2023 Marti Maria Saguer.
+  MIT License; complete notice: LITTLECMS-LICENSE.txt.
+  Memory-only color/profile core, without optional GPL plugins or utilities.
