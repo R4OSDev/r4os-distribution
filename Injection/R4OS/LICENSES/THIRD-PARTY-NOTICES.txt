@@ -283,3 +283,11 @@ LittleCMS ICC core 2.18 (R4GFX)
   Copyright (c) 2023 Marti Maria Saguer.
   MIT License; complete notice: LITTLECMS-LICENSE.txt.
   Memory-only color/profile core, without optional GPL plugins or utilities.
+
+NVIDIA display links (0.79.27)
+DP/HDMI DSC uses the original NVIDIA 570.144 MIT PPS generator and headers.
+FRL and MST wire layouts, CRCs, packet/bandwidth calculations and display
+control references retain their complete original MIT notices in
+NVIDIA-GSP-RUNTIME-LICENSE.txt. NVIDIA-DISPLAY-DSC-LICENSE.txt is also
+packaged with the driver and installed here. These licenses do not grant
+transport-standard conformance or physical hardware qualification.
