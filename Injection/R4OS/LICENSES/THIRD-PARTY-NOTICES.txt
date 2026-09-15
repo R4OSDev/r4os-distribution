@@ -331,3 +331,15 @@ ExFiles/Reference/GFX/0.79.31/Sources.json. Complete original notices remain in
 Licenses/NVIDIA-GSP-RUNTIME-LICENSE.txt and its byte-identical distributed copy.
 The R4OS lifecycle, leases, common output metadata and Desktop policy are
 original Apache-2.0 code. No additional firmware is imported.
+
+
+R4NAK native SPIR-V/NIR/NAK compiler (0.79.34)
+-------------------------------------------
+Mesa 26.2.2 compiler/utilities and NVIDIA definitions, Rust 1.85.1 core/alloc,
+compiler_builtins 0.1.140, hashbrown 0.15.2, rustc-hash 2.1.1 and
+stb_sprintf 1.10 retain their original MIT/BSD/Apache-2.0/LLVM-exception
+and dual-license notices. Complete original texts: R4NAK-NOTICES.txt.
+Exact source/recipe identities: Libraries/R4NAK/Tools/Sources.lock.json and
+Libraries/R4NV/Tools/Compiler/Sources.lock.json. The freestanding R4L has
+no Linux, host libc, Rust std or GPU firmware dependency. Original R4OS
+ownership, cache, ABI and orchestration code remains Apache-2.0.

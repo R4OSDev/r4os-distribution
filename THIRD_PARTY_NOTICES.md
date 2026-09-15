@@ -13,6 +13,7 @@ under `Injection/R4OS/LICENSES`.
 | Google Brotli 1.2.0 | MIT | `Brotli-MIT.txt` |
 | zlib 1.3.1 | zlib License | `zlib.txt` |
 | stb_image 2.30 | MIT selected from its dual offer | `stb_image-MIT.txt` |
+| R4NAK: Mesa 26.2.2, Rust core/alloc, compiler_builtins, hashbrown, rustc-hash and stb_sprintf | Original MIT/BSD/Apache-2.0/LLVM-exception and dual-license notices | `R4NAK-NOTICES.txt` |
 | RTL8168 firmware tables derived from the Realtek vendor driver | GPL-2.0-only | `RTL8168-GPL-2.0-only.txt` |
 | libdisplay-info timing data and EDID fixtures | MIT | `libdisplay-info-MIT.txt` |
 | Original NVIDIA GSP 570.144 containers in explicitly selected NVIDIA.R4D | NVIDIA's original license; not Apache-2.0 | `NVIDIA-570.144-LICENSE.txt` |
