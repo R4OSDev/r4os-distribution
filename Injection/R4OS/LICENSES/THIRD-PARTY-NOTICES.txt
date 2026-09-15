@@ -293,3 +293,10 @@ packaged with the driver and installed here. These licenses do not grant
 transport-standard conformance or physical hardware qualification.
 
 0.79.28: RM TSG scheduling uses NVIDIA570.144 ctrla06c.h (MIT), pin 8ec351aeb96a93a4bb69ccc12a542bf8a8df2b6f. The complete original notice is included in NVIDIA-GSP-RUNTIME-LICENSE.txt. R4OS scheduling/residency ownership code remains Apache-2.0. No new firmware binary.
+
+
+Power and telemetry (0.79.29): NVIDIA.R4D uses the R4NV RUSD decoder and
+documented NVIDIA 570.144 shared-data, finite-boost and GPU-timer controls
+(MIT, commit 8ec351aeb96a93a4bb69ccc12a542bf8a8df2b6f). Complete original
+notices are in NVIDIA-GSP-RUNTIME-LICENSE.txt. R4OS ownership, cache and
+policy remain Apache-2.0. No additional firmware binary is included.
