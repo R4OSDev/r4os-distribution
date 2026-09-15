@@ -2,7 +2,7 @@
 #
 # Format:
 # ITEM;title=<label>;path=<r4x path>;args=<optional args>;class=<console|gui>;policy=<console|gui|auto>
-# ACTION;title=<label>;action=<terminal_mode|run|tasks|restart|poweroff|halt>
+# ACTION;title=<label>;action=<terminal_mode|run|tasks|restart|poweroff|halt|screen_off>
 # SUBMENU;title=<label>;id=<programs|settings>
 # CHILDMENU;menu=<parent id>;title=<label>;id=<child id>
 # SUBACTION;menu=<submenu id>;title=<label>;action=<desktop>
@@ -37,3 +37,4 @@ ACTION;title=Tasks;action=tasks
 ACTION;title=Restart;action=restart
 ACTION;title=Poweroff;action=poweroff
 ACTION;title=Halt;action=halt
+ACTION;title=Screen off;action=screen_off
