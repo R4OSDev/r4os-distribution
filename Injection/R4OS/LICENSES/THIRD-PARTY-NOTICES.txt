@@ -343,3 +343,12 @@ Exact source/recipe identities: Libraries/R4NAK/Tools/Sources.lock.json and
 Libraries/R4NV/Tools/Compiler/Sources.lock.json. The freestanding R4L has
 no Linux, host libc, Rust std or GPU firmware dependency. Original R4OS
 ownership, cache, ABI and orchestration code remains Apache-2.0.
+
+
+R4VK native Vulkan provider (optional)
+-------------------------------------
+Mesa 26.2.2 NVK, NIL, Vulkan runtime, NIR/NAK and selected utilities retain
+their original notices. Full common compiler/runtime terms and additional
+Vulkan/NIL source notices are in R4VK-NOTICES.txt. The same pinned inputs
+as R4NAK are used; native platform adapters remain Apache-2.0. R4VK is an
+integration artifact and makes no Vulkan conformance claim.
