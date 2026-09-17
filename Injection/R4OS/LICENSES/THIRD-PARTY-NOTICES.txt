@@ -5,6 +5,23 @@ Apache License 2.0 applies only to original R4OS material. Third-party
 components retain the licenses listed below. Complete license texts are stored
 in this directory.
 
+Native Mesa EGL/OpenGL software runtime (R4GL)
+--------------------------------------------
+Mesa 26.2.2 and selected Zig-bundled libc++ sources retain their original
+per-file licenses. Full Mesa/LLVM terms and source notices: R4GL-NOTICES.txt.
+Build/source/header provenance: Libraries/R4GL/Tools and ThirdParty.
+
+Native Mesa mathematics (Zig 0.16.0 bundled musl and stdlib)
+----------------------------------------------------------
+Original checksum-pinned power/scaling C routines and native wrappers around
+the bundled inverse trigonometric algorithms retain their MIT/per-file terms.
+File: NATIVE-MATH-NOTICES.txt
+Build provenance: Libraries/Shared/Native/Math/Sources.json
+
+Native C numeric/formatted-string conversion uses original and adapted musl scanner sources bundled with Zig 0.16.0.
+File: NATIVE-SCAN-NOTICES.txt
+Build provenance: Libraries/Shared/Native/Scan/Sources.json
+
 Limine 12.0.1
 --------------
 Copyright (C) 2019-2026 Mintsuki and contributors.
