@@ -1,0 +1,40 @@
+﻿R4VIDEO / FFmpeg
+===============
+This software uses code of the FFmpeg project under LGPL-2.1-or-later.
+R4VIDEO.R4L combines a pinned FFmpeg9.0.1 libavcodec/libavutil H.264 subset
+with R4OS adapters. GPL and nonfree components are disabled. CUDA/CUVID and
+the proprietary NVIDIA decoder library are not included.
+
+Full license: FFmpeg-LGPL-2.1.txt. Original per-file copyright notices and
+licenses are retained in the corresponding source package. The adapted
+NVDEC parameter bridge credits Anton Khirnov (2016). Original separable
+R4OS source files retain Apache-2.0. NVIDIA/Mesa encoder attribution is in
+Libraries/R4NV/Source/video.zig and its bundled original notices.
+
+Every current image includes the matching source/build package:
+  C:\R4OS\SOURCES\R4VIDEO\R4VIDEO-SOURCE.tar.gz
+  C:\R4OS\SOURCES\R4VIDEO\R4VIDEO-SOURCE.json
+The manifest identifies the distributed R4VIDEO.R4L and all source hashes.
+The archive contains the unmodified FFmpeg tarball, R4OS patches/adapters,
+all R4VIDEO sources and the SDK/contract/build dependencies used to rebuild
+and relink the module. No written-source-offer request is necessary.
+
+Extract the package on a Windows or Linux build host. Install PowerShell7,
+Zig0.16.0 (complete lib tree), clang19.1.7, NASM>=2.16, git and tar. The Zig
+installation is under <DevKit>/Toolchains/Zig. Then run:
+  pwsh -NoProfile -File Repositories/Libraries/R4VIDEO/Tools/RebuildSources.ps1 -DevKitDirectory <DevKit>
+The matching FFmpeg archive is supplied for the offline build. Port/Config
+and Tools/NativeInputs.json describe the exact selected native profile;
+Port/*.patch contains upstream changes. Modified sources can be rebuilt
+with the same tools; update the source pin when replacing the upstream
+archive. Keep original notices and the selected library license.
+
+The output Repositories/Libraries/R4VIDEO/zig-out/R4VIDEO.R4L can replace
+C:\R4OS\LIBS\R4VIDEO.R4L while no application holds that loaded generation.
+Stop consumers or reboot after replacement. There is no signature lock or
+restriction on modification, relinking, or reverse engineering for debugging
+such modifications. Keep the public VIDEO_V1 ABI compatible with consumers.
+
+References:
+https://ffmpeg.org/legal.html
+https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html

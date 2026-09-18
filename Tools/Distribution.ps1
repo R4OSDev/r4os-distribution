@@ -28,7 +28,7 @@ function Get-R4DistributionProfile($Context,[string]$Name) {
     $profile.BOOT_MB -cne '128' -or $profile.SYSTEM_MB -cne '10240' -or $profile.RECOVERY_MB -cne '5120' -or $profile.DATA_SIZE -cne 'rest'){throw "Invalid common layout in $Name profile."}
  return $profile
 }
-function Get-R4DistributionLegalNames {return @('R4OS-LICENSE.txt','R4OS-NOTICE.txt','THIRD-PARTY-NOTICES.txt','Limine-BSD-2-Clause.txt','FreeType-FTL.txt','Brotli-MIT.txt','zlib.txt','stb_image-MIT.txt','LITTLECMS-LICENSE.txt','RTL8168-GPL-2.0-only.txt','libdisplay-info-MIT.txt','NVIDIA-570.144-LICENSE.txt','NVIDIA-570.144-HEADERS-LICENSE.txt','NVIDIA-570.144-GSP-BOOT-LICENSE.txt','NVIDIA-570.144-PRAMIN-LICENSE.txt','NVIDIA-570.144-BAR1-LICENSE.txt','NVIDIA-BOOT-DISPLAY-LICENSE.txt','NVIDIA-DISPLAY-CONTEXT-LICENSE.txt','NVIDIA-DISPLAY-COLOR-LICENSE.txt','NVIDIA-DISPLAY-ASSETS-LICENSE.txt','NVIDIA-CONNECTORS-LICENSE.txt','NVIDIA-GSP-LOG-LICENSE.txt','NVIDIA-GSP-RUNTIME-LICENSE.txt','R4NAK-NOTICES.txt','R4VK-NOTICES.txt','R4GL-NOTICES.txt','NATIVE-MATH-NOTICES.txt','NATIVE-SCAN-NOTICES.txt')}
+function Get-R4DistributionLegalNames {return @('R4OS-LICENSE.txt','R4OS-NOTICE.txt','THIRD-PARTY-NOTICES.txt','Limine-BSD-2-Clause.txt','FreeType-FTL.txt','Brotli-MIT.txt','zlib.txt','stb_image-MIT.txt','LITTLECMS-LICENSE.txt','RTL8168-GPL-2.0-only.txt','libdisplay-info-MIT.txt','NVIDIA-570.144-LICENSE.txt','NVIDIA-570.144-HEADERS-LICENSE.txt','NVIDIA-570.144-GSP-BOOT-LICENSE.txt','NVIDIA-570.144-PRAMIN-LICENSE.txt','NVIDIA-570.144-BAR1-LICENSE.txt','NVIDIA-BOOT-DISPLAY-LICENSE.txt','NVIDIA-DISPLAY-CONTEXT-LICENSE.txt','NVIDIA-DISPLAY-COLOR-LICENSE.txt','NVIDIA-DISPLAY-ASSETS-LICENSE.txt','NVIDIA-CONNECTORS-LICENSE.txt','NVIDIA-GSP-LOG-LICENSE.txt','NVIDIA-GSP-RUNTIME-LICENSE.txt','R4NAK-NOTICES.txt','R4VK-NOTICES.txt','R4GL-NOTICES.txt','NATIVE-MATH-NOTICES.txt','NATIVE-SCAN-NOTICES.txt','R4VIDEO-NOTICES.txt','FFmpeg-LGPL-2.1.txt')}
 function Test-R4DistributionLegal($Context,[string]$Plan='',[string]$Staged='') {
  $text=if($Plan){Get-Content -Raw -LiteralPath $Plan}else{''}
  foreach($name in Get-R4DistributionLegalNames){
@@ -55,11 +55,14 @@ function New-R4DistributionPlan($Context,[string]$Name,[string]$Variant='') {
  if($Variant -ceq 'browser'){$prepare+='-BrowserTest'}
  Invoke-R4Distribution 'pwsh' $prepare
  Test-R4DistributionLegal $Context
+ $videoSources=Join-Path $Context.output 'SourcePackages/R4VIDEO'
+ Invoke-R4Distribution 'pwsh' @('-NoProfile','-File',(Join-Path $Context.libraries 'R4VIDEO/Tools/PackageSources.ps1'),'-OutputDirectory',$videoSources)
  $tool=Join-Path $Context.prefix "bin/image-plan$($Context.suffix)"
  if(!(Test-Path $tool)){Build-R4DistributionTools $Context}
  $out=Join-Path $Context.output "Profiles/$Name";[IO.Directory]::CreateDirectory($out)|Out-Null
  $list=Join-Path $out 'image-adds.txt'
  $arguments=@('--output',$list,'--plan',(Join-Path $Context.input $profile.COMMON_PLAN),'--plan',(Join-Path $Context.input $profile.COMPONENT_PLAN))
+ $arguments+=@('--tree',($videoSources+'|/R4OS/SOURCES/R4VIDEO'))
  foreach($tree in @(@('sdk','Shared/C/include','Include/C'),@('sdk','Shared/C/src','Startup/C'),@('sdk','r4os/linker','Linker'),@('sdk','Templates','Templates'),@('sdk','BuildProfiles','BuildProfiles'),@('sdk','Toolchains','Toolchains'),
    @('contract','ABI','Contract/ABI'),@('contract','API','Contract/API'),@('contract','Generated','Contract/Generated'),@('contract','Module','Contract/Module'))){
   $arguments+=@('--tree',((Join-Path $Context[$tree[0]] $tree[1])+'|/R4OS/SDK/'+$tree[2]))
@@ -75,6 +78,10 @@ function New-R4DistributionPlan($Context,[string]$Name,[string]$Variant='') {
  Push-Location -LiteralPath $Context.root
  try{Invoke-R4Distribution $tool $arguments}finally{Pop-Location}
  Test-R4DistributionLegal $Context -Plan $list
+ $planText=Get-Content -Raw -LiteralPath $list
+ foreach($name in @('R4VIDEO-SOURCE.tar.gz','R4VIDEO-SOURCE.json')){
+  if(!$planText.Contains('/R4OS/SOURCES/R4VIDEO/'+$name)){throw "Image plan omits R4VIDEO corresponding sources: $name"}
+ }
  return $list
 }
 function Test-R4DistributionImage($Context,[string]$Name) {
