@@ -375,3 +375,11 @@ R4VIDEO / FFmpeg
 FFmpeg9.0.1 H.264 decoder/parser and adapters: LGPL-2.1-or-later.
 Full license: FFmpeg-LGPL-2.1.txt; source/rebuild/replacement: R4VIDEO-NOTICES.txt.
 Matching source package is included under R4OS/SOURCES/R4VIDEO in every image.
+
+
+R4ENC / OpenH264
+---------------
+OpenH264 2.6.0 encoder/common/processing and x86 assembly: BSD-2-Clause.
+Source build provenance: R4ENC-NOTICES.txt. Full original source license:
+OpenH264-BSD-2-Clause.txt. Shared formatting/math retain R4NAK-NOTICES.txt
+and NATIVE-MATH-NOTICES.txt. No Cisco binary distribution is included.
