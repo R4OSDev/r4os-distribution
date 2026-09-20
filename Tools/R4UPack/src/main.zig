@@ -168,8 +168,9 @@ pub fn main(init: std.process.Init) !void {
     }
     try validateUniqueRequirements(requirements.items);
     if (has_unversioned_payload and requirements.items.len == 0) {
-        return usage("configuration, font and SDK payloads require at least one concrete component requirement");
+        return usage("unversioned payloads require at least one concrete component requirement");
     }
+    try validateCompanionRecovery(payloads.items, requirements.items);
 
     var manifest: std.ArrayList(u8) = .empty;
     defer manifest.deinit(allocator);
@@ -576,10 +577,13 @@ fn validKind(kind: []const u8) bool {
         std.mem.eql(u8, kind, "software") or
         std.mem.eql(u8, kind, "font") or
         std.mem.eql(u8, kind, "config") or
-        std.mem.eql(u8, kind, "sdk");
+        std.mem.eql(u8, kind, "sdk") or
+        std.mem.eql(u8, kind, "license") or
+        std.mem.eql(u8, kind, "source");
 }
 
 fn kindFromTarget(target: []const u8) []const u8 {
+    if (contract.paths.companionKind(target)) |kind| return @tagName(kind);
     if (pathEquals(target, "/boot/r4os.elf") or pathEquals(target, "\\boot\\r4os.elf")) return "boot-kernel";
     if (pathEquals(target, "C:\\CONFIG.R4S")) return "config";
     if (pathHasPrefix(target, "C:\\R4OS\\LIBS\\") and std.ascii.endsWithIgnoreCase(target, ".R4L")) return "system-library";
@@ -603,6 +607,24 @@ fn isForeignDriveTarget(target: []const u8) bool {
 
 fn kindMatchesTarget(kind: []const u8, target: []const u8) bool {
     return std.mem.eql(u8, kind, kindFromTarget(target));
+}
+
+fn validateCompanionRecovery(payloads: []const Payload, requirements: []const Requirement) !void {
+    var companions = false;
+    for (payloads) |payload| {
+        companions = companions or contract.paths.companionKind(payload.target) != null;
+    }
+    if (!companions) return;
+    for (payloads) |payload| {
+        if (payload.component) |component| {
+            if (component.kind == .kernel and !contract.kernelSupportsCompanions(component.versionText()))
+                return error.CompanionRecoveryKernelDowngrade;
+        }
+    }
+    for (requirements) |requirement| {
+        if (contract.companionRecoveryRequirement(requirement.kind, requirement.name, requirement.target, requirement.version, requirement.state)) return;
+    }
+    return error.CompanionRecoveryRequirementMissing;
 }
 
 fn componentTargetMatchesKind(kind: contract.ComponentKind, target: []const u8) bool {
@@ -632,6 +654,9 @@ test "subsystem R4X payloads use the software update class" {
     try std.testing.expect(kindMatchesTarget("software", target));
     try std.testing.expect(componentTargetMatchesKind(.r4x, "/R4OS/SUBSYSTEMS/r4os.gb/R4GB.R4X"));
     try std.testing.expectEqualStrings("unknown", kindFromTarget("C:\\R4OS\\SUBSYSTEMS\\r4os.gb\\README.TXT"));
+    try std.testing.expect(kindMatchesTarget("license", "C:/R4OS/LICENSES/GFX/NOTICE.TXT"));
+    try std.testing.expect(kindMatchesTarget("source", "C:/R4OS/SOURCES/R4VIDEO/SOURCE.ZIP"));
+    try std.testing.expect(!kindMatchesTarget("license", "C:/R4OS/LIBS/GFX.R4L"));
 }
 
 test "stream chunks preserve bytes and stop on source or destination failure" {
@@ -684,6 +709,24 @@ test "changed streamed source preserves the previous complete output" {
     var payload = try parsePayloadSpec(std.testing.allocator, temporary.dir, io, "source.bin|C:\\R4OS\\CONFIG\\TEST.R4S|config", &scratch);
     defer payload.file.close(io);
     defer std.testing.allocator.free(payload.canonical_target);
+    // Companion bytes are admitted only with the already-running recovery
+    // owner. Merely shipping that kernel in the same package is insufficient.
+    var companion = payload;
+    companion.target = "C:/R4OS/LICENSES/GFX/NOTICE.TXT";
+    companion.kind = "license";
+    try std.testing.expectError(error.CompanionRecoveryRequirementMissing, validateCompanionRecovery(&.{companion}, &.{}));
+    var requirement = try parseRequirement(std.testing.allocator, "KERNEL|KERNEL|/boot/r4os.elf|0.1.199|installed");
+    defer std.testing.allocator.free(requirement.target);
+    try std.testing.expectError(error.CompanionRecoveryRequirementMissing, validateCompanionRecovery(&.{companion}, &.{requirement}));
+    requirement.state = .active;
+    try validateCompanionRecovery(&.{companion}, &.{requirement});
+    requirement.version = "0.1.198";
+    try std.testing.expectError(error.CompanionRecoveryRequirementMissing, validateCompanionRecovery(&.{companion}, &.{requirement}));
+    requirement.version = "0.1.199";
+    var old_kernel = payload;
+    old_kernel.component = .{ .kind = .kernel, .version_len = "0.1.198".len };
+    @memcpy(old_kernel.component.?.version[0.."0.1.198".len], "0.1.198");
+    try std.testing.expectError(error.CompanionRecoveryKernelDowngrade, validateCompanionRecovery(&.{ companion, old_kernel }, &.{requirement}));
     try temporary.dir.writeFile(io, .{ .sub_path = "source.bin", .data = "modified" });
     // Keep the recorded mtime current to exercise the independent second-pass
     // byte checksum, even on filesystems with coarse timestamp resolution.

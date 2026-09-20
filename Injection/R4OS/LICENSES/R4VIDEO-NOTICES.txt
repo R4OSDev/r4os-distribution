@@ -11,9 +11,12 @@ NVDEC parameter bridge credits Anton Khirnov (2016). Original separable
 R4OS source files retain Apache-2.0. NVIDIA/Mesa encoder attribution is in
 Libraries/R4NV/Source/video.zig and its bundled original notices.
 
-Every current image includes the matching source/build package:
-  C:\R4OS\SOURCES\R4VIDEO\R4VIDEO-SOURCE.tar.gz
-  C:\R4OS\SOURCES\R4VIDEO\R4VIDEO-SOURCE.json
+Every current image and graphics video update includes the matching source/build package:
+  C:\R4OS\SOURCES\R4VIDEO\SOURCE.TGZ
+  C:\R4OS\SOURCES\R4VIDEO\MANIFEST
+SOURCE.TGZ is a gzip-compressed tar archive; MANIFEST is UTF-8 JSON.
+Older installations may retain R4VIDEO-SOURCE.tar.gz and R4VIDEO-SOURCE.json.
+Those historical files are superseded by the two paths above after an update.
 The manifest identifies the distributed R4VIDEO.R4L and all source hashes.
 The archive contains the unmodified FFmpeg tarball, R4OS patches/adapters,
 all R4VIDEO sources and the SDK/contract/build dependencies used to rebuild

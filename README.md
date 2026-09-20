@@ -230,3 +230,23 @@ The common PS7 headless helper receives the explicit local namespace path
 through a saved/restored environment value and attaches the NVMe controller.
 Both Windows and Linux use this same preparation/argument path. Short clock
 runs keep four CPUs, no guest network and their existing QUICKPROBE stop.
+
+Offline graphics version groups (0.79.42)
+----------------------------------------
+After building the selected components:
+
+    ./Build.sh graphics-packages -GraphicsGroup all -ReleaseVersion 0.79.42
+
+Windows uses Build.bat with the same arguments. Groups are platform (kernel,
+updaters), core (NVIDIA/R4NV/R4GFX), api (NAK/Vulkan/OpenGL), video (decode/
+encode and corresponding source), desktop (Appearance, DeviceManager).
+Use -OutputRoot for a fresh output directory; existing sets are immutable.
+The action verifies the canonical module manifests, actual artifact identities,
+embedded firmware pins and full license texts locally. It never downloads or
+probes hardware. PACKAGES.json is build evidence; SYSUPD alone updates the
+installed MODULES.JSON transactionally. Missing required artifacts/dependencies
+fail packaging; omitting optional api/video/desktop groups remains supported.
+Install platform and reboot first, then stage the desired groups together and
+COMMIT. Companions require a running Kernel 0.1.199 or newer. The canonical
+video source targets in images and updates are R4OS/SOURCES/R4VIDEO/SOURCE.TGZ
+and MANIFEST. See workspace Docs/Deployment/GrafikPakete07942.txt for recovery.

@@ -62,7 +62,13 @@ function New-R4DistributionPlan($Context,[string]$Name,[string]$Variant='') {
  $out=Join-Path $Context.output "Profiles/$Name";[IO.Directory]::CreateDirectory($out)|Out-Null
  $list=Join-Path $out 'image-adds.txt'
  $arguments=@('--output',$list,'--plan',(Join-Path $Context.input $profile.COMMON_PLAN),'--plan',(Join-Path $Context.input $profile.COMPONENT_PLAN))
- $arguments+=@('--tree',($videoSources+'|/R4OS/SOURCES/R4VIDEO'))
+ $sourcePlan=Join-Path $out 'video-sources.plan'
+ $sourceEntries=@(
+  ((Join-Path $videoSources 'R4VIDEO-SOURCE.tar.gz').Replace('\','/')+':/R4OS/SOURCES/R4VIDEO/SOURCE.TGZ'),
+  ((Join-Path $videoSources 'R4VIDEO-SOURCE.json').Replace('\','/')+':/R4OS/SOURCES/R4VIDEO/MANIFEST')
+ )
+ [IO.File]::WriteAllLines($sourcePlan,$sourceEntries,[Text.UTF8Encoding]::new($false))
+ $arguments+=@('--plan',$sourcePlan)
  foreach($tree in @(@('sdk','Shared/C/include','Include/C'),@('sdk','Shared/C/src','Startup/C'),@('sdk','r4os/linker','Linker'),@('sdk','Templates','Templates'),@('sdk','BuildProfiles','BuildProfiles'),@('sdk','Toolchains','Toolchains'),
    @('contract','ABI','Contract/ABI'),@('contract','API','Contract/API'),@('contract','Generated','Contract/Generated'),@('contract','Module','Contract/Module'))){
   $arguments+=@('--tree',((Join-Path $Context[$tree[0]] $tree[1])+'|/R4OS/SDK/'+$tree[2]))
@@ -79,7 +85,7 @@ function New-R4DistributionPlan($Context,[string]$Name,[string]$Variant='') {
  try{Invoke-R4Distribution $tool $arguments}finally{Pop-Location}
  Test-R4DistributionLegal $Context -Plan $list
  $planText=Get-Content -Raw -LiteralPath $list
- foreach($name in @('R4VIDEO-SOURCE.tar.gz','R4VIDEO-SOURCE.json')){
+ foreach($name in @('SOURCE.TGZ','MANIFEST')){
   if(!$planText.Contains('/R4OS/SOURCES/R4VIDEO/'+$name)){throw "Image plan omits R4VIDEO corresponding sources: $name"}
  }
  return $list

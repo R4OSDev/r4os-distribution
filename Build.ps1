@@ -1,11 +1,12 @@
 param(
- [Parameter(Position=0)][ValidateSet('tools','test','plan','image','verify','qemu','ssh','headless','graphics-test','benchmark','recovery-image','check')][string]$Action='tools',
+ [Parameter(Position=0)][ValidateSet('tools','test','plan','image','verify','qemu','ssh','headless','graphics-test','graphics-packages','benchmark','recovery-image','check')][string]$Action='tools',
  [Parameter(Position=1)][ValidateSet('','Slim','Full','Test','Benchmark')][string]$Profile='',
  [Parameter(Position=2)][string]$Variant='', [Parameter(Position=3)][string]$WorkloadVersion='',
  [Parameter(Position=4)][string]$CacheState='', [Parameter(Position=5)][int]$Repetitions=0,
  [Parameter(Position=6)][string]$EnvironmentId='',
  [string]$InputList='', [Alias('RecoveryPackage')][string]$RecoveryCandidate='',
- [ValidateSet('local','usb')][string]$Medium='local', [string]$OutputRoot=''
+ [ValidateSet('local','usb')][string]$Medium='local', [string]$OutputRoot='',
+ [ValidateSet('all','platform','core','api','video','desktop')][string]$GraphicsGroup='all', [string]$ReleaseVersion=''
 )
 $ErrorActionPreference='Stop';Set-StrictMode -Version Latest
 try {
@@ -32,6 +33,9 @@ try {
    if($Profile -and $Profile -ne 'Test'){throw 'graphics-test uses only the explicit Test profile'}
    $graphicsVariant=if($Variant){$Variant}else{'all'}
    & (Join-Path $PSScriptRoot 'Tools/Test-VirtioGpu.ps1') -Variant $graphicsVariant
+  }
+  'graphics-packages' {
+   & (Join-Path $PSScriptRoot 'Tools/GraphicsPackages.ps1') -Group $GraphicsGroup -ReleaseVersion $ReleaseVersion -OutputDirectory $OutputRoot
   }
   'benchmark' {Start-R4DistributionBenchmark $context $Profile $Variant $WorkloadVersion $CacheState $Repetitions $EnvironmentId}
  }
