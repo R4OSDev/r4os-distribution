@@ -1,0 +1,38 @@
+{
+  "status": "passed",
+  "cpus": 4,
+  "variant": "bootfb",
+  "cases": [
+    {
+      "name": "state",
+      "exit_code": 0,
+      "marker": "state=bootfb"
+    },
+    {
+      "name": "buffers",
+      "exit_code": 0,
+      "marker": "DISPLAYD buffers result: OK"
+    },
+    {
+      "name": "queues",
+      "exit_code": 0,
+      "marker": "DISPLAYD queues kill: OK blocked-tasks=3"
+    },
+    {
+      "name": "compiler",
+      "exit_code": 0,
+      "marker": "DISPLAYD compiler cache: OK"
+    },
+    {
+      "name": "valid-package",
+      "exit_code": 0,
+      "marker": "VERIFY result: OK"
+    },
+    {
+      "name": "bad-package",
+      "exit_code": 1,
+      "marker": "VERIFY result: FAILED reason=component-artifact-metadata"
+    }
+  ],
+  "verification": "Existing completed guest log revalidated: malformed artifact returns 1, not dependency-error 2; no extra guest run."
+}

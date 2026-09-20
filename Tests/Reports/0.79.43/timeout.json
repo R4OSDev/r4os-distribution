@@ -1,0 +1,28 @@
+{
+  "status": "passed",
+  "cpus": 4,
+  "variant": "timeout",
+  "host": "KVM",
+  "seconds": 53.9614684,
+  "cases": [
+    {
+      "has": "state=software-native",
+      "name": "state",
+      "command": "DISPLAYD /STATE",
+      "code": 0
+    },
+    {
+      "has": "DISPLAYD virtio recovery: OK",
+      "name": "virtio",
+      "command": "DISPLAYD /VIRTIO /FAIL",
+      "code": 0
+    },
+    {
+      "has": "DISPLAYD buffers result: OK",
+      "name": "fallback-buffers",
+      "command": "DISPLAYD /BUFFERS",
+      "code": 0
+    }
+  ],
+  "captures": []
+}

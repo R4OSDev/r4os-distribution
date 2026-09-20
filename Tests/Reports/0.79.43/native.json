@@ -1,0 +1,39 @@
+{
+  "status": "passed",
+  "cpus": 4,
+  "variant": "native",
+  "host": "KVM",
+  "seconds": 59.8729352,
+  "cases": [
+    {
+      "name": "state",
+      "code": 0,
+      "command": "DISPLAYD /STATE",
+      "has": "state=software-native"
+    },
+    {
+      "name": "virtio",
+      "code": 0,
+      "command": "DISPLAYD /VIRTIO /RESIZE",
+      "has": "DISPLAYD virtio frames: OK"
+    }
+  ],
+  "captures": [
+    {
+      "file": "/root/Projekte/R4OS/Temp/gfx-stability07943/Guest-native/screen-1.ppm",
+      "phase": 1,
+      "sha256": "ebeafc156cf588fb64984447c3b863371a4be34724adbf6f5ba85872c36a5aec",
+      "height": 720,
+      "width": 1280,
+      "verifiedPixels": 16384
+    },
+    {
+      "file": "/root/Projekte/R4OS/Temp/gfx-stability07943/Guest-native/screen-2.ppm",
+      "phase": 2,
+      "sha256": "3b49e3fffab79dc637acd863c624535d755949c65e0ef7e4296bb41cfc1ed50f",
+      "height": 720,
+      "width": 1280,
+      "verifiedPixels": 16384
+    }
+  ]
+}

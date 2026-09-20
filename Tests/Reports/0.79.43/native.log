@@ -1,0 +1,373 @@
+  GDT loaded [OK]
+  TSS loaded [OK]
+  IDT loaded [OK]
+
+=== R4OS x86_64 (Limine boot) ===
+  Booted via Limine [OK]
+  CPU tables / PIC [OK]
+  Timer core PIT 1000 Hz [OK]
+  Keyboard IRQ [OK]
+  Mouse IRQ [OK]
+  Long mode active
+  Framebuffer: 1280 x 720 @ 32 bpp
+  Console: 80 cols x 45 rows (8x8 font, 2x scale)
+  Kernel base: 0xFFFFFFFF80000000
+
+MemoryBoot: Memory Map [START]
+  Memory map entries: 24
+    [0] bootloader base=0x0000000000001000 len=0x0000000000066000
+    [1] usable base=0x0000000000067000 len=0x0000000000038000 usable-pages=0x0000000000067000+0x0000000000038000
+    [2] reserved base=0x000000000009FC00 len=0x0000000000000400
+    [3] reserved base=0x00000000000F0000 len=0x0000000000010000
+    [4] usable base=0x0000000000100000 len=0x000000003BDC4000 usable-pages=0x0000000000100000+0x000000003BDC4000
+    [5] kernel base=0x000000003BEC4000 len=0x0000000000308000
+    [6] kernel base=0x000000003C1CC000 len=0x0000000002579000
+    [7] bootloader base=0x000000003E745000 len=0x00000000017C9000
+    [8] usable base=0x000000003FF0E000 len=0x0000000000008000 usable-pages=0x000000003FF0E000+0x0000000000008000
+    [9] kernel base=0x000000003FF16000 len=0x0000000000003000
+    [10] usable base=0x000000003FF19000 len=0x0000000000001000 usable-pages=0x000000003FF19000+0x0000000000001000
+    [11] bootloader base=0x000000003FF1A000 len=0x0000000000002000
+    [12] kernel base=0x000000003FF1C000 len=0x0000000000003000
+    [13] bootloader base=0x000000003FF1F000 len=0x0000000000003000
+    [14] kernel base=0x000000003FF22000 len=0x0000000000003000
+    [15] bootloader base=0x000000003FF25000 len=0x0000000000003000
+    [16] kernel base=0x000000003FF28000 len=0x0000000000003000
+    [17] bootloader base=0x000000003FF2B000 len=0x00000000000B4000
+    [18] reserved base=0x000000003FFDF000 len=0x0000000000021000
+    [19] reserved base=0x00000000B0000000 len=0x0000000010000000
+    [20] framebuffer base=0x00000000FE000000 len=0x0000000000384000
+    [21] reserved base=0x00000000FED1C000 len=0x0000000000004000
+    [22] reserved base=0x00000000FEFFC000 len=0x0000000000004000
+    [23] reserved base=0x00000000FFFC0000 len=0x0000000000040000
+  Usable page-aligned bytes: 1004556288 overflow=no
+MemoryBoot: Memory Map [OK]
+MemoryBoot: MemoryBlock table [START]
+  MemoryBlocks: active=24 released=0 errors=0 overflow=no
+  MemoryBlocks bytes: phys=1345823744 virt=0 reserved=341267456 committed=46206976
+  MemoryBlocks free phys=1004556288 largest=0x0000000000100000 len=0x000000003BDC4000
+    boot: 6
+    kernel: 6
+    framebuffer: 1
+    reserved: 7
+    free: 4
+MemoryBoot: MemoryBlock table [OK]
+MemoryBoot: Physical allocator [START]
+[SMP] low-memory trampolines reserved=31
+  Physical frames: total=261914 free=245214 used=16700
+  Physical extents: alloc=0 frames=0 max=0 free=0 returned=0
+  PMM bitmap: base=0x0000000000100000 bytes=32740
+MemoryBoot: Physical allocator [OK]
+MemoryBoot: Paging core [START]
+  Paging root CR3: 0x000000003FF64000 hardware=0x000000003FF64000 owner=bootloader active=yes r4os=no
+  Paging mutations: map=0 unmap=0 wc-pages=0 invlpg=0 map-fail=0 unmap-fail=0 root-mismatches=0
+  Paging mutations: map=0 unmap=0 wc-pages=0 invlpg=0 failures=0
+  Paging batches: map=0 pages=0 max=0 rollback=0 unmap=0 pages=0 max=0
+  Paging shootdown failures=0 restores=0 restore-failures=0
+  Paging root mismatches=0
+  R4OS address layout plan:
+    low-canonical-unused 0x0000000000000000-0x0000800000000000 cache=unknown x=no w=no
+    hhdm-direct-map 0xFFFF800000000000-0xFFFFC00000000000 cache=normal-ram x=no w=yes dynamic=yes
+    kernel-dynamic 0xFFFFC00000000000-0xFFFFE00000000000 cache=normal-ram x=no w=yes
+    mmio-window 0xFFFFE00000000000-0xFFFFF00000000000 cache=mmio-uncached x=no w=yes
+    framebuffer-window 0xFFFFF00000000000-0xFFFFF10000000000 cache=framebuffer-wc x=no w=yes
+    kernel-image 0xFFFFFFFF80000000-0xFFFFFFFFA0000000 cache=normal-ram x=yes w=no
+  Page flags: present,writable,user,wt,cd,pat,global,nx
+MemoryBoot: Paging core [OK]
+MemoryBoot: Page-table builder selftest [SKIP]
+MemoryBoot: R4OS PML4 dry-run [START]
+  Page-table builder: sanity=0 failures=0 last-root=0x0000000000000000 tables=0
+  R4OS PML4 dry-run: runs=1 failures=0 root=0x0000000000086000 tables=35 source-cr3=0x000000003FF64000 limine-subtables=no
+  R4OS PML4 maps: hhdm 2M=636 4K=2939 kernel-pages=9593 kernel-skipped=6894 boot-probe-pages=265
+  R4OS PML4 probes: code=ok rodata=ok data=ok bss=ok stack=ok hhdm=ok pmm=ok bootinfo=ok heapmeta=ok
+  R4OS PML4 probe debug: bit=0x00000080 virt=0xFFFFFFFF82578000 step=0 source=0x000000003E744000 existing=0x000000003E744000
+MemoryBoot: R4OS PML4 dry-run [OK]
+MemoryBoot: Virtual ranges [START]
+  Virtual ranges: active=0 reserved=0 committed=0 resident=0 peak-resident=0 guard=0 faults=0/0 overflow=no
+  Virtual largest free: base=0xFFFFFB0000000000 len=0x0000040000000000
+  App memory reserve: frames=384 app_available_frames=244795
+MemoryBoot: Virtual ranges [OK]
+MemoryBoot: Framebuffer PAT-WC [START]
+MemoryBoot: Framebuffer PAT-WC [OK]
+MemoryBoot: Kernel heap [START]
+  Kernel heap: v3 pages=16 base=0xFFFFFF1000000000 used=0 free=65536 committed=65536 cap=251138048
+  Kernel heap VM: commit_calls=1 pages=16 failures=0 uncommit_calls=0 pages=0 failures=0 retained=32 suppressed=0 pressure=0 poison_bytes=0
+  Kernel heap blocks: active=0 free=1 largest_free=65536 frag=no
+  Kernel heap errors: alloc=0 oom=0 invalid_free=0 double_free=0 size_mismatch=0 reentry=0
+MemoryBoot: Kernel heap [OK]
+MemoryBoot: Console pixel backing [OK]
+  Memory [OK]
+  MemoryBlocks: active=63 released=0 errors=0 overflow=no
+  MemoryBlocks bytes: phys=1345823744 virt=1073741824 reserved=1419084800 committed=54038528
+  MemoryBlocks free phys=1000480768 largest=0x00000000004AB000 len=0x000000003BA19000
+    boot: 6
+    kernel: 38
+    kernel_heap: 4
+    page_table: 4
+    framebuffer: 1
+    reserved: 7
+    free: 3
+  Storage foundation [OK]
+  Module registry [OK]
+  R4OS device mappings [OK]
+  R4OS device mappings: runs=1 failures=0 records=12 truncated=no
+  R4OS device bytes: framebuffer=3686400 acpi=40960 mmio=268447744 pcie-bars=0 pcie-bar-count=0
+  R4OS device probes: framebuffer=ok lapic=ok ioapic=ok hpet=ok acpi=ok acpi-reset=missing ecam=ok pcie-bar=missing
+  R4OS device cache-policy: framebuffer=framebuffer-wc mmio=mmio-uncached acpi=acpi-firmware
+    framebuffer-window phys=0x00000000FE001000 virt=0xFFFFF00000000000 len=0x0000000000384000 cache=framebuffer-wc flags=0x800000000000008A mapped=yes
+    acpi-rsdp phys=0x00000000000F5000 virt=0xFFFF8000000F5000 len=0x0000000000002000 cache=acpi-firmware flags=0x8000000000000000 mapped=yes
+    acpi-rsdt phys=0x000000003FFE2000 virt=0xFFFF80003FFE2000 len=0x0000000000001000 cache=acpi-firmware flags=0x8000000000000000 mapped=yes
+    acpi-mcfg phys=0x000000003FFE2000 virt=0xFFFF80003FFE2000 len=0x0000000000001000 cache=acpi-firmware flags=0x8000000000000000 mapped=yes
+    acpi-madt phys=0x000000003FFE2000 virt=0xFFFF80003FFE2000 len=0x0000000000001000 cache=acpi-firmware flags=0x8000000000000000 mapped=yes
+    acpi-fadt phys=0x000000003FFE2000 virt=0xFFFF80003FFE2000 len=0x0000000000001000 cache=acpi-firmware flags=0x8000000000000000 mapped=yes
+    acpi-hpet phys=0x000000003FFE2000 virt=0xFFFF80003FFE2000 len=0x0000000000001000 cache=acpi-firmware flags=0x8000000000000000 mapped=yes
+    acpi-dsdt phys=0x000000003FFE0000 virt=0xFFFF80003FFE0000 len=0x0000000000003000 cache=acpi-firmware flags=0x8000000000000000 mapped=yes
+    lapic-mmio phys=0x00000000FEE00000 virt=0xFFFFE00000000000 len=0x0000000000001000 cache=mmio-uncached flags=0x8000000000000012 mapped=yes
+    ioapic-mmio phys=0x00000000FEC00000 virt=0xFFFFE00000200000 len=0x0000000000001000 cache=mmio-uncached flags=0x8000000000000012 mapped=yes
+    hpet-mmio phys=0x00000000FED00000 virt=0xFFFFE00000300000 len=0x0000000000001000 cache=mmio-uncached flags=0x8000000000000012 mapped=yes
+    pcie-ecam phys=0x00000000B0000000 virt=0xFFFFE00000400000 len=0x0000000010000000 cache=mmio-uncached flags=0x8000000000000012 mapped=yes
+  R4OS CR3 switch [OK]
+  R4OS CR3 switch: runs=1 failures=0 old=0x000000003FF64000 new=0x0000000000086000 active=0x0000000000086000 done=yes
+  R4OS CR3 post-checks: code=ok stack=ok hhdm=ok pmm=ok page-table=ok bootinfo=ok framebuffer=ok heap=ok
+  R4OS runtime maps: heap-bytes=3756032 heap-pages=917 heap-skipped=0
+  R4OS CR3 debug probe: bit=0x00000080 virt=0xFFFFFFFF82578000 step=0 source=0x000000003E744000 existing=0x000000003E744000
+  Limine page-tables: old=34 active=175 referenced=0 candidates=34 quarantined=34 released=0 retained=0 failures=0 truncated=no old-active=no decision=quarantine
+  R4OS TLB: CR3 write flushed active address translations; later single-page changes use INVLPG
+  Paging root CR3: 0x0000000000086000 hardware=0x0000000000086000 owner=r4os active=yes r4os=yes
+  Paging mutations: map=917 unmap=0 wc-pages=900 invlpg=917 map-fail=0 unmap-fail=0 root-mismatches=0
+  Platform mappings [OK]
+[MOD] load R4P_HIDREPORT kind=r4p sections=2 image=0xFFFFFF1000388000 size=8192 bss=zero imports_resolved=1 relocs=33
+[MOD] load R4P_USBHID kind=r4p sections=2 image=0xFFFFFF100038B000 size=8192 bss=zero imports_resolved=1 relocs=14
+[MOD] load R4P_USBBOT kind=r4p sections=2 image=0xFFFFFF100038E000 size=8192 bss=zero imports_resolved=1 relocs=12
+[MOD] load R4P_USBSCSI kind=r4p sections=2 image=0xFFFFFF1000391000 size=8192 bss=zero imports_resolved=1 relocs=28
+[MOD] load R4D_XHCI kind=r4d sections=3 image=0xFFFFFF1000394000 size=12288 bss=zero imports_resolved=1 relocs=14
+[R4D] load XHCI type=misc format=r4m
+[R4D] runtime load XHCI [OK]
+[MOD] load R4D_USBMSC kind=r4d sections=3 image=0xFFFFFF1000398000 size=12288 bss=zero imports_resolved=1 relocs=6
+[R4D] load USBMSC type=storage format=r4m
+[R4D] runtime load USBMSC [OK]
+[MOD] load R4D_AHCI kind=r4d sections=4 image=0xFFFFFF100039C000 size=380928 bss=zero imports_resolved=1 relocs=134
+[R4D] load AHCI type=storage format=r4m
+[R4D] runtime load AHCI [OK]
+[MOD] load R4D_NVME kind=r4d sections=4 image=0xFFFFFF10003FA000 size=2727936 bss=zero imports_resolved=1 relocs=88
+[R4D] load NVME type=storage format=r4m
+[R4D] runtime load NVME [OK]
+[MOD] load R4D_ATAPIO kind=r4d sections=4 image=0xFFFFFF1000695000 size=16384 bss=zero imports_resolved=1 relocs=49
+[R4D] load ATAPIO type=storage format=r4m
+[R4D] runtime load ATAPIO [OK]
+[R4P] load HIDREPORT role=usb.hid_report source=preload
+[R4P] load USBHID role=usb.hid_boot source=preload
+[R4P] load USBBOT role=usb.msc_bot source=preload
+[R4P] load USBSCSI role=usb.scsi_block source=preload
+[R4P] preload discovered=4 active=4
+[PRELOAD] R4I entries=9 r4p=4 r4d=5
+[USBPRELOAD] status loaded=9/9 missing=0 failed=0
+  Service registry [OK]
+[XHCI] canonical host already initialized source=preload; no second controller owner
+[USBMSC] preload R4D active; legacy rescue data path armed; owner=preload
+[ATAPIO][WARN] preload R4D active without blockdevice; no built-in ATA-PIO fallback in standard kernel
+[AHCI] canonical preload R4D active; owner=preload
+FAT32 mount dev=0 clusters=258016 scan=full ticks=504
+[INSTALLBOOT] executable=/boot/r4os.elf disk=7b59c530-ef01-4d72-b5bd-bb55318c8b22 partition=b08028d9-6096-4ea7-96c0-177cff682b59 mbr-id=0 partition-index=2
+[INSTALLBOOT] source=ok
+      NTFS 3.1: cluster=4096 record=1024 mft_runs=1 read-write
+      NTFS 3.1: cluster=4096 record=1024 mft_runs=1 read-write
+[INSTALLBOOT] installation=b7cef8ec-4f48-4930-bc5f-318c7c579105 C=e0905389-99f0-426e-9f70-0b16ba88aa8e BOOT=b08028d9-6096-4ea7-96c0-177cff682b59 D=eb5be8f4-575a-4652-b75f-fe7a3f81fd70
+FAT32 mount dev=0 clusters=1308156 scan=full ticks=2545
+[INSTALLBOOT] mapping=verified C=SYSTEM D=DATA BOOT=unlettered
+  Storage [OK]
+[MOD] scanning /R4OS/LIBS
+[MOD] resolver duplicate provider module=DUPMOD
+[MOD] interface reject module=BADTAB.R4L symbol=API_V1 reason=interface-range
+[MOD] duplicate export module=DUPEXP.R4L symbol=duplicate
+[MOD] load EXTMATH kind=r4l sections=2 image=0xFFFFFF1000742000 size=8192 bss=zero generation=3 pinned relocs=1
+[MOD] load LIB021 kind=r4l sections=1 image=0xFFFFFF1000745000 size=4096 bss=zero generation=1 pinned
+[MOD] load LSTRL kind=r4l sections=2 image=0xFFFFFF1000747000 size=397312 bss=zero generation=1 pinned
+[MOD] resolver missing module=NOPE021 importer=MISS021
+[MOD] resolver missing export module=LIB021 symbol=NotThere importer=NOSYM
+[MOD] load R4ENC kind=r4l sections=4 image=0xFFFFFF10007A9000 size=897024 bss=zero generation=3 pinned relocs=7564
+[MOD] load R4FONT kind=r4l sections=3 image=0xFFFFFF1000885000 size=770048 bss=zero generation=1 pinned relocs=5284
+[MOD] load R4GFX kind=r4l sections=4 image=0xFFFFFF1000942000 size=778240 bss=zero generation=1 pinned relocs=6981
+[MOD] load R4GL kind=r4l sections=4 image=0xFFFFFF1000A01000 size=20353024 bss=zero generation=1 pinned relocs=329416
+[MOD] load R4IMG kind=r4l sections=4 image=0xFFFFFF1001D6B000 size=307200 bss=zero generation=1 pinned relocs=1620
+[MOD] load R4NAK kind=r4l sections=4 image=0xFFFFFF1001DB7000 size=12664832 bss=zero generation=1 pinned relocs=168114
+[MOD] load R4NV kind=r4l sections=3 image=0xFFFFFF10029CC000 size=151552 bss=zero generation=1 pinned relocs=293
+[MOD] load R4STD kind=r4l sections=3 image=0xFFFFFF10029F2000 size=36864 bss=zero generation=1 pinned relocs=612
+[MOD] load R4VIDEO kind=r4l sections=4 image=0xFFFFFF10029FC000 size=2502656 bss=zero generation=1 pinned relocs=16606
+[MOD] load R4VK kind=r4l sections=4 image=0xFFFFFF1002C60000 size=15962112 bss=zero generation=1 pinned relocs=300372
+[MOD] resolver version reject module=LIB021 symbol=LibValue have=1 need=2 importer=VERBAD
+[MOD] load VIDPORT kind=r4l sections=4 image=0xFFFFFF1003B9A000 size=2568192 bss=zero generation=2 pinned relocs=15656
+[MOD] R4L loaded=14 total=29
+[MOD] resolver errors missing=1 symbol=1 version=1 cycle=0 duplicate=1 unresolved=0
+[R4D] scanning /R4OS/DRIVERS
+[MOD] load R4D_AHCI kind=r4d sections=4 image=0xFFFFFF1003E0E000 size=380928 bss=zero imports_resolved=1 relocs=134
+[R4D] module AHCI recognized
+[MOD] load R4D_ATAPIO kind=r4d sections=4 image=0xFFFFFF1003E6C000 size=16384 bss=zero imports_resolved=1 relocs=49
+[R4D] module ATAPIO recognized
+[MOD] load R4D_DISPBLIT kind=r4d sections=4 image=0xFFFFFF1003E71000 size=16384 bss=zero imports_resolved=1 relocs=25
+[R4D] module DISPBLIT recognized
+[MOD] load R4D_EXAMPLE kind=r4d sections=4 image=0xFFFFFF1003E76000 size=131072 bss=zero imports_resolved=1 relocs=991
+[R4D] module EXAMPLE recognized
+[MOD] load R4D_HDA kind=r4d sections=4 image=0xFFFFFF1003E97000 size=2424832 bss=zero imports_resolved=1 relocs=560
+[R4D] module HDA recognized
+[MOD] load R4D_LSTRD kind=r4d sections=2 image=0xFFFFFF10040E8000 size=397312 bss=zero
+[R4D] module LSTRD recognized
+[MOD] load R4D_NVIDIA kind=r4d sections=5 image=0xFFFFFF100414A000 size=13574144 bss=zero imports_resolved=1 relocs=11815
+[R4D] module NVIDIA recognized
+[MOD] load R4D_NVME kind=r4d sections=4 image=0xFFFFFF1004E3D000 size=2727936 bss=zero imports_resolved=1 relocs=88
+[R4D] module NVME recognized
+[MOD] load R4D_RTL8139 kind=r4d sections=4 image=0xFFFFFF10050D8000 size=20480 bss=zero imports_resolved=1 relocs=162
+[R4D] module RTL8139 recognized
+[MOD] load R4D_RTL8168 kind=r4d sections=3 image=0xFFFFFF10050DE000 size=28672 bss=zero imports_resolved=1 relocs=456
+[R4D] module RTL8168 recognized
+[MOD] load R4D_USBMSC kind=r4d sections=3 image=0xFFFFFF10050E6000 size=12288 bss=zero imports_resolved=1 relocs=6
+[R4D] module USBMSC recognized
+[MOD] load R4D_VIRTGPU kind=r4d sections=4 image=0xFFFFFF10050EA000 size=94208 bss=zero imports_resolved=1 relocs=926
+[R4D] module VIRTGPU recognized
+[MOD] load R4D_VIRTNET kind=r4d sections=4 image=0xFFFFFF1005102000 size=20480 bss=zero imports_resolved=1 relocs=259
+[R4D] module VIRTNET recognized
+[MOD] load R4D_XHCI kind=r4d sections=3 image=0xFFFFFF1005108000 size=12288 bss=zero imports_resolved=1 relocs=14
+[R4D] module XHCI recognized
+[R4D] modules discovered=14
+[MOD] summary total=43 r4l=14 r4x=0 r4d=19 r4p=4 builtin=6 failed=0
+[MOD] resolver errors missing=1 symbol=1 version=1 cycle=0 duplicate=1 unresolved=0
+[FONT] catalog loaded=14 rejected=0
+  Loader config [OK]
+[LAPIC] mode=xapic
+  Platform IRQ [IOAPIC]
+  Timer [HPET]
+[HDA] skipped, not selected by DRIVER=HDA
+[AC97] R4D skipped, not selected by DRIVER=AC97
+  Audio boot [OK]
+  NETBOOT cfg=default adapters=0 com2=no invalid=0 [OK]
+  NETBOOT tcp-table conns=16 slot_kb=423 total_kb=6768
+  Network boot [OK]
+  USBHID [not found]
+[TASKSTACK] guard-pages active: guard=16384 stack=65536 registry=dynamic stack_cache=8 critical_reserve=4
+  Task system [OK]
+[TIMER] deadline_queue=ordered idle=one-shot backend=HPET
+  Scheduler [OK]
+[SMP] stage=parked discovered=4 started=3 online=1 failed=0 fallback=1cpu
+[SMP] stage=active discovered=4 started=3 online=4 failed=0 fallback=no
+  SMP foundation [OK]
+  Service IPC worker [OK]
+  Driver workqueue [OK]
+  Block worker [OK]
+  Page-cache policy worker [OK]
+  Audio progress worker [OK]
+[R4D] load VIRTGPU type=display format=r4m
+[R4D] runtime load VIRTGPU [OK]
+  Driver policy [OK]
+  Driver policy summary config=1 selected=1 skipped=0 disabled=0 duplicates=0 capacity=0 already=0 loaded=1 missing=0 invalid=0 name_invalid=0 init_failed=0 load_failed=0 warnings=0 registry_before=6 registry_after=7 ps2_disabled=no atapio_ignored=no continue=yes
+NET rx-task started id=16
+NETRX handoff queue=64 batch=32 irq-inline=blocked wake=event fallback-ms=10
+DHCP05913 task=started id=17 generation=17
+BOOTSELFTEST OFF heap=0 page_tables=0 sync=0 priority=0
+DHCP05913 state=disabled link_gen=1 op_gen=0 retry=0 source=default ip=10.0.2.15 mask=255.255.255.0 gateway=10.0.2.2 dns=10.0.2.3 error=none
+[R4P] scanning /R4OS/PROTOCOLS
+[R4P] skip duplicate role usb.hid_report from HIDREPORT.R4P
+[R4P] skip duplicate role usb.msc_bot from USBBOT.R4P
+[R4P] skip duplicate role usb.hid_boot from USBHID.R4P
+[R4P] skip duplicate role usb.scsi_block from USBSCSI.R4P
+[R4P] catalog roles=17 candidates=17 active=4 demand-full=0 alternates=4
+Protocol registry
+  usb.hid_report name=HIDREPORT src=preload cat=usb state=active note=HID report parser R4P ready
+  usb.hid_boot name=USBHID src=preload cat=usb state=active note=USB HID boot R4P ready
+  usb.msc_bot name=USBBOT src=preload cat=usb state=active note=USB MSC BOT R4P ready
+  usb.scsi_block name=USBSCSI src=preload cat=usb state=active note=USB SCSI block R4P ready
+  misc.baddep name=BADDEP src=r4p cat=misc state=loaded note=installed; lazy
+  misc.conformance name=CONF src=r4p cat=misc state=loaded note=installed; lazy
+  misc.example name=EXAMPLE src=r4p cat=misc state=loaded note=installed; lazy
+  format.json name=JSON src=r4p cat=data state=loaded note=installed; lazy
+  misc.loaderstress name=LSTRP src=r4p cat=misc state=loaded note=installed; lazy
+  net.arp name=NETARP src=r4p cat=net state=loaded note=installed; lazy
+  net.dhcp name=NETDHCP src=r4p cat=net state=loaded note=installed; lazy
+  net.dns name=NETDNS src=r4p cat=net state=loaded note=installed; lazy
+  net.ethernet name=NETETH src=r4p cat=net state=loaded note=installed; lazy
+  net.icmp name=NETICMP src=r4p cat=net state=loaded note=installed; lazy
+  net.ipv4 name=NETIPV4 src=r4p cat=net state=loaded note=installed; lazy
+  net.tcp name=NETTCP src=r4p cat=net state=loaded note=installed; lazy
+  net.udp name=NETUDP src=r4p cat=net state=loaded note=installed; lazy
+  security.credssp name=R4AUTH src=r4p cat=data state=loaded note=installed; lazy
+  security.tls name=R4TLS src=r4p cat=data state=loaded note=installed; lazy
+  format.zip name=R4ZIP src=r4p cat=data state=loaded note=installed; lazy
+  misc.smoke name=SMOKE src=r4p cat=misc state=loaded note=installed; lazy
+  Loader [OK]
+  Deadman watchdog [OK]
+
+  Launcher [START]
+[R4X] named import module=R4STD symbol=SETTINGS_V1 need=1 have=1 generation=1
+[R4X] named import module=R4STD symbol=DATE_V1 need=1 have=1 generation=1
+[R4X] named import module=R4STD symbol=TIME_V1 need=1 have=1 generation=1
+[R4X] named import module=R4STD symbol=CONFIG_V1 need=1 have=1 generation=1
+[R4X] named import module=R4STD symbol=DATE_V1 need=1 have=1 generation=1
+[R4X] named import module=R4STD symbol=TIME_V1 need=1 have=1 generation=1
+R4OS Release 0.79.38
+Kernel active 0.1.199
+Kernel installed 0.1.198 (Restart required)
+[STABILITY] state
+[R4X] named import module=R4GFX symbol=API_V1 need=1 have=1 generation=1
+[R4X] named import module=R4GFX symbol=RENDER_V1 need=1 have=1 generation=1
+[R4X] named import module=R4GFX symbol=DEVICE_V1 need=10 have=10 generation=1
+[R4X] named import module=R4NV symbol=BACKEND_V1 need=3 have=3 generation=1
+[R4X] named import module=R4NV symbol=SHADER_V1 need=1 have=1 generation=1
+[R4X] named import module=R4NAK symbol=COMPILER_V1 need=1 have=1 generation=1
+DISPLAYD state: OK state=software-native policy=automatic reason=none backend=VIRTGPU fallback=native-cpu generation=2 reset=1 owner=7 adapter=16777240 pending-owner=0 pending-generation=0 caps=11 boot=1280x720
+Output: VIRTGPU (software on native output)
+Active GPU: Display controller
+Loaded driver: VIRTGPU 0.1.6
+Firmware bundle: unknown
+Current boot: Automatic
+No fallback error reported
+Software fallback: native-cpu
+Native graphics: experimental; physical acceptance pending
+  BO bytes RAM=3686400 device=0 backed-RAM=3686400 backed-device=0
+  BO pin bytes RAM=3686400 device=0 scanout=0 mapping=3686400 (overlapping subsets)
+  BO pending bytes allocation=0 destruction=0 retained=0
+SHELL=C:\R4OS\SOFTWARE\TERMINAL\TERMINAL.R4X
+PATH=C:\R4OS\SOFTWARE\TERMINAL;C:\R4OS\SOFTWARE\TERMINAL\DIAG
+PROMPT=$P$G
+CWD=C:\
+TEMP=C:\TEMP
+ERRORLEVEL=0
+[STABILITY] virtio
+[R4X] named import module=R4GFX symbol=API_V1 need=1 have=1 generation=1
+[R4X] named import module=R4GFX symbol=RENDER_V1 need=1 have=1 generation=1
+[R4X] named import module=R4GFX symbol=DEVICE_V1 need=10 have=10 generation=1
+[R4X] named import module=R4NV symbol=BACKEND_V1 need=3 have=3 generation=1
+[R4X] named import module=R4NV symbol=SHADER_V1 need=1 have=1 generation=1
+[R4X] named import module=R4NAK symbol=COMPILER_V1 need=1 have=1 generation=1
+[GFX07908] screen=1
+DISPLAYD virtio resize: OK idle-event=received stale-EDID=rejected active-surface=preserved
+[GFX07908] screen=2
+DISPLAYD virtio resize: OK idle-event=received stale-EDID=rejected active-surface=preserved
+[MOD] load R4D_VIRTGPU kind=r4d sections=4 image=0xFFFFFF10050EA000 size=94208 bss=zero imports_resolved=1 relocs=926
+[R4D] module VIRTGPU recognized
+[PLAN] load VIRTGPU
+[R4D] load VIRTGPU type=display format=r4m
+[DRIVER] VIRTGPU (r4d/display) -> GELADEN
+[LOG1] source=Driver severity=Info owner=7 text=VIRTGPU output=1 host-request=1280x720 edid=256 receiver-modes=18 warnings=28 surface=1280x720
+[LOG1] source=Driver severity=Info owner=7 text=VIRTGPU native: OK adapter=1000018 scanout=0 mode=1280x720 backing-pages=900 completion=device-execution vblank=unknown
+[DRIVER] VIRTGPU (r4d/display) -> INITIALISIERT
+[DRIVER] VIRTGPU (r4d/display) -> AKTIV
+[R4D] runtime load VIRTGPU [OK]
+[DRIVER]   VIRTGPU src=r4d type=display v=1 state=AKTIV
+[LOG1] source=Driver severity=Info owner=7 text=VIRTGPU frame=1 bo=1:1 fence=1:1 completion=device-execution bytes=374784
+[LOG1] source=Driver severity=Info owner=7 text=VIRTGPU output=1 host-request=1600x900 edid=256 receiver-modes=18 warnings=28 surface=1280x720
+[LOG1] source=Driver severity=Info owner=7 text=VIRTGPU display-change=1 generation=3 host-request=1600x900 active-surface=1280x720 irq-worker=retained
+[LOG1] source=Driver severity=Info owner=7 text=VIRTGPU frame=2 bo=1:1 fence=1:2 completion=device-execution bytes=749568
+[LOG1] source=Driver severity=Info owner=7 text=VIRTGPU frame=3 bo=1:1 fence=1:3 completion=device-execution bytes=1124352
+[LOG1] source=Driver severity=Info owner=7 text=VIRTGPU frame=16 bo=1:1 fence=1:16 completion=device-execution bytes=5996544
+[LOG1] source=Driver severity=Info owner=7 text=VIRTGPU frame=32 bo=1:1 fence=1:32 completion=device-execution bytes=11993088
+[LOG1] source=Driver severity=Info owner=7 text=VIRTGPU output=1 host-request=1280x720 edid=256 receiver-modes=18 warnings=28 surface=1280x720
+[LOG1] source=Driver severity=Info owner=7 text=VIRTGPU display-change=2 generation=4 host-request=1280x720 active-surface=1280x720 irq-worker=retained
+DISPLAYD virtio frames: OK count=32 shared-BO=reused resources=balanced completion=device-execution vblank=unknown
+SHELL=C:\R4OS\SOFTWARE\TERMINAL\TERMINAL.R4X
+PATH=C:\R4OS\SOFTWARE\TERMINAL;C:\R4OS\SOFTWARE\TERMINAL\DIAG
+PROMPT=$P$G
+CWD=C:\
+TEMP=C:\TEMP
+ERRORLEVEL=0
+[STABILITY] complete
+System poweroff.
+System poweroff.
+[R4SYS] registry generation=1 reads=1 cacheHits=0 fileLoads=1 validations=1 publications=1 commits=0 failures=0 retries=0 dirty=no pending=no
