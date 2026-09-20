@@ -1,0 +1,22 @@
+{
+  "status": "passed",
+  "cpus": 4,
+  "variant": "bootfb",
+  "host": "KVM",
+  "seconds": 50.236722,
+  "cases": [
+    {
+      "name": "state",
+      "code": 0,
+      "command": "DISPLAYD /STATE",
+      "has": "state=bootfb"
+    },
+    {
+      "name": "baseline",
+      "code": 0,
+      "command": "DISPLAYD /BASELINE /PRESENT /TRACE /SAMPLES=8",
+      "has": "DISPLAYD baseline result: OK"
+    }
+  ],
+  "captures": []
+}

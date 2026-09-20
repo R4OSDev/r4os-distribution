@@ -1,0 +1,20 @@
+{
+  "status": "passed",
+  "cpus": 4,
+  "variant": "native",
+  "host": "KVM",
+  "seconds": 55.6256102,
+  "cases": [],
+  "captures": [
+    {
+      "file": "/root/Projekte/R4OS/Temp/gfx-integration07944/Desktop-native/window-idle-geometry.png",
+      "phase": "window-idle-geometry",
+      "sha256": "F6C63149242F05F082065C961894B9BC34D8EBD9F13B9F229065EFDFDF791D38"
+    },
+    {
+      "file": "/root/Projekte/R4OS/Temp/gfx-integration07944/Desktop-native/window-idle-two-producers.png",
+      "phase": "window-idle-two-producers",
+      "sha256": "DF66CB5CDA63006047233C7EF1A83D4ACC309BFF2F63ED2D8814B82B9B254DD9"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "status": "passed",
+  "cpus": 4,
+  "variant": "bootfb",
+  "host": "KVM",
+  "seconds": 60.3852904,
+  "cases": [],
+  "captures": [
+    {
+      "file": "/root/Projekte/R4OS/Temp/gfx-integration07944/Desktop-bootfb/window-idle-geometry.png",
+      "sha256": "1F55A7EDF187BFFC16F66F61F78A87C8992891FEA1D5D9BA4CA9818FED4F3CB6",
+      "phase": "window-idle-geometry"
+    },
+    {
+      "file": "/root/Projekte/R4OS/Temp/gfx-integration07944/Desktop-bootfb/window-idle-two-producers.png",
+      "sha256": "F39424FB2A413115182E32867D98B642DAF245A23EE2785BF6222F152F83BCAD",
+      "phase": "window-idle-two-producers"
+    }
+  ]
+}

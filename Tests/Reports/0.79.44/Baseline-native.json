@@ -1,0 +1,22 @@
+{
+  "status": "passed",
+  "cpus": 4,
+  "variant": "native",
+  "host": "KVM",
+  "seconds": 50.2729659,
+  "cases": [
+    {
+      "code": 0,
+      "name": "state",
+      "has": "state=software-native",
+      "command": "DISPLAYD /STATE"
+    },
+    {
+      "code": 0,
+      "name": "baseline",
+      "has": "DISPLAYD baseline result: OK",
+      "command": "DISPLAYD /BASELINE /PRESENT /TRACE /SAMPLES=8"
+    }
+  ],
+  "captures": []
+}
