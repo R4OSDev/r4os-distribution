@@ -1,0 +1,93 @@
+{
+  "status": "passed",
+  "cpus": 4,
+  "boots": 3,
+  "network": false,
+  "kernel": "0.1.199",
+  "sysupd": "0.1.18",
+  "release": "0.79.45",
+  "packages": 5,
+  "payloads": 27,
+  "cases": [
+    {
+      "boot": 0,
+      "exit_code": 0,
+      "case": "verify-PLATFORM"
+    },
+    {
+      "boot": 0,
+      "exit_code": 0,
+      "case": "verify-CORE"
+    },
+    {
+      "boot": 0,
+      "exit_code": 2,
+      "case": "verify-API"
+    },
+    {
+      "boot": 0,
+      "exit_code": 2,
+      "case": "verify-VIDEO"
+    },
+    {
+      "boot": 0,
+      "exit_code": 2,
+      "case": "verify-DESKTOP"
+    },
+    {
+      "boot": 0,
+      "exit_code": 0,
+      "case": "stage-PLATFORM"
+    },
+    {
+      "boot": 0,
+      "exit_code": 0,
+      "case": "stage-CORE"
+    },
+    {
+      "boot": 0,
+      "exit_code": 0,
+      "case": "stage-API"
+    },
+    {
+      "boot": 0,
+      "exit_code": 0,
+      "case": "stage-VIDEO"
+    },
+    {
+      "boot": 0,
+      "exit_code": 0,
+      "case": "stage-DESKTOP"
+    },
+    {
+      "boot": 0,
+      "exit_code": 0,
+      "case": "next"
+    },
+    {
+      "boot": 1,
+      "exit_code": 0,
+      "case": "resume"
+    },
+    {
+      "boot": 1,
+      "exit_code": 0,
+      "case": "release"
+    },
+    {
+      "boot": 1,
+      "exit_code": 0,
+      "case": "state"
+    },
+    {
+      "boot": 1,
+      "exit_code": 0,
+      "case": "display"
+    },
+    {
+      "boot": 1,
+      "exit_code": 0,
+      "case": "desktop-config"
+    }
+  ]
+}

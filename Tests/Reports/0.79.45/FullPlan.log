@@ -1,0 +1,25 @@
+
+=== Dokumentinventar aktualisieren ===
+Docs-Inventar unveraendert: 188 Dokumente.
+
+=== Dokumentinventar-Gate ===
+Docs-Inventar-Gate erfolgreich: 188 Dokumente.
+
+=== Verwendete Workspace-Staende ===
+Contract: 2b36c512850a (main, sauber)
+SDK: fe9b32d32e06 (main, sauber)
+Libraries: e9cdfbcc3e57 (main, sauber)
+Kernel: 40eacec44d2d (main, sauber)
+Distribution: 408d8baf2fdc (main, geaendert)
+
+=== Full-Imageplan ===
+Workspace-Map: 179 Manifeste -> /root/Projekte/R4OS/Artifacts/Distribution/Inputs/WorkspaceModules.map
+
+=== Gemeinsame Distributionsartefakte ===
+PRELOAD.R4I created: /root/Projekte/R4OS/Artifacts/Distribution/Generated/PRELOAD.R4I (9 entries, 3174887 bytes)
+Default Registry hives created: /root/Projekte/R4OS/Artifacts/Distribution/Generated/RegistryDefaults
+ModuleCatalog workspace image plan OK: mode=full, entries=109, inventory generated.
+Common-Plan: 25 Eintraege -> /root/Projekte/R4OS/Artifacts/Distribution/Inputs/Common.plan
+Komponentenplan: /root/Projekte/R4OS/Artifacts/Distribution/Inputs/Full.plan
+
+R4OS Workspace-Build erfolgreich.

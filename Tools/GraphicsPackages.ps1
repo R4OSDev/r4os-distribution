@@ -13,13 +13,13 @@ $context=Get-R4DistributionContext (Split-Path $PSScriptRoot -Parent)
 $utf8=[Text.UTF8Encoding]::new($false)
 $groups=[ordered]@{
  platform=@('SYSUPD','UPDSVC')
- core=@('NVIDIA','R4NV','R4GFX')
+ core=@('R4STD','R4IMG','NVIDIA','R4NV','R4GFX','HDA','DISPBLIT')
  api=@('R4NAK','R4VK','R4GL')
  video=@('R4VIDEO','R4ENC')
- desktop=@('APPEARANCE','DEVMGR')
+ desktop=@('R4DESK','WINSVC','AUDSVC','APPEARANCE','DEVMGR','DISPLAYD')
 }
 $legal=@{
- core=@('libdisplay-info-MIT.txt','LITTLECMS-LICENSE.txt')
+ core=@('libdisplay-info-MIT.txt','LITTLECMS-LICENSE.txt','stb_image-MIT.txt')
  api=@('R4NAK-NOTICES.txt','R4VK-NOTICES.txt','R4GL-NOTICES.txt','NATIVE-MATH-NOTICES.txt','NATIVE-SCAN-NOTICES.txt')
  video=@('R4VIDEO-NOTICES.txt','FFmpeg-LGPL-2.1.txt','R4ENC-NOTICES.txt','OpenH264-BSD-2-Clause.txt','NATIVE-MATH-NOTICES.txt','NATIVE-SCAN-NOTICES.txt')
  desktop=@()

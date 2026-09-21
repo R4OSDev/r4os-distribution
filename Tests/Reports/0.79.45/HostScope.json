@@ -1,0 +1,227 @@
+{
+  "schema": 1,
+  "date": "2026-09-21",
+  "host": "Linux",
+  "status": "passed",
+  "scope": "PS7 parsing and absence of fixed workspace roots in graphics build entrypoints/helpers; not Windows execution",
+  "windows_host_executed": false,
+  "windows_followup": "ExFiles/Reports/OssiGPU.txt /0.79.34 A and /0.79.45 T6",
+  "files": [
+    {
+      "path": "Repositories/Distribution/Build.ps1",
+      "sha256": "342187ab90f3efcbdf3adb5e0e41bc2b457e6ac72ec57bc75ee198ff5f07f9ed"
+    },
+    {
+      "path": "Repositories/Distribution/Tools/GraphicsPackageResources.ps1",
+      "sha256": "b796b85180440d5bb764fde6e3c9835ea1eb8998003cf3d8eaa4f6f721705483"
+    },
+    {
+      "path": "Repositories/Distribution/Tools/GraphicsPackages.ps1",
+      "sha256": "67ead35b7c59623d092f687b60c7cf4e58da85ce6416c92decca5a3c4412aece"
+    },
+    {
+      "path": "Repositories/Drivers/NVIDIA/Tools/Bootstrap/FwsecAbi.ps1",
+      "sha256": "6c6b4b710836f86f0aa1f30b104152d49295f28a460f3c830961e881b5c7ab4f"
+    },
+    {
+      "path": "Repositories/Drivers/NVIDIA/Tools/Bootstrap/Origins.ps1",
+      "sha256": "948a4b5f9e1631916dacffd02c2451c776b9a2d58c103b3ce49fe96f9cf3f991"
+    },
+    {
+      "path": "Repositories/Drivers/NVIDIA/Tools/BuildRm.ps1",
+      "sha256": "fff0940cc9fc85d3d86b4af9cc5eabd65ab1d4fb7d61814a8da38ec0b5967549"
+    },
+    {
+      "path": "Repositories/Drivers/NVIDIA/Tools/FirmwarePackage.ps1",
+      "sha256": "18dbc71d5822231b98321ca958cf91fbdab568fd452ebd303c855471869d3175"
+    },
+    {
+      "path": "Repositories/Drivers/NVIDIA/Tools/GenerateProbeIds.ps1",
+      "sha256": "07ee286990091024d45b5b9117bbdb3f6e7ed54deb7fc45ead94a84c48f85ec4"
+    },
+    {
+      "path": "Repositories/Drivers/NVIDIA/Tools/PrepareBootFirmware.ps1",
+      "sha256": "eb5d463b6828480c80cece5a1eab28a25dd4a355209bf6c327a66b46aee1d449"
+    },
+    {
+      "path": "Repositories/Drivers/NVIDIA/Tools/PrepareBootPacks.ps1",
+      "sha256": "ed6e088a0660fe85f4d02269a648fd78a53c2dbe324d3b594a26f269c3521f86"
+    },
+    {
+      "path": "Repositories/Drivers/NVIDIA/Tools/PrepareBootstrap.ps1",
+      "sha256": "39788c009c696bcf25490d370b3c1e775923de2d35dbcfdfe6e4eb7c3ec2fd2a"
+    },
+    {
+      "path": "Repositories/Drivers/NVIDIA/Tools/PrepareFirmware.ps1",
+      "sha256": "ad2fa16df4fe8c93d3f36e6da13f3551d3858d03794b7608159f8c2f9da0c1a1"
+    },
+    {
+      "path": "Repositories/Drivers/NVIDIA/Tools/Rm/Adapter.ps1",
+      "sha256": "8937a52f743a3004a17472daed4ca7e8b969b3fbe235910d412656b3bcc34238"
+    },
+    {
+      "path": "Repositories/Drivers/NVIDIA/Tools/Rm/Compile.ps1",
+      "sha256": "f6aaac8f4f6963b20b005946f144671b62f966750607e2579e154584e8f42efb"
+    },
+    {
+      "path": "Repositories/Drivers/NVIDIA/Tools/Rm/Format.ps1",
+      "sha256": "81e51fab23f7c4a1e58b669c9a86c2802a66fe91544dfc74d69cef005c241482"
+    },
+    {
+      "path": "Repositories/Drivers/NVIDIA/Tools/Rm/InspectElf.ps1",
+      "sha256": "feb97d2c27a13ac2fd620d7a6a0bdd73696d7e1f358f652a2aa1fad9a79aba65"
+    },
+    {
+      "path": "Repositories/Drivers/NVIDIA/Tools/Rm/Link.ps1",
+      "sha256": "47631d41963026b24c83ee2de5d6c851bf76aa6811d4d5c9732300960826169c"
+    },
+    {
+      "path": "Repositories/Drivers/NVIDIA/Tools/Rm/Native.ps1",
+      "sha256": "2047dfe26eb38e2ac8a7d51ef9ec49648d2037bbbe88f5c2158a3f3ea5b0922e"
+    },
+    {
+      "path": "Repositories/Drivers/NVIDIA/Tools/Rm/Shaders.ps1",
+      "sha256": "ca6a8331c51fce61a6ca31dfff3a368bbde383c99415847ce781b2a6fd68737d"
+    },
+    {
+      "path": "Repositories/Drivers/NVIDIA/Tools/VerifyFirmwarePackage.ps1",
+      "sha256": "29dd0d75d99e9786a8da82fb3ad3a38f348e47c2e33436e0d462c13262f0f7d1"
+    },
+    {
+      "path": "Repositories/Drivers/NVIDIA/Tools/VerifyNativeHeaders.ps1",
+      "sha256": "33e771a71c2f60b37061eef843c49032588c1a60c237c1e82853700d09c2d296"
+    },
+    {
+      "path": "Repositories/Libraries/R4ENC/Tools/Build.ps1",
+      "sha256": "9c5e2c402a4deffdee66dd4e9cf75dceb13712d01f44e4e6e607a5dcb157e796"
+    },
+    {
+      "path": "Repositories/Libraries/R4ENC/Tools/BuildNative.ps1",
+      "sha256": "2e267a004cc33c97c0af2ded7a9e927b975d6bac7e0c3fa3505e11664dc314e2"
+    },
+    {
+      "path": "Repositories/Libraries/R4ENC/Tools/Common.ps1",
+      "sha256": "9819f0d8bba41bae2d3039de2c4428021c5a09e0ce563dbcf6a68137699f198c"
+    },
+    {
+      "path": "Repositories/Libraries/R4ENC/Tools/Contract.ps1",
+      "sha256": "0f70c9b1dd733277d5b0ed73a008400f030c81588b2059e365d07c7582d04c53"
+    },
+    {
+      "path": "Repositories/Libraries/R4ENC/Tools/Prepare.ps1",
+      "sha256": "a5230a8d19bfb63da5904007c3c35356b5133914e718603bed93f0fd93b3c023"
+    },
+    {
+      "path": "Repositories/Libraries/R4GL/Tools/Build.ps1",
+      "sha256": "454c25262efa3b55957acde3683ec5a44f07b079b582eba6d6d1645e50ae9419"
+    },
+    {
+      "path": "Repositories/Libraries/R4GL/Tools/BuildNative.ps1",
+      "sha256": "feeff91f9cfc1c87762843b50c46569589ab00bee824729fd0bccd025902a8dd"
+    },
+    {
+      "path": "Repositories/Libraries/R4GL/Tools/Common.ps1",
+      "sha256": "ddf69c1a2e23ae98cf9e59e58f9fa1e396b2bfa69f0399bda403357430a0ff26"
+    },
+    {
+      "path": "Repositories/Libraries/R4GL/Tools/Prepare.ps1",
+      "sha256": "f78f3a0fa07dd964d0508ff2a77b7be51dbd9296b955ff00bdeba94160a68b0f"
+    },
+    {
+      "path": "Repositories/Libraries/R4NAK/Tools/Bindings.ps1",
+      "sha256": "aa53b5adb6bc3f60734c37fb05d821999c7f2cd6b4ae2cc82af58d704cc4511e"
+    },
+    {
+      "path": "Repositories/Libraries/R4NAK/Tools/Build.ps1",
+      "sha256": "1d4476210fd4af47874232a43b0a4075e602d0565c00fbf708b6c0f427a9b773"
+    },
+    {
+      "path": "Repositories/Libraries/R4NAK/Tools/CInputs.ps1",
+      "sha256": "0f23657f05dc948e02ddf4225a28f0ebb3ec8a447c0d8d36ea363e4790d00cd7"
+    },
+    {
+      "path": "Repositories/Libraries/R4NAK/Tools/CompileRust.ps1",
+      "sha256": "2d8c994f61a3b460e058657641154298ec7ca7832d827bc0029c7da96d92e986"
+    },
+    {
+      "path": "Repositories/Libraries/R4NAK/Tools/PrepareRust.ps1",
+      "sha256": "e6b789c53bf5f39037744c3fd9810d2cd535cf2bd2ec358620f4ef4f9c9446a8"
+    },
+    {
+      "path": "Repositories/Libraries/R4VIDEO/Tools/Build.ps1",
+      "sha256": "0bc52ecb376847871451dc983765e803e621e4708a41c44a1486b6dfeb2d3272"
+    },
+    {
+      "path": "Repositories/Libraries/R4VIDEO/Tools/BuildNative.ps1",
+      "sha256": "84e2346e4df443cdd32b9473a9b41884e5724c66549ff50d093d39a288eab660"
+    },
+    {
+      "path": "Repositories/Libraries/R4VIDEO/Tools/Common.ps1",
+      "sha256": "1cfb1eee198d3c143fb8175cbbe122235efd47d8d4baf2e2af798752cc0b361e"
+    },
+    {
+      "path": "Repositories/Libraries/R4VIDEO/Tools/Contract.ps1",
+      "sha256": "8ec18e38ebaa6eea1d1a21125e1002b0907943342bc261d30c4786de0ed52cd5"
+    },
+    {
+      "path": "Repositories/Libraries/R4VIDEO/Tools/PackageSources.ps1",
+      "sha256": "062bc9792c55ba184fc91cafd338b4e57376fd8a5c5b452ccf772b1ce9caf005"
+    },
+    {
+      "path": "Repositories/Libraries/R4VIDEO/Tools/Prepare.ps1",
+      "sha256": "edf30bb03ba26fda6b457147c493a965b03d0afb56dfe5216478d35de0b9cb9d"
+    },
+    {
+      "path": "Repositories/Libraries/R4VIDEO/Tools/RebuildSources.ps1",
+      "sha256": "98c46e326d9122a5208af2f019dacd7ec42b883b1f613eaba9a5457b876a5538"
+    },
+    {
+      "path": "Repositories/Libraries/R4VIDEO/Tools/Tables.ps1",
+      "sha256": "75ddca57464be49c934b2d96c7031ad8799503e67986d024103d2a40f5e67dd6"
+    },
+    {
+      "path": "Repositories/Libraries/R4VK/Tools/Archive.ps1",
+      "sha256": "d1b8b9a65fd13f6b518bcca4d533981b201de339d9c6d677ab98e8b9338980ba"
+    },
+    {
+      "path": "Repositories/Libraries/R4VK/Tools/Build.ps1",
+      "sha256": "5cc5b94d43b7864c7fdffa859530ff589ee9f5f47a79ef3ea0efb1648f339425"
+    },
+    {
+      "path": "Repositories/Libraries/R4VK/Tools/BuildNative.ps1",
+      "sha256": "a3e576c4aa66fc2eae68fd4b16427fae2b4bf6b437f81437821f77f5f7bfc138"
+    },
+    {
+      "path": "Repositories/Libraries/R4VK/Tools/BuildNil.ps1",
+      "sha256": "f665f9b5b2a7a84744a446dc579db70af9403e69f7756c0a0c7085533abe2907"
+    },
+    {
+      "path": "Repositories/Libraries/R4VK/Tools/CInputs.ps1",
+      "sha256": "36121da92f34e2a58a580db88985c3054bc7bea5cb07bf4d87ca9c0a3ef6fe5d"
+    },
+    {
+      "path": "Repositories/Libraries/R4VK/Tools/MesaSource.ps1",
+      "sha256": "fee779f385cd758c549baf1a8c1912003b383388bcbfbdc9b3433b129c635acd"
+    },
+    {
+      "path": "Repositories/Libraries/R4VK/Tools/Prepare.ps1",
+      "sha256": "94da395cc52a0698241fa68d7dace0bfbb0743ddfa64d8f73fa509872d803379"
+    },
+    {
+      "path": "Repositories/Libraries/R4VK/Tools/PrepareShaders.ps1",
+      "sha256": "a92cc13a2b5f676e7af190241d4595a99e98967a422f784b392c417e76a591bf"
+    },
+    {
+      "path": "Repositories/SDK/Tools/BuildModule.ps1",
+      "sha256": "0a11ace54f91f4c8b5ade9292c6c99d450d2da707b4e2415e17db11a9dc67b5d"
+    },
+    {
+      "path": "Tools/Build.ps1",
+      "sha256": "d3c345df97229f3ed7dcac35bace9fda30adb5dac787d185471d1319fc182bb0"
+    },
+    {
+      "path": "Tools/BuildWorkspace.ps1",
+      "sha256": "654664425217f536bf5a1981e8562391a292f677b8ece2b8cdb1a563d126efb5"
+    }
+  ]
+}

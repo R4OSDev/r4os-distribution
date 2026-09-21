@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "exit_code": 0,
+  "profile": "Full",
+  "inventory_schema": 4,
+  "entries": 110,
+  "package_components_matched": 21,
+  "system_mb": 10240,
+  "recovery_mb": 5120,
+  "image_built": false
+}

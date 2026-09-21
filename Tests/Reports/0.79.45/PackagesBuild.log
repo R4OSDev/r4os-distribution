@@ -1,0 +1,46 @@
+
+=== Dokumentinventar aktualisieren ===
+Docs-Inventar unveraendert: 186 Dokumente.
+
+=== Dokumentinventar-Gate ===
+Docs-Inventar-Gate erfolgreich: 186 Dokumente.
+
+=== Verwendete Workspace-Staende ===
+Contract: 2b36c512850a (main, sauber)
+SDK: fe9b32d32e06 (main, sauber)
+Libraries: e9cdfbcc3e57 (main, sauber)
+Kernel: 40eacec44d2d (main, sauber)
+Distribution: 408d8baf2fdc (main, geaendert)
+Workspace-Map: 179 Manifeste -> /root/Projekte/R4OS/Artifacts/Distribution/Inputs/WorkspaceModules.map
+
+R4OS Workspace-Build erfolgreich.
+info: fork /root/Projekte/R4OS/Repositories/SDK matched 1 r4os_sdk packages
+info: fork /root/Projekte/R4OS/Repositories/Contract matched 1 r4os_contract packages
+info: fork /root/Projekte/R4OS/Repositories/Libraries matched 1 r4os_libraries packages
+Manifest valid: R4X SYSUPD v2 (/root/Projekte/R4OS/Repositories/Apps/SysUpdate/module.R4MF)
+Manifest valid: R4X UPDSVC v2 (/root/Projekte/R4OS/Repositories/Services/UpdateService/module.R4MF)
+Manifest valid: R4L R4STD v2 (/root/Projekte/R4OS/Repositories/Libraries/R4STD/module.R4MF)
+R4U2 created: /root/Projekte/R4OS/Temp/GraphicsPackages-bb545ba159464f4ebee71bc00884ea93/GFX-PLATFORM.R4U release=0.79.45 package-version=0.79.45 payloads=3 components=3 activation=restart priority=foundation checksum=752644839
+Manifest valid: R4L R4IMG v2 (/root/Projekte/R4OS/Repositories/Libraries/R4IMG/module.R4MF)
+Manifest valid: R4D NVIDIA v2 (/root/Projekte/R4OS/Repositories/Drivers/NVIDIA/module.R4MF)
+Manifest valid: R4L R4NV v2 (/root/Projekte/R4OS/Repositories/Libraries/R4NV/module.R4MF)
+Manifest valid: R4L R4GFX v2 (/root/Projekte/R4OS/Repositories/Libraries/R4GFX/module.R4MF)
+Manifest valid: R4D HDA v2 (/root/Projekte/R4OS/Repositories/Drivers/HDA/module.R4MF)
+Manifest valid: R4D DISPBLIT v2 (/root/Projekte/R4OS/Repositories/Drivers/DisplayBlit/module.R4MF)
+R4U2 created: /root/Projekte/R4OS/Temp/GraphicsPackages-bb545ba159464f4ebee71bc00884ea93/GFX-CORE.R4U release=0.79.45 package-version=0.79.45 payloads=8 components=7 activation=restart priority=foundation checksum=3189663261
+Manifest valid: R4L R4NAK v2 (/root/Projekte/R4OS/Repositories/Libraries/R4NAK/module.R4MF)
+Manifest valid: R4L R4VK v2 (/root/Projekte/R4OS/Repositories/Libraries/R4VK/module.R4MF)
+Manifest valid: R4L R4GL v2 (/root/Projekte/R4OS/Repositories/Libraries/R4GL/module.R4MF)
+R4U2 created: /root/Projekte/R4OS/Temp/GraphicsPackages-bb545ba159464f4ebee71bc00884ea93/GFX-API.R4U release=0.79.45 package-version=0.79.45 payloads=4 components=3 activation=restart priority=foundation checksum=1634758472
+Manifest valid: R4L R4VIDEO v2 (/root/Projekte/R4OS/Repositories/Libraries/R4VIDEO/module.R4MF)
+Manifest valid: R4L R4ENC v2 (/root/Projekte/R4OS/Repositories/Libraries/R4ENC/module.R4MF)
+R4VIDEO source package includes 541 exact source/build files.
+R4U2 created: /root/Projekte/R4OS/Temp/GraphicsPackages-bb545ba159464f4ebee71bc00884ea93/GFX-VIDEO.R4U release=0.79.45 package-version=0.79.45 payloads=5 components=2 activation=restart priority=foundation checksum=1769590376
+Manifest valid: R4X R4DESK v2 (/root/Projekte/R4OS/Repositories/Apps/Desktop/module.R4MF)
+Manifest valid: R4X WINSVC v2 (/root/Projekte/R4OS/Repositories/Services/WindowService/module.R4MF)
+Manifest valid: R4X AUDSVC v2 (/root/Projekte/R4OS/Repositories/Services/AudioService/module.R4MF)
+Manifest valid: R4X APPEARANCE v2 (/root/Projekte/R4OS/Repositories/Apps/Appearance/module.R4MF)
+Manifest valid: R4X DEVMGR v2 (/root/Projekte/R4OS/Repositories/Apps/DeviceManager/module.R4MF)
+Manifest valid: R4X DISPLAYD v2 (/root/Projekte/R4OS/Repositories/Diagnostics/DisplayDiag/module.R4MF)
+R4U2 created: /root/Projekte/R4OS/Temp/GraphicsPackages-bb545ba159464f4ebee71bc00884ea93/GFX-DESKTOP.R4U release=0.79.45 package-version=0.79.45 payloads=7 components=6 activation=restart priority=normal checksum=2087546799
+Graphics package set: /root/Projekte/R4OS/Artifacts/Distribution/GraphicsPackages/0.79.45/final (27 payloads; no network or hardware access)

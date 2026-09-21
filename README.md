@@ -231,15 +231,21 @@ through a saved/restored environment value and attaches the NVMe controller.
 Both Windows and Linux use this same preparation/argument path. Short clock
 runs keep four CPUs, no guest network and their existing QUICKPROBE stop.
 
-Offline graphics version groups (0.79.42)
+Offline graphics version groups (0.79.45)
 ----------------------------------------
 After building the selected components:
 
-    ./Build.sh graphics-packages -GraphicsGroup all -ReleaseVersion 0.79.42
+    ./Build.sh graphics-packages -GraphicsGroup all -ReleaseVersion 0.79.45
 
 Windows uses Build.bat with the same arguments. Groups are platform (kernel,
-updaters), core (NVIDIA/R4NV/R4GFX), api (NAK/Vulkan/OpenGL), video (decode/
-encode and corresponding source), desktop (Appearance, DeviceManager).
+updaters), core (R4STD/R4IMG, NVIDIA/R4NV/R4GFX, HDA and DISPBLIT), api
+(NAK/Vulkan/OpenGL), video (decode/encode and corresponding source), desktop
+(Desktop, WindowService, AudioService, Appearance, DeviceManager, DisplayDiag).
+The complete set carries 27 payloads within the existing 32-payload batch limit.
+These update groups target an existing R4OS installation with its ordinary
+boot files, fonts, services and configuration. They are not a Recovery image.
+Service and startup configuration is preserved; enable the normal WINSVC and
+AUDSVC entries when intentionally omitted from the existing installation.
 Use -OutputRoot for a fresh output directory; existing sets are immutable.
 The action verifies the canonical module manifests, actual artifact identities,
 embedded firmware pins and full license texts locally. It never downloads or
