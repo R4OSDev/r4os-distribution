@@ -393,8 +393,10 @@ is retained as AMD-FIRMWARE-WHENCE.txt. No AMD firmware is relicensed.
 The module packages its exact file/hash/header lock and original legal
 texts together. Only the Picasso profile is admitted; reference data is
 not evidence of firmware execution or native GPU support.
-Linux 7.2.4 AMD data layouts and selected references retain their MIT
-notices, collected in AMDGPU-SOURCE-NOTICES.txt. Full source identities
+Linux 7.2.4 AMD data layouts, linked DCN1/DC/DML sources and selected
+references retain their MIT notices, collected in AMDGPU-SOURCE-NOTICES.txt.
+SPDX-only MIT headers include the full original MIT license; drm_dp.h
+retains Keith Packard's original permissive grant. Full source identities
 and original per-file copyrights remain in the AMDGPU repository.
 
 AMD SDMA transfers (0.80.10)
