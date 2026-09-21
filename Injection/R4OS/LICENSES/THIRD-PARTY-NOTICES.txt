@@ -402,3 +402,9 @@ R4AMD and AMDGPU compile a bounded Zig port of Mesa 26.2.2 SDMA copy/fill
 encoding. AMD/Valve notices and the complete MIT text are preserved in
 R4AMD-NOTICES.txt. SDMA4.1 ring programming follows pinned Linux AMD MIT
 sources, including vega10_sdma_pkt_open.h; see AMDGPU-SOURCE-NOTICES.txt.
+
+AMD GFX9 queues and PM4 encoding (0.80.11)
+AMDGPU retains original Linux AMD MIT clear-state, MQD, register and packet
+sources. R4AMD shares a bounded PM4 encoder based on AMD and Mesa CP sources.
+AMDGPU-SOURCE-NOTICES.txt and R4AMD-NOTICES.txt preserve the full notices and
+MIT grant, including AMD 2012/2016 and Valve 2024 attribution.

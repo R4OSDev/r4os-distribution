@@ -1,5 +1,22 @@
-﻿R4AMD SDMA encoder notices (also compiled into AMDGPU)
+﻿R4AMD SDMA/PM4 encoder notices (also compiled into AMDGPU)
 Mesa 26.2.2; original identities in ThirdParty/Sources.json.
+
+src/amd/common/ac_cmdbuf_cp.c
+SHA256 3ddb884fa300d8f1688e139bfeeb71bef29b00950089acd122a103982ec3806b
+/*
+ * Copyright 2012 Advanced Micro Devices, Inc.
+ * Copyright 2024 Valve Corporation
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+src/amd/common/ac_cmdbuf_cp.h
+SHA256 beacb5d3b6d16e8aee6d8c72656849b86e7e750f7e879eda4ba29ddccd1009b6
+/*
+ * Copyright 2012 Advanced Micro Devices, Inc.
+ *
+ * SPDX-License-Identifier: MIT
+ */
 
 src/amd/common/ac_cmdbuf_sdma.c
 SHA256 c2093df1a94d2fe71d7c62805c4c67b04355a099e438d31fb2639c264f05e75e
