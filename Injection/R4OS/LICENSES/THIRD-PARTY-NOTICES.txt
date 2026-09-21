@@ -416,3 +416,11 @@ ac_descriptors and ac_formats. Original register generators retain AMD MIT
 notices; drm_fourcc retains Intel's notice. R4AMD-NOTICES.txt now contains
 all linked AddrLib/header, image, generator and encoder notices plus the
 complete MIT grant. Original source hashes remain in R4AMD/ThirdParty.
+
+AMD SPIR-V/NIR/ACO compiler (0.80.13)
+R4ACO links the selected original Mesa 26.2.2 compiler/utilities and generated
+opcode tables with bounded R4OS adapters. R4ACO-NOTICES.txt preserves original
+per-file notices and complete Mesa, libc++ (Apache-2.0 WITH LLVM-exception),
+BLAKE3 (Apache-2.0 option), stb and native math/scan terms. Unchanged originals
+and ordered patches remain at R4ACO/ThirdParty and R4ACO/Port. No Linux DRM
+binary or LLVM JIT is included in R4ACO.R4L.
