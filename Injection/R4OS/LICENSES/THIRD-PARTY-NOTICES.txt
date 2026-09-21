@@ -383,3 +383,16 @@ OpenH264 2.6.0 encoder/common/processing and x86 assembly: BSD-2-Clause.
 Source build provenance: R4ENC-NOTICES.txt. Full original source license:
 OpenH264-BSD-2-Clause.txt. Shared formatting/math retain R4NAK-NOTICES.txt
 and NATIVE-MATH-NOTICES.txt. No Cisco binary distribution is included.
+
+AMD Picasso/Raven display firmware and source layouts
+---------------------------------------------------
+AMDGPU contains unchanged original linux-firmware binaries from commit
+2b8daaf611fbade74f26a5b58ec1defe6a02f5e0. Firmware is binary-only
+redistributable under AMD-FIRMWARE-LICENSE.txt; original upstream WHENCE
+is retained as AMD-FIRMWARE-WHENCE.txt. No AMD firmware is relicensed.
+The module packages its exact file/hash/header lock and original legal
+texts together. Only the Picasso profile is admitted; reference data is
+not evidence of firmware execution or native GPU support.
+Linux 7.2.4 AMD data layouts and selected references retain their MIT
+notices, collected in AMDGPU-SOURCE-NOTICES.txt. Full source identities
+and original per-file copyrights remain in the AMDGPU repository.
