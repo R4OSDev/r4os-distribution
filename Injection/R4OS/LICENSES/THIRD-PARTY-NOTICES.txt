@@ -424,3 +424,13 @@ per-file notices and complete Mesa, libc++ (Apache-2.0 WITH LLVM-exception),
 BLAKE3 (Apache-2.0 option), stb and native math/scan terms. Unchanged originals
 and ordered patches remain at R4ACO/ThirdParty and R4ACO/Port. No Linux DRM
 binary or LLVM JIT is included in R4ACO.R4L.
+
+AMD native rendering (0.80.14)
+R4AMD and AMDGPU link the same sixteen original Mesa AddrLib units and
+three private geometry/descriptor/render bridges. The GFX9 state port
+follows the cataloged original radv_cmd_buffer.c, radv_shader.c and AMD
+common code. R4AMD-NOTICES.txt includes their complete original MIT notices.
+R4ACO's bounded texture lowering follows original RADV descriptor code
+(Valve 2020, MIT); its notice is in R4ACO-NOTICES.txt. The six bundled
+GFX902 programs originate in R4OS-authored GLSL and real Mesa/NIR/ACO
+compilation. Source and generated shader hashes are retained with R4AMD.

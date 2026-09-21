@@ -876,3 +876,44 @@ SHA256 1740e6fee9a03e4220302ba81ba3576b6322a4f99086e75d5f8399c9d64949e0
  *
  * SPDX-License-Identifier: MIT
  */
+
+src/amd/vulkan/radv_cmd_buffer.c
+SHA256 a256461f316fb3e71d1a17fef6682af64e432fbe8e3fc0eee276ef5b36d245e6
+/*
+ * Copyright © 2016 Red Hat.
+ * Copyright © 2016 Bas Nieuwenhuizen
+ *
+ * based in part on anv driver which is:
+ * Copyright © 2015 Intel Corporation
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+src/amd/vulkan/radv_shader.c
+SHA256 b4ddf078ff17e4d0824cc2c90e1672448fdd2a62624b225c1488a695fcec5cdb
+/*
+ * Copyright © 2016 Red Hat.
+ * Copyright © 2016 Bas Nieuwenhuizen
+ *
+ * based in part on anv driver which is:
+ * Copyright © 2015 Intel Corporation
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+src/amd/common/ac_cmdbuf.c
+SHA256 4e56542b21263b93f3283dac1df04671173ef3e3759ef165369ba2c180c4869b
+/*
+ * Copyright 2012 Advanced Micro Devices, Inc.
+ * Copyright 2024 Valve Corporation
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+src/amd/common/ac_cmdbuf.h
+SHA256 d26c1e2e47410bc4641104cd8908edc01356952b228c9b4eac15ea45e61e2a2c
+/*
+ * Copyright 2012 Advanced Micro Devices, Inc.
+ *
+ * SPDX-License-Identifier: MIT
+ */

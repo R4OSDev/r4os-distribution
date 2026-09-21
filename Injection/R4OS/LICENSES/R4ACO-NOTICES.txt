@@ -11321,6 +11321,14 @@ SHA256 17973c0dc49d9854ca26caa191f0e12f7a424b68858d9a78de3860d959d85e4b
  *   - xxHash source repository: https://github.com/Cyan4973/xxHash
  */
 
+Mesa/src/amd/vulkan/nir/radv_nir_lower_descriptors.c
+SHA256 488f50cc81e9fe683aa49d6ba3c0343d331214fb2aab5cc3cd91cc2299a4d6fe
+/*
+ * Copyright © 2020 Valve Corporation
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
 ThirdParty/Blake3-1.8.2/LICENSE_A2
 SHA256 00fcc7a934ddbc9ece2a7cc063ac788e284b703b1d705ccbba72d462aa97921e
 
