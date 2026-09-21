@@ -408,3 +408,11 @@ AMDGPU retains original Linux AMD MIT clear-state, MQD, register and packet
 sources. R4AMD shares a bounded PM4 encoder based on AMD and Mesa CP sources.
 AMDGPU-SOURCE-NOTICES.txt and R4AMD-NOTICES.txt preserve the full notices and
 MIT grant, including AMD 2012/2016 and Valve 2024 attribution.
+
+AMD image layouts (0.80.12)
+R4AMD links sixteen original Mesa 26.2.2 AddrLib units (MIT) with R4OS
+adapters. Layout modifiers and GFX9 descriptors follow Mesa ac_surface,
+ac_descriptors and ac_formats. Original register generators retain AMD MIT
+notices; drm_fourcc retains Intel's notice. R4AMD-NOTICES.txt now contains
+all linked AddrLib/header, image, generator and encoder notices plus the
+complete MIT grant. Original source hashes remain in R4AMD/ThirdParty.

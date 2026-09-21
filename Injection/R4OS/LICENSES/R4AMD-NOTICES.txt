@@ -1,48 +1,5 @@
-﻿R4AMD SDMA/PM4 encoder notices (also compiled into AMDGPU)
-Mesa 26.2.2; original identities in ThirdParty/Sources.json.
-
-src/amd/common/ac_cmdbuf_cp.c
-SHA256 3ddb884fa300d8f1688e139bfeeb71bef29b00950089acd122a103982ec3806b
-/*
- * Copyright 2012 Advanced Micro Devices, Inc.
- * Copyright 2024 Valve Corporation
- *
- * SPDX-License-Identifier: MIT
- */
-
-src/amd/common/ac_cmdbuf_cp.h
-SHA256 beacb5d3b6d16e8aee6d8c72656849b86e7e750f7e879eda4ba29ddccd1009b6
-/*
- * Copyright 2012 Advanced Micro Devices, Inc.
- *
- * SPDX-License-Identifier: MIT
- */
-
-src/amd/common/ac_cmdbuf_sdma.c
-SHA256 c2093df1a94d2fe71d7c62805c4c67b04355a099e438d31fb2639c264f05e75e
-/*
- * Copyright 2012 Advanced Micro Devices, Inc.
- * Copyright 2025 Valve Corporation
- *
- * SPDX-License-Identifier: MIT
- */
-
-src/amd/common/ac_cmdbuf_sdma.h
-SHA256 45f5ad8e6f75136a7ebdd20c435a690bfda45a5ad13084f975b6c944856bb554
-/*
- * Copyright 2012 Advanced Micro Devices, Inc.
- * Copyright 2025 Valve Corporation
- *
- * SPDX-License-Identifier: MIT
- */
-
-src/amd/common/sid.h
-SHA256 1b84022bc866fd083cbebb5ffa76a80e0b414829917a3597d637c104b390c77b
-/*
- * Copyright (C) 2011  Advanced Micro Devices, Inc.
- *
- * SPDX-License-Identifier: MIT
- */
+﻿R4AMD AddrLib, image layout/descriptors and SDMA/PM4 encoder notices
+The encoders are also compiled into AMDGPU. Mesa 26.2.2; original identities in ThirdParty/Sources.json.
 
 licenses/MIT
 SHA256 323c587d0ccf10e376f8bf9a7f31fb4ca6078105194b42e0b1e0ee2bc9bde71f
@@ -77,3 +34,845 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
+
+src/amd/addrlib/inc/addrinterface.h
+SHA256 8237c6bb94b2620b096d91d0c39e27f228b7ece185fe28d00d0f1d9f3a7ac5b0
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2026 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+/**
+****************************************************************************************************
+* @file  addrinterface.h
+* @brief Contains the addrlib interfaces declaration and parameter defines
+****************************************************************************************************
+*/
+
+src/amd/addrlib/inc/addrtypes.h
+SHA256 d41c87ee27dc65a3ae9f3393e222af6bac25805632b92c0fd6e0b3811346b45b
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2026 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+/**
+****************************************************************************************************
+* @file  addrtypes.h
+* @brief Contains the helper function and constants
+****************************************************************************************************
+*/
+
+src/amd/addrlib/src/addrinterface.cpp
+SHA256 a545efd85c88b0de73f4864b69546d9823698d37f3174f4fc74dcff6d098116a
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2026 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+/**
+****************************************************************************************************
+* @file  addrinterface.cpp
+* @brief Contains the addrlib interface functions
+****************************************************************************************************
+*/
+
+src/amd/addrlib/src/amdgpu_asic_addr.h
+SHA256 51ef026655bcbf56a09502cd37b18d202fe3c5e51a17c08dc6fad6bcee0f6535
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2017-2026 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+src/amd/addrlib/src/chip/gfx10/gfx10_gb_reg.h
+SHA256 10185e96f02221d8601e34fa309bb1c374b8c7fdf5adaca0554943053529d6e2
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2022 Advanced Micro Devices, Inc.  All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+src/amd/addrlib/src/chip/gfx11/gfx11_gb_reg.h
+SHA256 1433bcb10ca4dbdbd67d89e8bea7d5f3a1a189145b54f226438edcbdcb64ad57
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2022 Advanced Micro Devices, Inc.  All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+src/amd/addrlib/src/chip/gfx12/gfx12_gb_reg.h
+SHA256 2fd7cab8f6652a75ed19e1cced31064425f5312d84006ee655b916f6c2d4f1f5
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2023 Advanced Micro Devices, Inc.  All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+src/amd/addrlib/src/chip/gfx9/gfx9_gb_reg.h
+SHA256 22c450c78dd1255f9b5dbc469a561eaf03f92d8fcec37b874abd339e4f5889cc
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2022 Advanced Micro Devices, Inc.  All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+src/amd/addrlib/src/chip/r800/si_gb_reg.h
+SHA256 c6511f3baad8a2838a6841dafa95eece54fee4710289dcf86f0561ea0da0b0f9
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2024 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+src/amd/addrlib/src/core/addrcommon.h
+SHA256 2754429c97e2a1163f081a05cfc8ce2b6cae4ffd370903690573a0916715c543
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2026 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+/**
+****************************************************************************************************
+* @file  addrcommon.h
+* @brief Contains the helper function and constants.
+****************************************************************************************************
+*/
+
+src/amd/addrlib/src/core/addrelemlib.cpp
+SHA256 08529d0a0c104e2579e26450e74aab479622fe2179954bff24447936ee7fbb21
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2024 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+/**
+****************************************************************************************************
+* @file  addrelemlib.cpp
+* @brief Contains the class implementation for element/pixel related functions.
+****************************************************************************************************
+*/
+
+src/amd/addrlib/src/core/addrelemlib.h
+SHA256 7f7b814a774335f30947ccf58c1f8a104a051806d9a13f5fac32ff578ea405e4
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2022 Advanced Micro Devices, Inc.  All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+
+/**
+****************************************************************************************************
+* @file  addrelemlib.h
+* @brief Contains the class for element/pixel related functions.
+****************************************************************************************************
+*/
+
+src/amd/addrlib/src/core/addrlib.cpp
+SHA256 12c739a1a89badb82307020edbac69d11a7debf653dda272ece36b5b42995970
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2026 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+/**
+****************************************************************************************************
+* @file  addrlib.cpp
+* @brief Contains the implementation for the Addr::Lib class.
+****************************************************************************************************
+*/
+
+src/amd/addrlib/src/core/addrlib.h
+SHA256 12b8287fde7fdb5ecd8b3516729e45e6a3728bbfe9c635834e0a8c3c962f4545
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2026 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+/**
+****************************************************************************************************
+* @file  addrlib.h
+* @brief Contains the Addr::Lib base class definition.
+****************************************************************************************************
+*/
+
+src/amd/addrlib/src/core/addrlib1.cpp
+SHA256 667e59a5e7a0102800ff16f837b51020303276b29eb01ddcba6be034ac341cca
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2026 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+/**
+****************************************************************************************************
+* @file  addr1lib.cpp
+* @brief Contains the implementation for the Addr::V1::Lib base class.
+****************************************************************************************************
+*/
+
+src/amd/addrlib/src/core/addrlib1.h
+SHA256 0bed033ab97514b2160d07beb023f06dc77f1d00db9029b5bb982d1a614990d6
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2024 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+
+/**
+****************************************************************************************************
+* @file  addrlib1.h
+* @brief Contains the Addr::V1::Lib class definition.
+****************************************************************************************************
+*/
+
+src/amd/addrlib/src/core/addrlib2.cpp
+SHA256 2c774d80e13b155ace1d3b1c978572b9d4c0390eb979d7f7365c08e99ad9b278
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2026 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+
+/**
+************************************************************************************************************************
+* @file  addrlib2.cpp
+* @brief Contains the implementation for the AddrLib2 base class.
+************************************************************************************************************************
+*/
+
+src/amd/addrlib/src/core/addrlib2.h
+SHA256 161416b11beb4b6f40edb5a45881d2da041f8fee84cbe20504cffbde8e3f204b
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2024 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+
+/**
+************************************************************************************************************************
+* @file  addrlib2.h
+* @brief Contains the Addr::V2::Lib class definition.
+************************************************************************************************************************
+*/
+
+src/amd/addrlib/src/core/addrlib3.cpp
+SHA256 91be9acf3dc6b7d39b38d4ceb9aac52cd4c41c0f4408fe2e848f0021b8078a89
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2026 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+
+/**
+************************************************************************************************************************
+* @file  addrlib3.cpp
+* @brief Contains the implementation for the AddrLib3 base class.
+************************************************************************************************************************
+*/
+
+src/amd/addrlib/src/core/addrlib3.h
+SHA256 229af561070aa25cefffa97d2754907f7aeceaffb620e7d0a153a27016b182b6
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2022-2026 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+
+/**
+************************************************************************************************************************
+* @file  addrlib3.h
+* @brief Contains the Addr::V3::Lib class definition.
+************************************************************************************************************************
+*/
+
+src/amd/addrlib/src/core/addrobject.cpp
+SHA256 f7f37326cd3250df76ba51f5de5437dd1a9a0cfd0bb1a62d30cf49049d2787b5
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2024 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+
+/**
+****************************************************************************************************
+* @file  addrobject.cpp
+* @brief Contains the Object base class implementation.
+****************************************************************************************************
+*/
+
+src/amd/addrlib/src/core/addrobject.h
+SHA256 4561343e50348ab2b69e5ba51ab2c5148892981dcbf76fdfefb2e2e83b511bf0
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2024 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+
+/**
+****************************************************************************************************
+* @file  addrobject.h
+* @brief Contains the Object base class definition.
+****************************************************************************************************
+*/
+
+src/amd/addrlib/src/core/addrswizzler.cpp
+SHA256 00882520e0c637cdb658ec939a83566603201b4ada135554d2a81b124503a13c
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2024-2026 Advanced Micro Devices, Inc.  All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+/**
+****************************************************************************************************
+* @file  addrswizzler.cpp
+* @brief Contains code for efficient CPU swizzling.
+****************************************************************************************************
+*/
+
+src/amd/addrlib/src/core/addrswizzler.h
+SHA256 de6da5c8af647ec07a74c13ab4b692da905005dcb72b154409e639e64bc8f6eb
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2024-2026 Advanced Micro Devices, Inc.  All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+/**
+****************************************************************************************************
+* @file  addrswizzler.cpp
+* @brief Contains code for efficient CPU swizzling.
+****************************************************************************************************
+*/
+
+src/amd/addrlib/src/core/addrswizzlersimd.h
+SHA256 a8a64b334319eca97f67973067a82343ac38a7c49b3651414ddd357e3a9f2102
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2024-2026 Advanced Micro Devices, Inc.  All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+/**
+****************************************************************************************************
+* @file  addrswizzlersimd.h
+* @brief Contains CPU/swizzle-specific code for efficient CPU swizzling.
+****************************************************************************************************
+*/
+
+src/amd/addrlib/src/core/coord.cpp
+SHA256 c3c92b960378e60a96396705065b8f6609b09e0c145acc09a5907ae0426a3cd2
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2022 Advanced Micro Devices, Inc.  All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+// Coordinate class implementation
+
+src/amd/addrlib/src/core/coord.h
+SHA256 22b2ed00a02ef1ebaa74fce75544562749432a5160ce8449f068824b659f1dd3
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2022 Advanced Micro Devices, Inc.  All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+// Class used to define a coordinate bit
+
+src/amd/addrlib/src/gfx10/gfx10SwizzlePattern.h
+SHA256 5029e548dd641742d4ef8fe6485f4433f9e3e44342c547daacb9e902c8aaebc3
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2024 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+/**
+************************************************************************************************************************
+* @file  gfx10SwizzlePattern.h
+* @brief swizzle pattern for gfx10.
+************************************************************************************************************************
+*/
+
+src/amd/addrlib/src/gfx10/gfx10addrlib.cpp
+SHA256 983daa719befdbbcc3d8d38daba48294cf87fd6c16290e451dcf644c9a9c9d46
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2026 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+/**
+************************************************************************************************************************
+* @file  gfx10addrlib.cpp
+* @brief Contain the implementation for the Gfx10Lib class.
+************************************************************************************************************************
+*/
+
+src/amd/addrlib/src/gfx10/gfx10addrlib.h
+SHA256 1eea56da2d7bb7d196d14a5959825ffef23a1b858ef44d1e89c17046e95a3267
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2024 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+/**
+************************************************************************************************************************
+* @file  gfx10addrlib.h
+* @brief Contains the Gfx10Lib class definition.
+************************************************************************************************************************
+*/
+
+src/amd/addrlib/src/gfx11/gfx11SwizzlePattern.h
+SHA256 23fed3308e968fbed87e148d25dbced97c55decc07baaa7695e3f5febc67d927
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2022 Advanced Micro Devices, Inc.  All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+/**
+************************************************************************************************************************
+* @file  gfx11SwizzlePattern.h
+* @brief swizzle pattern for gfx11.
+************************************************************************************************************************
+*/
+
+src/amd/addrlib/src/gfx11/gfx11addrlib.cpp
+SHA256 70ea7e98f0facd5e8f1d67ef11fac9945713796046b06f799d74217064f007e2
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2026 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+/**
+************************************************************************************************************************
+* @file  gfx11addrlib.cpp
+* @brief Contain the implementation for the Gfx11Lib class.
+************************************************************************************************************************
+*/
+
+src/amd/addrlib/src/gfx11/gfx11addrlib.h
+SHA256 aa9444f6bedcf80cac0c45dd603dcf5c2939a4b121b4ef3e34c5c1eb2c009362
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2026 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+/**
+************************************************************************************************************************
+* @file  gfx11addrlib.h
+* @brief Contains the Gfx11Lib class definition.
+************************************************************************************************************************
+*/
+
+src/amd/addrlib/src/gfx12/gfx12SwizzlePattern.h
+SHA256 bf3eefc9088db04d6ef9aa844d012ec948ab37567d3e49309921b3b20fe98abf
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2022-2024 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+/**
+************************************************************************************************************************
+* @file  gfx12SwizzlePattern.h
+* @brief swizzle pattern for gfx12.
+************************************************************************************************************************
+*/
+
+src/amd/addrlib/src/gfx12/gfx12addrlib.cpp
+SHA256 90a676b2e1803a94885fb1e981587c8dd28d4bd9763d1bb4ae8017aec427a103
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2022-2026 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+/**
+************************************************************************************************************************
+* @file  gfx12addrlib.cpp
+* @brief Contain the implementation for the Gfx12Lib class.
+************************************************************************************************************************
+*/
+
+src/amd/addrlib/src/gfx12/gfx12addrlib.h
+SHA256 ea02a8fa7bcb34378a244ea41bc3ef1b42e170ff65a05112b79501a520e59497
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2022-2026 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+/**
+************************************************************************************************************************
+* @file  gfx12addrlib.h
+* @brief Contains the Gfx12Lib class definition.
+************************************************************************************************************************
+*/
+
+src/amd/addrlib/src/gfx9/gfx9addrlib.cpp
+SHA256 cdb0ab5519e429e986ae77e50fce47c98906495d2388697379c01062dd712c9e
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2024 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+/**
+************************************************************************************************************************
+* @file  gfx9addrlib.cpp
+* @brief Contgfx9ns the implementation for the Gfx9Lib class.
+************************************************************************************************************************
+*/
+
+src/amd/addrlib/src/gfx9/gfx9addrlib.h
+SHA256 edb276cede62e3db9cbddf79794323c0136a52a6936f81c60d0fc21caa83e6e6
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2024 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+/**
+************************************************************************************************************************
+* @file  gfx9addrlib.h
+* @brief Contgfx9ns the Gfx9Lib class definition.
+************************************************************************************************************************
+*/
+
+src/amd/addrlib/src/r800/ciaddrlib.cpp
+SHA256 9f1d2f694a353dfa179d19b1c42c7da119cbb30b11d0ddf0c6746781f91098b4
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2024 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+/**
+****************************************************************************************************
+* @file  ciaddrlib.cpp
+* @brief Contains the implementation for the CiLib class.
+****************************************************************************************************
+*/
+
+src/amd/addrlib/src/r800/ciaddrlib.h
+SHA256 87fccb12b234f6de52a42472ab2e883df23c1152ad6739cc3a4fbe1f145486ab
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2022 Advanced Micro Devices, Inc.  All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+/**
+****************************************************************************************************
+* @file  ciaddrlib.h
+* @brief Contains the CiLib class definition.
+****************************************************************************************************
+*/
+
+src/amd/addrlib/src/r800/egbaddrlib.cpp
+SHA256 77051137215514914a13e1b56cc46a810c3143179eb2e3583780f80faf7c6ef6
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2024 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+/**
+****************************************************************************************************
+* @file  egbaddrlib.cpp
+* @brief Contains the EgBasedLib class implementation.
+****************************************************************************************************
+*/
+
+src/amd/addrlib/src/r800/egbaddrlib.h
+SHA256 8467fa85ec842d4b1f6a525bf7c7a4faaa59dd5996a09b44f5f432c2843cb210
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2022 Advanced Micro Devices, Inc.  All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+/**
+****************************************************************************************************
+* @file  egbaddrlib.h
+* @brief Contains the EgBasedLib class definition.
+****************************************************************************************************
+*/
+
+src/amd/addrlib/src/r800/siaddrlib.cpp
+SHA256 fcba23953078535d78415c681a49278a7c93aaeb7e7389bfc9ae54c906dc8b6a
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2024 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+/**
+****************************************************************************************************
+* @file  siaddrlib.cpp
+* @brief Contains the implementation for the SiLib class.
+****************************************************************************************************
+*/
+
+src/amd/addrlib/src/r800/siaddrlib.h
+SHA256 cb76a1703699f96094ed14e351e0e22bb8b75a968cea241ed94812bf0c6d0c34
+/*
+************************************************************************************************************************
+*
+*  Copyright (C) 2007-2024 Advanced Micro Devices, Inc. All rights reserved.
+*  SPDX-License-Identifier: MIT
+*
+***********************************************************************************************************************/
+
+/**
+****************************************************************************************************
+* @file  siaddrlib.h
+* @brief Contains the R800Lib class definition.
+****************************************************************************************************
+*/
+
+src/amd/common/ac_cmdbuf_sdma.c
+SHA256 c2093df1a94d2fe71d7c62805c4c67b04355a099e438d31fb2639c264f05e75e
+/*
+ * Copyright 2012 Advanced Micro Devices, Inc.
+ * Copyright 2025 Valve Corporation
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+src/amd/common/ac_cmdbuf_sdma.h
+SHA256 45f5ad8e6f75136a7ebdd20c435a690bfda45a5ad13084f975b6c944856bb554
+/*
+ * Copyright 2012 Advanced Micro Devices, Inc.
+ * Copyright 2025 Valve Corporation
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+src/amd/common/sid.h
+SHA256 1b84022bc866fd083cbebb5ffa76a80e0b414829917a3597d637c104b390c77b
+/*
+ * Copyright (C) 2011  Advanced Micro Devices, Inc.
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+src/amd/common/ac_cmdbuf_cp.c
+SHA256 3ddb884fa300d8f1688e139bfeeb71bef29b00950089acd122a103982ec3806b
+/*
+ * Copyright 2012 Advanced Micro Devices, Inc.
+ * Copyright 2024 Valve Corporation
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+src/amd/common/ac_cmdbuf_cp.h
+SHA256 beacb5d3b6d16e8aee6d8c72656849b86e7e750f7e879eda4ba29ddccd1009b6
+/*
+ * Copyright 2012 Advanced Micro Devices, Inc.
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+src/amd/common/ac_surface.c
+SHA256 062351d2d2e5c6c2251e308be0fd952f94ed2ac9d0847f8ac345034a58bfa3d3
+/*
+ * Copyright © 2011 Red Hat All Rights Reserved.
+ * Copyright © 2017 Advanced Micro Devices, Inc.
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+src/amd/common/ac_surface.h
+SHA256 89fa017fe1271c5b4551437401af31126c69f78f477631bc333417451772909a
+/*
+ * Copyright © 2017 Advanced Micro Devices, Inc.
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+src/amd/common/ac_descriptors.c
+SHA256 a189275d996d6f358e6ff7e31837ebc304d53c44154d7046271094a5eab760d6
+/*
+ * Copyright 2015 Advanced Micro Devices, Inc.
+ * Copyright 2024 Valve Corporation
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+src/amd/common/ac_descriptors.h
+SHA256 a077392e9776146fe4b43d4714e8c1bb29d0e2cf494af43cdfbca9a7998a0cba
+/*
+ * Copyright 2015 Advanced Micro Devices, Inc.
+ * Copyright 2024 Valve Corporation
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+src/amd/registers/makeregheader.py
+SHA256 7e3a8a87a7bf6a8752990f3ff4013d4dd06c8522cb4d4af04e785c94b381d509
+/*
+ * Copyright 2015-2019 Advanced Micro Devices, Inc.
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+src/amd/registers/regdb.py
+SHA256 e524f45b0304396c3a8694631fec5db485938731a901a47d36279418934f1e83
+#
+# Copyright 2017-2019 Advanced Micro Devices, Inc.
+#
+# SPDX-License-Identifier: MIT
+#
+
+src/amd/registers/gfx9.json
+SHA256 081fbfd1251fb5c6f4b7b6a218ba217e21346e824a04ec8146ab0d1d389ddb06
+GFX9 register data; generated header carries the notice from makeregheader.py below.
+
+include/drm-uapi/drm_fourcc.h
+SHA256 90a02d82de3ad8f97d48f35c1cfe3db1d1fec2664be476568e66fbaaa2fc2c6c
+/*
+ * Copyright 2011 Intel Corporation
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice (including the next
+ * paragraph) shall be included in all copies or substantial portions of the
+ * Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * VA LINUX SYSTEMS AND/OR ITS SUPPLIERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+ * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ */
+
+src/amd/common/ac_formats.c
+SHA256 e725f0d0d5f641148b59f7adeaad140e69086fbd3668efd2e7e65776e254fe5d
+/*
+ * Copyright 2015 Advanced Micro Devices, Inc.
+ * Copyright 2024 Valve Corporation
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+src/amd/common/ac_formats.h
+SHA256 1740e6fee9a03e4220302ba81ba3576b6322a4f99086e75d5f8399c9d64949e0
+/*
+ * Copyright 2015 Advanced Micro Devices, Inc.
+ * Copyright 2024 Valve Corporation
+ *
+ * SPDX-License-Identifier: MIT
+ */
