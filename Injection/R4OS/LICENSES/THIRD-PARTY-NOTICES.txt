@@ -436,3 +436,10 @@ R4ACO's bounded texture lowering follows original RADV descriptor code
 (Valve 2020, MIT); its notice is in R4ACO-NOTICES.txt. The six bundled
 GFX902 programs originate in R4OS-authored GLSL and real Mesa/NIR/ACO
 compilation. Source and generated shader hashes are retained with R4AMD.
+
+AMD RADV integration (0.80.23)
+-----------------------------
+R4VK-NOTICES.txt now also contains original Mesa RADV/ACO/AddrLib source
+notices and complete libc++ terms (Apache-2.0 WITH LLVM-exception). Original
+sources retain their licenses; only the private build tree receives native
+R4OS patches. Linux winsys and DRM discovery are not linked.
