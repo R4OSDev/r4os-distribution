@@ -372,7 +372,8 @@ integration artifact and makes no Vulkan conformance claim.
 
 R4VIDEO / FFmpeg
 ---------------
-FFmpeg9.0.1 H.264 decoder/parser and adapters: LGPL-2.1-or-later.
+FFmpeg9.0.1 H.264/HEVC/VP9/MPEG2/VC1/JPEG decoders/parsers and adapters:
+LGPL-2.1-or-later. Mesa VCN payloads/JPEG commands retain AMD MIT notices.
 Full license: FFmpeg-LGPL-2.1.txt; source/rebuild/replacement: R4VIDEO-NOTICES.txt.
 Matching source package is included under R4OS/SOURCES/R4VIDEO in every image.
 

@@ -1,7 +1,8 @@
 ﻿R4VIDEO / FFmpeg
 ===============
 This software uses code of the FFmpeg project under LGPL-2.1-or-later.
-R4VIDEO.R4L combines a pinned FFmpeg9.0.1 libavcodec/libavutil H.264 subset
+R4VIDEO.R4L combines a pinned FFmpeg9.0.1 libavcodec/libavutil
+H.264/HEVC/VP9/MPEG2/VC1/JPEG subset
 with R4OS adapters. GPL and nonfree components are disabled. CUDA/CUVID and
 the proprietary NVIDIA decoder library are not included.
 
@@ -10,6 +11,11 @@ licenses are retained in the corresponding source package. The adapted
 NVDEC parameter bridge credits Anton Khirnov (2016). Original separable
 R4OS source files retain Apache-2.0. NVIDIA/Mesa encoder attribution is in
 Libraries/R4NV/Source/video.zig and its bundled original notices.
+The additional VCN bridge retains FFmpeg notices for Anton Khirnov,
+Philip Langdale and Intel. The Mesa codec payload builders, VP9 defaults
+and JPEG command specialization retain AMD's MIT terms in R4AMD-NOTICES.txt.
+Immutable VLC tables use unchanged original FFmpeg initializers. The source
+package includes these adaptations, generated files and pinned originals.
 
 Every current image and graphics video update includes the matching source/build package:
   C:\R4OS\SOURCES\R4VIDEO\SOURCE.TGZ
