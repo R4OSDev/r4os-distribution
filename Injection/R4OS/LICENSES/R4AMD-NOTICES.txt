@@ -1,4 +1,4 @@
-﻿R4AMD AddrLib, image layout/descriptors and SDMA/PM4 encoder notices
+﻿R4AMD AddrLib, image layout/descriptors and SDMA/PM4/VCN encoder notices
 The encoders are also compiled into AMDGPU. Mesa 26.2.2; original identities in ThirdParty/Sources.json.
 
 licenses/MIT
@@ -928,6 +928,42 @@ SHA256 8174af60d49a4db18eefab8d2a82124053388b191f89100e7ad7396ab9d1f956
 
 src/amd/common/ac_video.h
 SHA256 519c263bc1330730e84a11bef8fe01a7ad42d4b67ba8dff7f7af8c3148f491e9
+/*
+ * Copyright 2026 Advanced Micro Devices, Inc.
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+src/amd/common/ac_vcn_dec.c
+SHA256 57f3b267088d47de196098db0456b9fbb36091a124b4cc6c14ceaf0bb9e127f5
+/**************************************************************************
+ *
+ * Copyright 2017 Advanced Micro Devices, Inc.
+ *
+ * SPDX-License-Identifier: MIT
+ *
+ **************************************************************************/
+
+src/amd/common/ac_vcn_dec.h
+SHA256 60f367e4eef967e6a2554f6f798b902e23d44ced929f6b577baef689a8990aa0
+/**************************************************************************
+ *
+ * Copyright 2017 Advanced Micro Devices, Inc.
+ *
+ * SPDX-License-Identifier: MIT
+ *
+ **************************************************************************/
+
+src/amd/common/ac_video_dec.h
+SHA256 741c251e91467f4061cdfda2dd40627b71d430a1bab50f622029714e33ba8a7f
+/*
+ * Copyright 2026 Advanced Micro Devices, Inc.
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+src/gallium/drivers/radeonsi/mm/si_video_dec.c
+SHA256 bdd28e3f32745dcdc5d74d1b9e8b5ccd27c2d0928522b4e9d289d93fde87dde5
 /*
  * Copyright 2026 Advanced Micro Devices, Inc.
  *
