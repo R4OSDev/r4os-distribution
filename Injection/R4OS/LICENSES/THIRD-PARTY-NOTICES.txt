@@ -384,6 +384,8 @@ OpenH264 2.6.0 encoder/common/processing and x86 assembly: BSD-2-Clause.
 Source build provenance: R4ENC-NOTICES.txt. Full original source license:
 OpenH264-BSD-2-Clause.txt. Shared formatting/math retain R4NAK-NOTICES.txt
 and NATIVE-MATH-NOTICES.txt. No Cisco binary distribution is included.
+The VCN1 H.264/HEVC encoder uses unchanged Mesa26.2.2 functions and types;
+original MIT notices and grants are included in R4AMD-NOTICES.txt.
 
 AMD Picasso/Raven display firmware and source layouts
 ---------------------------------------------------

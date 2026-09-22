@@ -17,3 +17,14 @@ Original R4OS adapters, ownership and orchestration remain Apache-2.0.
 The R4OS patch selects the freestanding C11 mutex and monotonic clock
 adapters and excludes the upstream host/global-thread-pool execution path.
 The original H.264 compression algorithms and CPU SIMD dispatch remain.
+
+AMD VCN1 encoder sources
+------------------------
+R4ENC also compiles unchanged Mesa26.2.2 VCN1 session, header, slice-template
+and rate-control functions and metadata, plus original R4OS bounded adapters.
+Exact source bytes/hashes: Libraries/R4AMD/ThirdParty/Sources.json.
+Extraction and native build: R4AMD/Tools/VcnEncode.ps1 and
+R4ENC/Tools/BuildNative.ps1. Original AMD/Younes Manton and related MIT
+notices and complete permission grants accompany R4AMD-NOTICES.txt.
+This code is independent of the OpenH264 software path and does not add
+FFmpeg or a new copyleft dependency to R4ENC.

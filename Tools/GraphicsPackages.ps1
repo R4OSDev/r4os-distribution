@@ -21,7 +21,7 @@ $groups=[ordered]@{
 $legal=@{
  core=@('libdisplay-info-MIT.txt','LITTLECMS-LICENSE.txt','stb_image-MIT.txt')
  api=@('R4NAK-NOTICES.txt','R4VK-NOTICES.txt','R4GL-NOTICES.txt','NATIVE-MATH-NOTICES.txt','NATIVE-SCAN-NOTICES.txt')
- video=@('R4VIDEO-NOTICES.txt','FFmpeg-LGPL-2.1.txt','R4ENC-NOTICES.txt','OpenH264-BSD-2-Clause.txt','NATIVE-MATH-NOTICES.txt','NATIVE-SCAN-NOTICES.txt')
+ video=@('R4AMD-NOTICES.txt','R4VIDEO-NOTICES.txt','FFmpeg-LGPL-2.1.txt','R4ENC-NOTICES.txt','OpenH264-BSD-2-Clause.txt','NATIVE-MATH-NOTICES.txt','NATIVE-SCAN-NOTICES.txt')
  desktop=@()
 }
 if(!$ReleaseVersion){$ReleaseVersion=(Get-InstallationFields (Join-Path $context.root 'Injection/R4OS/CONFIG/VERSION.R4S')).RELEASE_VERSION}

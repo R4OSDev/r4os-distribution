@@ -998,3 +998,134 @@ SHA256 a36be42ce8fc52bac507fb8036dfbbbab5d889c3e98f78946c228e7a70f456b9
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  **************************************************************************/
+
+src/amd/common/ac_vcn_enc.c
+SHA256 8598f57933f3a13e4a7eb6ee225f11141edaa36997689ed48ae766521134a98a
+/**************************************************************************
+ *
+ * Copyright 2024 Advanced Micro Devices, Inc.
+ *
+ * SPDX-License-Identifier: MIT
+ *
+ **************************************************************************/
+
+src/amd/common/ac_vcn_enc.h
+SHA256 87c1bb575758dac591ee6199e56bf33a741237871789370b668256ec1a4e6ef2
+/**************************************************************************
+ *
+ * Copyright 2017 Advanced Micro Devices, Inc.
+ * All Rights Reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sub license, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * The above copyright notice and this permission notice (including the
+ * next paragraph) shall be included in all copies or substantial portions
+ * of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR
+ * ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ **************************************************************************/
+
+src/amd/common/ac_gpu_info.c
+SHA256 22c7b4cfe984668bbed522c039e4dfd06fe4c56a509faf88c7c9e7a63b038018
+/*
+ * Copyright © 2017 Advanced Micro Devices, Inc.
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+src/amd/common/amd_family.h
+SHA256 5a625359004ecc38bc8e6ac663fed6d2cc3ed037f975ca9b6b28b63e152a21c7
+/*
+ * Copyright 2008 Corbin Simpson <MostAwesomeDude@gmail.com>
+ * Copyright 2010 Marek Olšák <maraeo@gmail.com>
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+src/gallium/include/pipe/p_video_state.h
+SHA256 0543ac23babb93f69cf46e72a6eceb0b60ba752ebe339f14e99108374c173974
+/**************************************************************************
+ *
+ * Copyright 2009 Younes Manton.
+ * All Rights Reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sub license, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * The above copyright notice and this permission notice (including the
+ * next paragraph) shall be included in all copies or substantial portions
+ * of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
+ * IN NO EVENT SHALL VMWARE AND/OR ITS SUPPLIERS BE LIABLE FOR
+ * ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ **************************************************************************/
+
+src/gallium/drivers/radeonsi/mm/radeon_vcn_enc.c
+SHA256 2dd2a40dfc83eec72b97de9fa8cf1189f6e629055faafe898af9392df4b8a500
+/**************************************************************************
+ *
+ * Copyright 2017 Advanced Micro Devices, Inc.
+ *
+ * SPDX-License-Identifier: MIT
+ *
+ **************************************************************************/
+
+src/gallium/drivers/radeonsi/mm/radeon_vcn_enc.h
+SHA256 05563be4c74c33a56785fb8a71f6aa22d3fa3bc9cb421be829dc1286c957be50
+/**************************************************************************
+ *
+ * Copyright 2017 Advanced Micro Devices, Inc.
+ *
+ * SPDX-License-Identifier: MIT
+ *
+ **************************************************************************/
+
+src/gallium/drivers/radeonsi/mm/radeon_vcn_enc_1_2.c
+SHA256 556ce707e63e90703684e57e7510380711ab334f4f6e5bf288b32183b5073314
+/**************************************************************************
+ *
+ * Copyright 2017 Advanced Micro Devices, Inc.
+ *
+ * SPDX-License-Identifier: MIT
+ *
+ **************************************************************************/
+
+src/gallium/drivers/radeonsi/mm/radeon_bitstream.c
+SHA256 ee8d2b23d8943bcd1791504d20d1cc3a0b99d3d4f3f93e6812bd5cfbdc341e8e
+/*
+ * Copyright 2025 Advanced Micro Devices, Inc.
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+src/gallium/drivers/radeonsi/mm/radeon_bitstream.h
+SHA256 e8473d042d881ccdef1360124d3757bd75e1942255e48fb857273e7602bc25dd
+/*
+ * Copyright 2025 Advanced Micro Devices, Inc.
+ *
+ * SPDX-License-Identifier: MIT
+ */
