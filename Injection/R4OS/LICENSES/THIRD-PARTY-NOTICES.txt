@@ -454,3 +454,10 @@ original Linux AMD MIT grants in AMDGPU-SOURCE-NOTICES.txt. Mesa ac_video
 eligibility retains AMD 2026 MIT attribution and the full grant in
 R4AMD-NOTICES.txt. Firmware bytes and their redistribution terms are unchanged.
 The R4VIDEO corresponding-source package now includes its R4AMD dependency.
+
+ACPI platform input (0.80.35)
+ACPIPLAT.R4D includes unmodified MIT-licensed uACPI6.1.0, commit
+f5f6cc29f85dd5db0dd79c47700c8f3ebce18be4. Copyright2022-2026 Daniil Tatianin.
+The complete MIT grant is in uACPI-MIT.txt. The original R4OS host/EC bridge
+and synthetic tests remain Apache-2.0. Source and provenance are maintained
+in the public R4OSDev/r4os-driver-acpiplatform repository.
