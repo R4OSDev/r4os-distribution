@@ -6,20 +6,21 @@ param(
  [Parameter(Position=6)][string]$EnvironmentId='',
  [string]$InputList='', [Alias('RecoveryPackage')][string]$RecoveryCandidate='',
  [ValidateSet('local','usb')][string]$Medium='local', [string]$OutputRoot='',
- [ValidateSet('all','platform','core','api','video','desktop')][string]$GraphicsGroup='all', [string]$ReleaseVersion=''
+ [ValidateSet('all','platform','preload','core','api','video','desktop')][string]$GraphicsGroup='all', [ValidateSet('nvidia','amd')][string]$GraphicsVendor='nvidia', [string]$ReleaseVersion=''
 )
 $ErrorActionPreference='Stop';Set-StrictMode -Version Latest
 try {
  . (Join-Path $PSScriptRoot 'Tools/Distribution.ps1')
  $context=Get-R4DistributionContext $PSScriptRoot
+ $imageGraphics=if($PSBoundParameters.ContainsKey('GraphicsVendor')){$GraphicsVendor.ToLowerInvariant()}else{''}
  switch($Action){
   'tools' {Build-R4DistributionTools $context}
   'check' {Test-R4Distribution $context}
   'test' {Build-R4DistributionTools $context -Tests;Test-R4Distribution $context}
-  'plan' {New-R4DistributionPlan $context $Profile $Variant|Out-Null}
+  'plan' {New-R4DistributionPlan $context $Profile $Variant $imageGraphics|Out-Null}
   {$_ -in @('image','recovery-image')} {
    if(!$Profile){$Profile='Slim'}
-   $list=if($InputList){$InputList}else{New-R4DistributionPlan $context $Profile $Variant}
+   $list=if($InputList){$InputList}else{New-R4DistributionPlan $context $Profile $Variant $imageGraphics}
    Build-R4DistributionTools $context
    . (Join-Path $PSScriptRoot 'Tools/InstallationImage.ps1')
    $result=New-R4OSInstallationImage -Root $PSScriptRoot -Profile $Profile -InputList $list -RecoveryCandidate $RecoveryCandidate -Medium $Medium -OutputRoot $OutputRoot -ToolsReady
@@ -35,7 +36,7 @@ try {
    & (Join-Path $PSScriptRoot 'Tools/Test-VirtioGpu.ps1') -Variant $graphicsVariant
   }
   'graphics-packages' {
-   & (Join-Path $PSScriptRoot 'Tools/GraphicsPackages.ps1') -Group $GraphicsGroup -ReleaseVersion $ReleaseVersion -OutputDirectory $OutputRoot
+   & (Join-Path $PSScriptRoot 'Tools/GraphicsPackages.ps1') -Group $GraphicsGroup -Vendor $GraphicsVendor -ReleaseVersion $ReleaseVersion -OutputDirectory $OutputRoot
   }
   'benchmark' {Start-R4DistributionBenchmark $context $Profile $Variant $WorkloadVersion $CacheState $Repetitions $EnvironmentId}
  }

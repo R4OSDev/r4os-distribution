@@ -46,7 +46,7 @@ function Copy-R4DistributionLegal($Context,[string]$Output) {
  Copy-Item -Path (Join-Path $Context.legal '*') -Destination $destination -Force
  Test-R4DistributionLegal $Context -Staged $destination
 }
-function New-R4DistributionPlan($Context,[string]$Name,[string]$Variant='') {
+function New-R4DistributionPlan($Context,[string]$Name,[string]$Variant='',[string]$GraphicsVendor='') {
  $profile=Get-R4DistributionProfile $Context $Name
  if($Variant -and ($Name -cne 'Test' -or $Variant -cne 'browser')){throw "Unknown $Name image variant: $Variant"}
  # The root owner produces MODULES.JSON and component includes for exactly
@@ -54,6 +54,10 @@ function New-R4DistributionPlan($Context,[string]$Name,[string]$Variant='') {
  $prepare=@('-NoProfile','-File',(Join-Path $Context.workspace 'Tools/BuildWorkspace.ps1'),'-Action','plan','-Profile',$Name)
  if($Variant -ceq 'browser'){$prepare+='-BrowserTest'}
  Invoke-R4Distribution 'pwsh' $prepare
+ if($GraphicsVendor){
+  . (Join-Path $PSScriptRoot 'GraphicsImageSelection.ps1')
+  Add-R4GraphicsImageSelection $Context $Name $GraphicsVendor $profile.COMPONENT_PLAN
+ }
  Test-R4DistributionLegal $Context
  $videoSources=Join-Path $Context.output 'SourcePackages/R4VIDEO'
  Invoke-R4Distribution 'pwsh' @('-NoProfile','-File',(Join-Path $Context.libraries 'R4VIDEO/Tools/PackageSources.ps1'),'-OutputDirectory',$videoSources)

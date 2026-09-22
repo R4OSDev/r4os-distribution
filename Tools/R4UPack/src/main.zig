@@ -147,6 +147,7 @@ pub fn main(init: std.process.Init) !void {
             component_count += 1;
         } else {
             has_unversioned_payload = true;
+            contract.includeCompanion(&derived_class, payload.canonical_target);
         }
         try payloads.append(allocator, payload);
     }
@@ -569,7 +570,7 @@ fn validTarget(value: []const u8) bool {
 }
 
 fn validKind(kind: []const u8) bool {
-    return std.mem.eql(u8, kind, "boot-kernel") or
+    return std.mem.eql(u8, kind, "preload") or std.mem.eql(u8, kind, "boot-kernel") or
         std.mem.eql(u8, kind, "system-library") or
         std.mem.eql(u8, kind, "driver") or
         std.mem.eql(u8, kind, "protocol") or
@@ -611,18 +612,20 @@ fn kindMatchesTarget(kind: []const u8, target: []const u8) bool {
 
 fn validateCompanionRecovery(payloads: []const Payload, requirements: []const Requirement) !void {
     var companions = false;
+    var preload = false;
     for (payloads) |payload| {
         companions = companions or contract.paths.companionKind(payload.target) != null;
+        preload = preload or contract.paths.preloadTarget(payload.target);
     }
     if (!companions) return;
     for (payloads) |payload| {
         if (payload.component) |component| {
-            if (component.kind == .kernel and !contract.kernelSupportsCompanions(component.versionText()))
+            if (component.kind == .kernel and !contract.kernelSupportsCompanionSet(component.versionText(), preload))
                 return error.CompanionRecoveryKernelDowngrade;
         }
     }
     for (requirements) |requirement| {
-        if (contract.companionRecoveryRequirement(requirement.kind, requirement.name, requirement.target, requirement.version, requirement.state)) return;
+        if (contract.companionSetRecoveryRequirement(requirement.kind, requirement.name, requirement.target, requirement.version, requirement.state, preload)) return;
     }
     return error.CompanionRecoveryRequirementMissing;
 }
@@ -726,6 +729,18 @@ test "changed streamed source preserves the previous complete output" {
     var old_kernel = payload;
     old_kernel.component = .{ .kind = .kernel, .version_len = "0.1.198".len };
     @memcpy(old_kernel.component.?.version[0.."0.1.198".len], "0.1.198");
+    try std.testing.expectError(error.CompanionRecoveryKernelDowngrade, validateCompanionRecovery(&.{ companion, old_kernel }, &.{requirement}));
+    companion.target = "/boot/preload.r4i";
+    companion.kind = "preload";
+    try std.testing.expect(kindMatchesTarget("preload", companion.target));
+    try std.testing.expect(!kindMatchesTarget("boot-kernel", companion.target));
+    try std.testing.expect(!kindMatchesTarget("preload", "/boot/limine.conf"));
+    requirement.version = "0.1.207";
+    try std.testing.expectError(error.CompanionRecoveryRequirementMissing, validateCompanionRecovery(&.{companion}, &.{requirement}));
+    requirement.version = "0.1.208";
+    try validateCompanionRecovery(&.{companion}, &.{requirement});
+    old_kernel.component.?.version_len = "0.1.207".len;
+    @memcpy(old_kernel.component.?.version[0.."0.1.207".len], "0.1.207");
     try std.testing.expectError(error.CompanionRecoveryKernelDowngrade, validateCompanionRecovery(&.{ companion, old_kernel }, &.{requirement}));
     try temporary.dir.writeFile(io, .{ .sub_path = "source.bin", .data = "modified" });
     // Keep the recorded mtime current to exercise the independent second-pass

@@ -2,38 +2,32 @@
 # Offline R4U composition. Module manifests remain the version/target owner;
 # this file selects product groups, never PCI devices or runtime capabilities.
 param(
- [ValidateSet('all','platform','core','api','video','desktop')][string]$Group='all',
+ [ValidateSet('all','platform','preload','core','api','video','desktop')][string]$Group='all',
+ [ValidateSet('nvidia','amd')][string]$Vendor='nvidia',
  [string]$ReleaseVersion='', [string]$OutputDirectory=''
 )
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
+$Vendor=$Vendor.ToLowerInvariant();$Group=$Group.ToLowerInvariant()
 . (Join-Path $PSScriptRoot 'Distribution.ps1')
 . (Join-Path $PSScriptRoot 'GraphicsPackageResources.ps1')
 $context=Get-R4DistributionContext (Split-Path $PSScriptRoot -Parent)
 $utf8=[Text.UTF8Encoding]::new($false)
-$groups=[ordered]@{
- platform=@('SYSUPD','UPDSVC')
- core=@('R4STD','R4IMG','NVIDIA','R4NV','R4GFX','HDA','DISPBLIT')
- api=@('R4NAK','R4VK','R4GL')
- video=@('R4VIDEO','R4ENC')
- desktop=@('R4DESK','WINSVC','AUDSVC','APPEARANCE','DEVMGR','DISPLAYD')
-}
-$legal=@{
- core=@('libdisplay-info-MIT.txt','LITTLECMS-LICENSE.txt','stb_image-MIT.txt')
- api=@('R4NAK-NOTICES.txt','R4VK-NOTICES.txt','R4GL-NOTICES.txt','NATIVE-MATH-NOTICES.txt','NATIVE-SCAN-NOTICES.txt')
- video=@('R4AMD-NOTICES.txt','R4VIDEO-NOTICES.txt','FFmpeg-LGPL-2.1.txt','R4ENC-NOTICES.txt','OpenH264-BSD-2-Clause.txt','NATIVE-MATH-NOTICES.txt','NATIVE-SCAN-NOTICES.txt')
- desktop=@()
-}
+. (Join-Path $PSScriptRoot 'GraphicsPackageProfiles.ps1')
+$profile=Get-GraphicsPackageProfile $Vendor
+$prefix=if($Vendor -ceq 'nvidia'){'GFX-'}else{'GFX-AMD-'}
+$groups=$profile.groups
+$legal=$profile.legal
 if(!$ReleaseVersion){$ReleaseVersion=(Get-InstallationFields (Join-Path $context.root 'Injection/R4OS/CONFIG/VERSION.R4S')).RELEASE_VERSION}
 if($ReleaseVersion -cnotmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'){throw 'Invalid release version.'}
 $selection=if($Group -ceq 'all'){@($groups.Keys)}else{@($Group)}
-if(!$OutputDirectory){$OutputDirectory=Join-Path $context.output ("GraphicsPackages/$ReleaseVersion/$Group")}
+if(!$OutputDirectory){$OutputDirectory=Join-Path $context.output ("GraphicsPackages/$ReleaseVersion/$Vendor/$Group")}
 $destination=[IO.Path]::GetFullPath($OutputDirectory)
 if(Test-Path -LiteralPath $destination){throw 'Output already exists; graphics package sets are immutable. Choose a new output directory.'}
 $scratch=Join-Path $context.workspace ('Temp/GraphicsPackages-'+[guid]::NewGuid().ToString('N'))
 [IO.Directory]::CreateDirectory($scratch)|Out-Null
 try {
- Invoke-R4Distribution 'pwsh' @('-NoProfile','-File',(Join-Path $context.workspace 'Tools/BuildWorkspace.ps1'),'-Action','map')
+ Invoke-R4Distribution 'pwsh' @('-NoProfile','-File',(Join-Path $context.workspace 'Tools/BuildWorkspace.ps1'),'-Action','plan','-Profile','Slim')
  Build-R4DistributionTools $context
  Test-R4DistributionLegal $context
  $catalog=Join-Path $context.sdk ('zig-out/bin/module-catalog'+$context.suffix)
@@ -73,8 +67,17 @@ try {
    $module=Get-GraphicsModule $name
    $payloads.Add($module.artifact+'|C:'+$module.target+'|auto')
    $components.Add($module)
-   if($name -ceq 'NVIDIA'){
+   if($name -in @('NVIDIA','AMDGPU')){
     $resources.AddRange([object[]]@(Test-GraphicsPackageResources $module))
+   }
+  }
+  if($groupName -ceq 'preload'){
+   $preload=Join-Path $context.output 'Generated/PRELOAD.R4I'
+   $resources.AddRange([object[]]@(Test-GraphicsPreloadResources $preload $components))
+   $payloads.Add($preload+'|/boot/preload.r4i|preload')
+   foreach($name in @('HIDREPORT','USBHID','USBBOT','USBSCSI')){
+    $module=Get-GraphicsModule $name
+    $payloads.Add($module.artifact+'|/boot/preload/'+$name.ToLowerInvariant()+'.r4p|preload')
    }
   }
   $dependencyNames=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
@@ -100,7 +103,7 @@ try {
    # owner. Shipping a new kernel alongside them cannot meet this requirement.
    $requirements.Add('KERNEL|KERNEL|/boot/r4os.elf|'+$kernelVersion+'|active')
    if($groupName -in @('api','video')){
-    foreach($name in @('R4NV','R4GFX')){
+    foreach($name in $profile.providers){
      $dependency=Get-GraphicsModule $name
      $requirements.Add($dependency.kind+'|'+$dependency.name+'|'+$dependency.target+'|'+$dependency.version+'|installed')
     }
@@ -108,7 +111,7 @@ try {
    $texts=[Collections.Generic.List[string]]::new()
    foreach($name in @('R4OS-LICENSE.txt','R4OS-NOTICE.txt')+$legal[$groupName]){$texts.Add((Join-Path $context.legal $name))}
    if($groupName -ceq 'core'){
-    $texts.Add((Join-Path $context.libraries 'R4NV/ThirdParty/Nvidia/LICENSES.txt'))
+    if($Vendor -ceq 'nvidia'){$texts.Add((Join-Path $context.libraries 'R4NV/ThirdParty/Nvidia/LICENSES.txt'))}
     foreach($resource in $resources){if($resource.name -match 'LICENSE'){$texts.Add($resource.source)}}
    }
    $license=Join-Path $scratch ('LICENSE-'+$groupName+'.TXT')
@@ -120,7 +123,8 @@ try {
      $stream.Write($heading);$stream.Write([IO.File]::ReadAllBytes($file));$stream.Write($utf8.GetBytes("`n"))
     }
    }finally{$stream.Dispose()}
-   $payloads.Add($license+'|C:/R4OS/LICENSES/GFX/'+$groupName.ToUpperInvariant()+'.TXT|license')
+   $licenseScope=if($Vendor -ceq 'amd'){'AMD/'}else{''}
+   $payloads.Add($license+'|C:/R4OS/LICENSES/GFX/'+$licenseScope+$groupName.ToUpperInvariant()+'.TXT|license')
    if($groupName -ceq 'video'){
     $sources=Join-Path $scratch 'VideoSources'
     Invoke-R4Distribution 'pwsh' @('-NoProfile','-File',(Join-Path $context.libraries 'R4VIDEO/Tools/PackageSources.ps1'),'-OutputDirectory',$sources)
@@ -129,10 +133,10 @@ try {
     $payloads.Add((Join-Path $sources 'R4VIDEO-SOURCE.json')+'|C:/R4OS/SOURCES/R4VIDEO/MANIFEST|source')
    }
   }
-  $file=Join-Path $scratch ('GFX-'+$groupName.ToUpperInvariant()+'.R4U')
+  $file=Join-Path $scratch ($prefix+$groupName.ToUpperInvariant()+'.R4U')
   $description=Join-Path $scratch ('DESCRIPTION-'+$groupName+'.TXT')
-  [IO.File]::WriteAllText($description,"R4OS graphics $groupName version group. Offline payloads; activation follows the contained components. Native NVIDIA capabilities remain experimental pending physical qualification.",[Text.UTF8Encoding]::new($true))
-  $arguments=@('--output',$file,'--package',('GFX-'+$groupName.ToUpperInvariant()),'--version',$ReleaseVersion,'--release',$ReleaseVersion,'--title',("R4OS graphics $groupName"),'--description-file',$description)
+  [IO.File]::WriteAllText($description,"R4OS $Vendor graphics $groupName version group. Offline payloads; activation follows the contained components. Physical hardware qualification is separate from package validation.",[Text.UTF8Encoding]::new($true))
+  $arguments=@('--output',$file,'--package',($prefix+$groupName.ToUpperInvariant()),'--version',$ReleaseVersion,'--release',$ReleaseVersion,'--title',("R4OS $Vendor graphics $groupName"),'--description-file',$description)
   foreach($payload in $payloads){$arguments+=@('--payload',$payload)}
   foreach($requirement in $requirements){$arguments+=@('--require',$requirement)}
   Invoke-R4Distribution $packer $arguments
@@ -147,9 +151,20 @@ try {
    payloads=$payloads.Count;requirements=@($requirements);components=@($components|ForEach-Object {[ordered]@{name=$_.name;kind=$_.kind;version=$_.version;target=$_.target;sha256=(Get-FileHash -LiteralPath $_.artifact).Hash.ToLowerInvariant()}});
    resources=@($resources|ForEach-Object {[ordered]@{name=$_.name;bytes=$_.bytes;sha256=$_.sha256}})})
  }
- if($total -gt 32){throw 'Selected set exceeds the shared restart-batch payload capacity.'}
- $receipt=[ordered]@{schema=1;release=$ReleaseVersion;groups=@($records);total_payloads=$total;
-  install_order='Install platform and reboot first; then stage the selected core/api/video/desktop groups together and commit once.';
+ $batches=@(
+  [ordered]@{name='platform';groups=@('platform');reboots=1},
+  [ordered]@{name='preload';groups=@('preload');reboots=2},
+  [ordered]@{name='graphics';groups=@('core','api','video','desktop');reboots=1}
+ )
+ foreach($batch in $batches){
+  $count=0;foreach($record in $records){if($record.group -in $batch.groups){$count+=$record.payloads}}
+  if($count -gt 32){throw 'Selected restart batch exceeds the shared32-payload capacity.'}
+  $batch.payloads=$count
+ }
+
+ $receipt=[ordered]@{schema=2;release=$ReleaseVersion;vendor=$Vendor;kernel=$kernelVersion;contract_sha256=(Get-FileHash -LiteralPath (Join-Path $context.repositories 'Contract/Generated/Inventory/API.json')).Hash.ToLowerInvariant();groups=@($records);total_payloads=$total;
+  install_order='Install platform and reboot first. Install preload and reboot twice to cover interrupted commit or boot recovery: Limine reads files before early replay; a normal commit replaces them before reboot. Then stage core/api/video/desktop together and commit once.';batches=$batches;
+  configuration='No CONFIG, SERVICES, DISPLAY or user preferences are overwritten. Explicit driver activation belongs to the installation operator.';
   inventory='MODULES.JSON is maintained transactionally by SYSUPD; this receipt is build evidence, not an installed hardware catalog.';
   native_hardware_qualified=$false}
  $publication=Join-Path $scratch 'Published'
