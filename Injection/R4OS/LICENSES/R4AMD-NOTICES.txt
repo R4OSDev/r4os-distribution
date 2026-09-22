@@ -917,3 +917,19 @@ SHA256 d26c1e2e47410bc4641104cd8908edc01356952b228c9b4eac15ea45e61e2a2c
  *
  * SPDX-License-Identifier: MIT
  */
+
+src/amd/common/ac_video.c
+SHA256 8174af60d49a4db18eefab8d2a82124053388b191f89100e7ad7396ab9d1f956
+/*
+ * Copyright 2026 Advanced Micro Devices, Inc.
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+src/amd/common/ac_video.h
+SHA256 519c263bc1330730e84a11bef8fe01a7ad42d4b67ba8dff7f7af8c3148f491e9
+/*
+ * Copyright 2026 Advanced Micro Devices, Inc.
+ *
+ * SPDX-License-Identifier: MIT
+ */

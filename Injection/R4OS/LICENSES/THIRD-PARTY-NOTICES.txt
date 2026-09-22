@@ -443,3 +443,11 @@ R4VK-NOTICES.txt now also contains original Mesa RADV/ACO/AddrLib source
 notices and complete libc++ terms (Apache-2.0 WITH LLVM-exception). Original
 sources retain their licenses; only the private build tree receives native
 R4OS patches. Linux winsys and DRM discovery are not linked.
+
+AMD VCN1 media foundation (0.80.28)
+-----------------------------------
+VCN1/JPEG ring, power, firmware and register adaptation retains the complete
+original Linux AMD MIT grants in AMDGPU-SOURCE-NOTICES.txt. Mesa ac_video
+eligibility retains AMD 2026 MIT attribution and the full grant in
+R4AMD-NOTICES.txt. Firmware bytes and their redistribution terms are unchanged.
+The R4VIDEO corresponding-source package now includes its R4AMD dependency.
