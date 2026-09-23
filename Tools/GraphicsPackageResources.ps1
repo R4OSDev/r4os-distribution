@@ -66,11 +66,18 @@ function Test-GraphicsPackageResources($Module) {
  $lockName=switch -CaseSensitive ($Module.name){'NVIDIA' {'NVFW-LOCK.json'} 'AMDGPU' {'AMD-FIRMWARE-LOCK.json'} default {throw 'Unknown firmware owner.'}}
  if(!$expected.ContainsKey($lockName)){throw "Firmware lock is missing: $lockName"}
  $pin=Get-Content -Raw -LiteralPath $expected[$lockName]|ConvertFrom-Json -AsHashtable
- if($pin.schema -ne 1){throw 'Unknown graphics firmware lock schema.'}
+ $lockSchema=if($Module.name -ceq 'AMDGPU'){3}else{1}
+ if($pin.schema -ne $lockSchema){throw 'Unknown graphics firmware lock schema.'}
  $firmwareVersion=if($Module.name -ceq 'NVIDIA'){$pin.rm_version}else{
-  if($pin.revision -cnotmatch '^[0-9a-f]{40}$' -or $pin.firmware.Count -ne 13 -or $pin.metadata.Count -ne 2){throw 'Invalid AMD firmware profile.'}
+  if($pin.revision -cnotmatch '^[0-9a-f]{40}$' -or $pin.firmware.Count -ne 24 -or $pin.metadata.Count -ne 2){throw 'Invalid AMD firmware profile.'}
+  if($pin.raven2_rlc_revision -cne $pin.revision){throw 'Release firmware must use the admitted baseline RLC revision.'}
+  foreach($entry in @($pin.firmware)+@($pin.metadata)){
+   if($entry.upstream_revision -cne $pin.revision){throw 'AMD per-file source revision differs from the release bundle.'}
+  }
   $revisionMetadata=@($Module.lines | Where-Object {$_.StartsWith('META=firmware.revision=',[StringComparison]::Ordinal)})
   if($revisionMetadata.Count -ne 1 -or $revisionMetadata[0] -cne ('META=firmware.revision='+$pin.revision)){throw 'AMD firmware revision differs from its lock.'}
+  $rlcMetadata=@($Module.lines | Where-Object {$_.StartsWith('META=firmware.raven2_rlc_revision=',[StringComparison]::Ordinal)})
+  if($rlcMetadata.Count -ne 1 -or $rlcMetadata[0] -cne ('META=firmware.raven2_rlc_revision='+$pin.raven2_rlc_revision)){throw 'AMD RLC revision differs from its lock.'}
   'linux-firmware-'+$pin.revision.Substring(0,12)
  }
  $versions=@($Module.lines | Where-Object { $_.StartsWith('META=firmware.version=',[StringComparison]::Ordinal) })
@@ -92,7 +99,7 @@ function Test-GraphicsPackageResources($Module) {
   foreach($entry in @($pin.firmware)+@($pin.metadata)){
    if(!$expected.ContainsKey($entry.resource) -or !$pinned.ContainsKey($entry.resource)){throw 'AMD firmware/legal pin is missing.'}
   }
-  if($pinned.Count -ne 15 -or $expected.Count -ne 16){throw 'AMD firmware/legal resource set differs from the exact lock.'}
+  if($pinned.Count -ne 26 -or $expected.Count -ne 27){throw 'AMD firmware/legal resource set differs from the exact lock.'}
  }
  $stream=[IO.File]::OpenRead($Module.artifact)
  try {
@@ -104,6 +111,7 @@ function Test-GraphicsPackageResources($Module) {
   $firmwareVersions=@($metadata.Split([char]0) | Where-Object { $_.StartsWith('firmware.version=',[StringComparison]::Ordinal) })
   if($firmwareVersions.Count -ne 1 -or $firmwareVersions[0] -cne ('firmware.version='+$firmwareVersion)){throw 'Loaded-container firmware metadata differs from the verified bundle.'}
   if($Module.name -ceq 'AMDGPU' -and @($metadata.Split([char]0) | Where-Object {$_ -ceq ('firmware.revision='+$pin.revision)}).Count -ne 1){throw 'Embedded AMD firmware revision differs.'}
+  if($Module.name -ceq 'AMDGPU' -and @($metadata.Split([char]0) | Where-Object {$_ -ceq ('firmware.raven2_rlc_revision='+$pin.raven2_rlc_revision)}).Count -ne 1){throw 'Embedded AMD RLC revision differs.'}
   $sectionOffset=[BitConverter]::ToUInt32($header,16);$sectionCount=[BitConverter]::ToUInt32($header,20)
   if($sectionCount -eq 0 -or $sectionCount -gt 64){throw 'Invalid R4M0 section count.'}
   $resourceOffset=-1L;$resourceSize=0L
