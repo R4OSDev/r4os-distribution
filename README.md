@@ -94,8 +94,9 @@ Detailed German migration notes are preserved in
 
 ## Releases
 
-Build the required profile images before preparing a release. `Standard`
-packages Slim and Full; `All` additionally packages Test. Use `Release.bat`
+Build the required kernel, libraries, and module artifacts before preparing a
+release. Ordinary preparation regenerates and verifies the selected images.
+`Standard` packages Slim and Full; `All` additionally packages Test. Use `Release.bat`
 on Windows or `./Release.sh` on Linux with the same arguments:
 
     <release-starter> selftest
@@ -103,10 +104,24 @@ on Windows or `./Release.sh` on Linux with the same arguments:
     <release-starter> publish Standard
     <release-starter> publish Standard -prerelease
 
-`prepare` verifies every selected image and its legal payload, creates a ZIP
+`prepare` rebuilds and verifies every selected image and its legal payload, creates a ZIP
 per profile, calculates SHA-256 checksums, and records the exact repository
 commits and tool versions in a source manifest. Output is written below
 `Artifacts/Distribution/Releases/<version>/` in the mapped workspace.
+
+Graphics inclusion and activation are separate. NVIDIA has `IMAGE_SCOPE=slim`
+and belongs to ordinary Slim and Full images. AMDGPU, R4AMD, and R4ACO have
+`IMAGE_SCOPE=none`; an explicit `./Build.sh image Full -GraphicsVendor amd`
+(or `Build.bat` on Windows) adds the AMD stack to the normal profile, retaining
+NVIDIA. Both drivers can coexist in one image; no vendor-specific kernel is
+required. Required module artifacts must already be built.
+Ordinary `Release prepare/publish` does not pass `-GraphicsVendor` to image
+creation, so a previously expanded AMD image plan is not preserved by that
+regeneration. `publish -Prepared` is the separate path for exact previously
+prepared packages. The versioned `Injection/CONFIG.R4S` uses `GRAPHICS=AUTO`,
+`OPTION NVIDIA mode=auto`, and `OPTION AMDGPU mode=passive`; adding AMD payloads
+does not enable native AMD output. Native AMD startup requires an explicit
+`mode=native` setting and a supported board.
 
 Each package contains one `disk.img` with BIOSBOOT/BOOT/SYSTEM/RECOVERY/DATA,
 fresh DATA, the exact independent `recovery.zip`, USB creation starters,
@@ -195,7 +210,8 @@ DISPLAYD artifacts, creates a separate Test image with the canonical module
 inventory, and checks failed-load cleanup, driver records and usable bootfb
 with four vCPUs and no guest network. The default `all` selection continues
 to run the three Virtio cases. No NVIDIA hardware behavior is emulated by
-the absence case, and normal profiles do not include NVIDIA.R4D.
+the absence case. NVIDIA.R4D is included in normal profiles through its
+`IMAGE_SCOPE=slim`; this explicit check controls its diagnostic configuration.
 
 `graphics-test Test nvidia-runtime` exercises NVIDIA 0.1.9's resident CPU heap
 and monotonic clock providers on kernel 0.1.144 / DriverApi33. Init and a real worker each verify
