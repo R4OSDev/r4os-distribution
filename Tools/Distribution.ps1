@@ -46,6 +46,29 @@ function Copy-R4DistributionLegal($Context,[string]$Output) {
  Copy-Item -Path (Join-Path $Context.legal '*') -Destination $destination -Force
  Test-R4DistributionLegal $Context -Staged $destination
 }
+function Set-R4DistributionBootDriverConfig([string]$Plan) {
+ # Resolve the effective config after all overlays. Optional GPU packages
+ # must not leave mandatory DRIVER entries for files absent from this image.
+ $lines=[IO.File]::ReadAllLines($Plan)
+ $targets=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+ $configIndex=-1;$source=''
+ for($i=0;$i -lt $lines.Length;$i++){
+  if($lines[$i] -notmatch '^(.*):(/[^:]*)$'){continue}
+  [void]$targets.Add($Matches[2])
+  if($Matches[2] -ieq '/CONFIG.R4S'){$configIndex=$i;$source=$Matches[1]}
+ }
+ if($configIndex -lt 0){throw 'Image plan has no CONFIG.R4S.'}
+ $config=[IO.File]::ReadAllLines($source)
+ $filtered=@(foreach($line in $config){
+  if($line -match '^\s*DRIVER\s*=\s*(AMDGPU|NVIDIA)\s*$' -and !$targets.Contains('/R4OS/DRIVERS/'+$Matches[1]+'.R4D')){continue}
+  $line
+ })
+ if($filtered.Count -eq $config.Length){return}
+ $generated=Join-Path (Split-Path -Parent $Plan) 'CONFIG.R4S'
+ [IO.File]::WriteAllLines($generated,[string[]]$filtered,[Text.UTF8Encoding]::new($true))
+ $lines[$configIndex]=$generated.Replace('\','/')+':/CONFIG.R4S'
+ [IO.File]::WriteAllLines($Plan,$lines,[Text.UTF8Encoding]::new($false))
+}
 function New-R4DistributionPlan($Context,[string]$Name,[string]$Variant='',[string]$GraphicsVendor='') {
  $profile=Get-R4DistributionProfile $Context $Name
  if($Variant -and ($Name -cne 'Test' -or $Variant -cne 'browser')){throw "Unknown $Name image variant: $Variant"}
@@ -87,6 +110,7 @@ function New-R4DistributionPlan($Context,[string]$Name,[string]$Variant='',[stri
  }
  Push-Location -LiteralPath $Context.root
  try{Invoke-R4Distribution $tool $arguments}finally{Pop-Location}
+ Set-R4DistributionBootDriverConfig $list
  Test-R4DistributionLegal $Context -Plan $list
  $planText=Get-Content -Raw -LiteralPath $list
  foreach($name in @('SOURCE.TGZ','MANIFEST')){
@@ -146,6 +170,7 @@ function Start-R4DistributionBenchmark($Context,[string]$Name,[string]$Suite,[st
  finally{foreach($key in $saved.Keys){[Environment]::SetEnvironmentVariable($key,$saved[$key])}}
 }
 function Test-R4Distribution($Context) {
+ Test-R4DistributionBootDriverConfig $Context
  foreach($name in @('Slim','Full','Test','Benchmark')){$null=Get-R4DistributionProfile $Context $name}
  Test-R4DistributionLegal $Context
  $tool=Join-Path $Context.prefix "bin/image-plan$($Context.suffix)"
@@ -166,4 +191,27 @@ function Test-R4Distribution($Context) {
  Invoke-R4Distribution 'pwsh' @('-NoProfile','-File',(Join-Path $Context.root 'Tests/Test-QemuApiMarkers.ps1'),'-SelfTest')
  Invoke-R4Distribution 'pwsh' @('-NoProfile','-File',(Join-Path $PSScriptRoot 'Release.ps1'),'-Action','SelfTest')
  Write-Host 'Distribution profiles, common image plans and runner checks PASS.'
+}
+function Test-R4DistributionBootDriverConfig($Context) {
+ $work=Join-Path $Context.workspace ('Temp/DistributionBootConfig/'+[Guid]::NewGuid().ToString('N'))
+ [IO.Directory]::CreateDirectory($work)|Out-Null
+ try{
+  $source=Join-Path $work 'overlay.R4S';$plan=Join-Path $work 'image-adds.txt'
+  $config=@('GRAPHICS=AUTO','DRIVER=DISPBLIT','DRIVER=AMDGPU','OPTION AMDGPU mode=passive','DRIVER=NVIDIA','OPTION NVIDIA mode=auto','SHELL=/CUSTOM.R4X')
+  [IO.File]::WriteAllLines($source,$config,[Text.UTF8Encoding]::new($true))
+  foreach($drivers in @(@('NVIDIA'),@('AMDGPU','NVIDIA'),@('AMDGPU'),@())){
+   $entries=@($source+':/CONFIG.R4S')+@($drivers|ForEach-Object {($source+':/R4OS/DRIVERS/'+$_+'.R4D')})
+   [IO.File]::WriteAllLines($plan,[string[]]$entries,[Text.UTF8Encoding]::new($false))
+   Set-R4DistributionBootDriverConfig $plan
+   $mapped=@([IO.File]::ReadAllLines($plan)|Where-Object {$_ -match ':/CONFIG.R4S$'})
+   if($mapped.Count -ne 1){throw 'Config mapping was lost or duplicated.'}
+   $effective=[IO.File]::ReadAllLines($mapped[0].Substring(0,$mapped[0].LastIndexOf(':')))
+   foreach($driver in @('AMDGPU','NVIDIA')){
+    if(($effective -contains "DRIVER=$driver") -ne ($drivers -contains $driver)){throw "Optional $driver boot admission differs from image contents."}
+   }
+   foreach($line in @('DRIVER=DISPBLIT','SHELL=/CUSTOM.R4X','OPTION AMDGPU mode=passive')){if($effective -notcontains $line){throw 'Boot filtering changed unrelated overlay policy.'}}
+   if(([IO.File]::ReadAllLines($source) -join "`n") -cne ($config -join "`n")){throw 'Boot filtering modified its source overlay.'}
+  }
+  Write-Host 'Distribution optional GPU boot configuration PASS.'
+ }finally{Remove-Item -LiteralPath $work -Recurse -Force}
 }

@@ -122,6 +122,12 @@ prepared packages. The versioned `Injection/CONFIG.R4S` uses `GRAPHICS=AUTO`,
 `OPTION NVIDIA mode=auto`, and `OPTION AMDGPU mode=passive`; adding AMD payloads
 does not enable native AMD output. Native AMD startup requires an explicit
 `mode=native` setting and a supported board.
+The final image plan derives its boot configuration after applying overlays:
+`DRIVER=AMDGPU` and `DRIVER=NVIDIA` are retained only if the corresponding
+R4D is present in that exact plan. Other boot settings and GPU options are
+preserved, and source overlays are never rewritten. Thus an ordinary Full
+image does not report a missing AMDGPU file; an explicit AMD image retains
+its AMD driver entry and the configured passive/native policy.
 
 Each package contains one `disk.img` with BIOSBOOT/BOOT/SYSTEM/RECOVERY/DATA,
 fresh DATA, the exact independent `recovery.zip`, USB creation starters,
