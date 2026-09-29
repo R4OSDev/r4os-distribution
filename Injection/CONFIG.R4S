@@ -1,5 +1,6 @@
 ﻿# AUTO permits a native display owner; SOFTWARE keeps firmware graphics.
-GRAPHICS=AUTO
+# Release 0.82.0 starts in software graphics while native hardware validation is pending.
+GRAPHICS=SOFTWARE
 AUTO=PCI
 AUTO=ACPI
 SHELL=/R4OS/SOFTWARE/DESKTOP/R4DESK.R4X
