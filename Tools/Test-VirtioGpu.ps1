@@ -23,7 +23,7 @@ $autoexec=Join-Path $scratch 'AUTOEXEC.BAT'
  $lines=@('@ECHO OFF','VER','C:\R4OS\SOFTWARE\TERMINAL\DIAG\DISPLAYD.R4X /STATE')
  if($Variant -eq 'native'){$lines+='C:\R4OS\SOFTWARE\TERMINAL\DIAG\DISPLAYD.R4X /VIRTIO /RESIZE'}
  if($Variant -eq 'timeout'){$lines+='C:\R4OS\SOFTWARE\TERMINAL\DIAG\DISPLAYD.R4X /VIRTIO /FAIL'}
- if($runtime){$lines+=@('C:\R4OS\SOFTWARE\TERMINAL\DIAG\DISPLAYD.R4X /RECEIVERS','C:\R4OS\SOFTWARE\TERMINAL\DIAG\DISPLAYD.R4X /NVIDIASMOKE','SET','C:\R4OS\SOFTWARE\TERMINAL\DIAG\DISPLAYD.R4X /NVIDIAMEM','SET')}
+ if($runtime){$lines+=@('C:\R4OS\SOFTWARE\TERMINAL\DIAG\DISPLAYD.R4X /RECEIVERS /RAW','C:\R4OS\SOFTWARE\TERMINAL\DIAG\DISPLAYD.R4X /NVIDIASMOKE','SET','C:\R4OS\SOFTWARE\TERMINAL\DIAG\DISPLAYD.R4X /NVIDIAMEM','SET')}
  $driverReport=if($nvidia){'/NVIDIA'}else{'/VIRTIO'}
  $lines+=@('C:\R4OS\SOFTWARE\TERMINAL\DIAG\DISPLAYD.R4X','SET',"C:\R4OS\SOFTWARE\TERMINAL\DIAG\DISPLAYD.R4X $driverReport",'ECHO [GFX07908] complete','POWEROFF')
  [IO.File]::WriteAllText($autoexec,(($lines -join "`r`n")+"`r`n"),[Text.UTF8Encoding]::new($false))
@@ -300,6 +300,14 @@ try{
         }
         if($serial -notmatch '\[R4D\] cleanup owner=\d+ irq=0 work=0 threads=3 semaphores=2 dma=0 cpu-heap=2 cpu-bytes=4185 '){throw 'Missing actual quiesced thread/semaphore/CPU backing cleanup'}
         if($serial -notmatch 'DISPLAYD receivers: revision=\d+ count=1' -or $serial.Contains('source=receiver-only')){throw 'Synthetic receiver metadata survived CPU probe cleanup'}
+        $captureDirectory=Join-Path $scratch ('receiver-capture-'+[Guid]::NewGuid().ToString('N'))
+        & pwsh -NoProfile -File (Join-Path $context.repositories 'Diagnostics/DisplayDiag/Tools/ExportReceiverCapture.ps1') -TranscriptPath $serialPath -OutputDirectory $captureDirectory
+        if($LASTEXITCODE -ne 0){throw 'Receiver raw capture failed consistency/hash validation'}
+        $receiverCapture=Get-Content -Raw -LiteralPath (Join-Path $captureDirectory 'capture.json')|ConvertFrom-Json
+        $proof.receiverCapture=$captureDirectory
+        if($receiverCapture.exported_receivers -ne 1 -or $receiverCapture.receivers[0].source -cne 'firmware-snapshot' -or
+            $receiverCapture.receivers[0].bytes -ne 128 -or $receiverCapture.receivers[0].declared_blocks -ne 2 -or
+            $receiverCapture.receivers[0].blocks[0].checksum -ne 0){throw 'QEMU receiver snapshot was incorrectly exported or qualified'}
         if($serial.Contains('NVIDIA smoke: OK')){throw 'Software-only guest was accepted as physical NVIDIA execution'}
         if($serial.Contains('NVIDIA memory: OK')){throw 'Software-only guest was accepted as physical NVIDIA memory execution'}
         $nativeLogOwner=[regex]::Match($serial,'\[LOG1\] source=Driver severity=Info owner=(\d+) text=NVIDIA runtime-check: native-format=OK')
