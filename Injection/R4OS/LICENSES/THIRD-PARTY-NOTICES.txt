@@ -461,3 +461,8 @@ f5f6cc29f85dd5db0dd79c47700c8f3ebce18be4. Copyright2022-2026 Daniil Tatianin.
 The complete MIT grant is in uACPI-MIT.txt. The original R4OS host/EC bridge
 and synthetic tests remain Apache-2.0. Source and provenance are maintained
 in the public R4OSDev/r4os-driver-acpiplatform repository.
+
+
+DISPLAYD0.1.58 independent TuringColor2D image oracle adapts Mesa26.2.2
+nil/copy.rs and tiling.rs, MIT, Copyright2024 Valve Corp. and Collabora, Ltd.
+Full notice and pinned provenance: NVGOB.TXT (also embedded as NVIDIA-GOB-MIT.txt in DISPLAYD.R4X).

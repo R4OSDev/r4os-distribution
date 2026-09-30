@@ -1,0 +1,43 @@
+﻿DISPLAYD independent TuringColor2D GOB oracle
+===========================================
+Source: Mesa26.2.2 https://archive.mesa3d.org/mesa-26.2.2.tar.xz
+Recorded archive SHA256: eeb29ca7e56cfaa8e8a79538dcf834e3b18e501c31bef5145e959ea437cc4216
+src/nouveau/nil/copy.rs
+  SHA256 f5a0bf467e1c0e3a28623d5b6e5399d0ec57e8d99f91057b0a3af0c6c75be5d6
+  Copyright (c) 2024 Valve Corp. and Collabora, Ltd.; SPDX-License-Identifier: MIT
+src/nouveau/nil/tiling.rs
+  SHA256 82ca5d362c110f4341741d5e30115e9477572b11a331f926455bd340455bfe83
+  Copyright (c) 2024 Collabora, Ltd.; SPDX-License-Identifier: MIT
+Adaptation: src/nvidia_gob.zig inverse coordinates from the original fixed
+TuringColor2D 16-byte line table and tile/GOB geometry. This only defines a
+diagnostic byte oracle, independent of the driver layout planner.
+Original license text follows, with the corresponding copyright holders.
+
+MIT License put the following SPDX tag/value pair into a
+  comment according to the placement guidelines in the licensing rules
+  documentation:
+    SPDX-License-Identifier: MIT
+License-Text:
+
+MIT License
+
+Copyright (c) 2024 Valve Corp. and Collabora, Ltd.
+Copyright 2026 R4 (inverse-coordinate adaptation)
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
