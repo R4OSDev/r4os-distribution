@@ -1,5 +1,5 @@
 ﻿# AUTO permits a native display owner; SOFTWARE keeps firmware graphics.
-# Release 0.82.0 starts in software graphics while native hardware validation is pending.
+# Software is the distribution default until physical output acceptance; native AUTO is qualified on OssiPC in 0.82.37.
 GRAPHICS=SOFTWARE
 AUTO=PCI
 AUTO=ACPI
@@ -7,7 +7,6 @@ SHELL=/R4OS/SOFTWARE/DESKTOP/R4DESK.R4X
 DRIVER=DISPBLIT
 DRIVER=AMDGPU
 OPTION AMDGPU mode=passive
-DRIVER=ACPIPLAT
 DRIVER=NVIDIA
 OPTION NVIDIA mode=auto
 DRIVER=HDA
