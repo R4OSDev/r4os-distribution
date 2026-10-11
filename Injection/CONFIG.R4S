@@ -1,6 +1,6 @@
 ﻿# AUTO permits a native display owner; SOFTWARE keeps firmware graphics.
-# Software is the distribution default until physical output acceptance; native AUTO is qualified on OssiPC in 0.82.37.
-GRAPHICS=SOFTWARE
+# Native AUTO is qualified on OssiPC; the boot menu retains Software Graphics as a fallback.
+GRAPHICS=AUTO
 AUTO=PCI
 AUTO=ACPI
 SHELL=/R4OS/SOFTWARE/DESKTOP/R4DESK.R4X
