@@ -638,9 +638,9 @@ function Test-ApiMarkerContract {
         $presenter = [regex]::Match($Text, '(?im)^R4BASIC presenter: published_frames=(?<published_frames>\d+) skipped_frames=(?<skipped_frames>\d+) full_frames=(?<full_frames>\d+) damage_frames=(?<damage_frames>\d+) compacted_frames=(?<compacted_frames>\d+) damage_regions=(?<damage_regions>\d+) indexed8_frames=(?<indexed8_frames>\d+) indexed8_blocks=(?<indexed8_blocks>\d+) indexed8_resource_bytes=(?<indexed8_resource_bytes>\d+) xrgb_fallback_frames=(?<xrgb_fallback_frames>\d+) raster_blocks=(?<raster_blocks>\d+) sampled_pixels=(?<sampled_pixels>\d+)\r?$')
         $audio = [regex]::Match($Text, '(?im)^R4BASIC audio: state=(?<state>[a-z_]+) muted=(?<muted>[01]) playback=unavailable lazy_opens=(?<lazy_opens>\d+) service_ops=(?<service_ops>\d+) service_ops_cycle_max=(?<service_ops_cycle_max>\d+) opens=(?<opens>\d+) writes=(?<writes>\d+) closes=(?<closes>\d+) active_cycles=(?<active_cycles>\d+) silent_cycles=(?<silent_cycles>\d+) paused_cycles=(?<paused_cycles>\d+) muted_cycles=(?<muted_cycles>\d+) active_quanta=(?<active_quanta>\d+) silent_quanta=(?<silent_quanta>\d+) generated_bytes=(?<generated_bytes>\d+) accepted_bytes=(?<accepted_bytes>\d+) suppressed_bytes=(?<suppressed_bytes>\d+) discarded_bytes=(?<discarded_bytes>\d+) paused_bytes=(?<paused_bytes>\d+) muted_bytes=(?<muted_bytes>\d+) busy=(?<busy>\d+) resyncs=(?<resyncs>\d+)\r?$')
         $audioGuest = [regex]::Match($Text, '(?im)^R4BASIC audio-guest: scheduled_frames=(?<scheduled_frames>\d+) accepted_frames=(?<accepted_frames>\d+) suppressed_frames=(?<suppressed_frames>\d+) discarded_frames=(?<discarded_frames>\d+) resolved_frames=(?<resolved_frames>\d+) unresolved_frames=(?<unresolved_frames>\d+) foreground_waits=(?<foreground_waits>\d+) foreground_wakes=(?<foreground_wakes>\d+) background=(?<background>\d+) direct_events=(?<direct_events>\d+) reserve_grows=(?<reserve_grows>\d+) phase_lookups=(?<phase_lookups>\d+)\r?$')
-        $stackHighWater = [regex]::Match($Text, '(?im)^\[R4XSTACK\] highwater owner=(?<owner>\d+) thread=0 module=C:\\R4OS\\SUBSYSTEMS\\r4os\.basic\\R4BASIC\.R4X profile=desktop reserve=(?<reserve>\d+) initial=(?<initial>\d+) committed=(?<committed>\d+) highwater=(?<highwater>\d+) create_cycles=(?<create_cycles>\d+)\r?$')
+        $stackHighWater = [regex]::Match($Text, '(?im)^\[R4XSTACK\] highwater owner=(?<owner>\d+) detail=(?<detail>on|off) thread=0 module=C:\\R4OS\\SUBSYSTEMS\\r4os\.basic\\R4BASIC\.R4X profile=desktop reserve=(?<reserve>\d+) initial=(?<initial>\d+) committed=(?<committed>\d+) highwater=(?<highwater>\d+) create_cycles=(?<create_cycles>\d+)\r?$')
         $stackRelease = if ($stackHighWater.Success) {
-            [regex]::Match($Text, '(?im)^\[R4XSTACK\] release owner=' + [regex]::Escape($stackHighWater.Groups['owner'].Value) + ' profile=desktop reserve=(?<reserve>\d+) initial=(?<initial>\d+) committed=(?<committed>\d+) highwater=(?<highwater>\d+) creates=(?<creates>\d+) releases=(?<releases>\d+) create_cycles=(?<create_cycles>\d+) create_cycles_max=(?<create_cycles_max>\d+) release_cycles=(?<release_cycles>\d+) release_cycles_max=(?<release_cycles_max>\d+) kernel_highwater_max=(?<kernel_highwater>\d+) kernel_create_cycles_max=(?<kernel_create_cycles>\d+) kernel_release_cycles_max=(?<kernel_release_cycles>\d+) kernel_cache_cached=(?<cache_cached>\d+) kernel_cache_hits=(?<cache_hits>\d+) kernel_cache_misses=(?<cache_misses>\d+) critical_available=(?<critical_available>\d+) critical_in_use=(?<critical_in_use>\d+)\r?$')
+            [regex]::Match($Text, '(?im)^\[R4XSTACK\] release owner=' + [regex]::Escape($stackHighWater.Groups['owner'].Value) + ' detail=(?<detail>on|off) profile=desktop reserve=(?<reserve>\d+) initial=(?<initial>\d+) committed=(?<committed>\d+) highwater=(?<highwater>\d+) creates=(?<creates>\d+) releases=(?<releases>\d+) create_cycles=(?<create_cycles>\d+) create_cycles_max=(?<create_cycles_max>\d+) release_cycles=(?<release_cycles>\d+) release_cycles_max=(?<release_cycles_max>\d+) kernel_highwater_max=(?<kernel_highwater>\d+) kernel_create_cycles_max=(?<kernel_create_cycles>\d+) kernel_release_cycles_max=(?<kernel_release_cycles>\d+) kernel_cache_cached=(?<cache_cached>\d+) kernel_cache_hits=(?<cache_hits>\d+) kernel_cache_misses=(?<cache_misses>\d+) critical_available=(?<critical_available>\d+) critical_in_use=(?<critical_in_use>\d+)\r?$')
         } else {
             [System.Text.RegularExpressions.Match]::Empty
         }
@@ -858,15 +858,19 @@ function Test-ApiMarkerContract {
                 ([uint64]$audioGuest.Groups['scheduled_frames'].Value - [uint64]$audioGuest.Groups['resolved_frames'].Value) -and
             [uint64]$audioGuest.Groups['foreground_wakes'].Value -le [uint64]$audioGuest.Groups['foreground_waits'].Value -and
             [uint64]$audioGuest.Groups['phase_lookups'].Value -le [uint64]$audioGuest.Groups['direct_events'].Value
-        $stackOk = $stackHighWater.Success -and $stackRelease.Success -and
+        $stackDetail = $stackHighWater.Groups['detail'].Value -eq 'on'
+        $stackTimingOk = $stackHighWater.Groups['detail'].Value -eq $stackRelease.Groups['detail'].Value
+        foreach ($pair in @(@($stackHighWater, 'highwater'), @($stackHighWater, 'create_cycles'), @($stackRelease, 'release_cycles'), @($stackRelease, 'kernel_highwater'), @($stackRelease, 'kernel_create_cycles'), @($stackRelease, 'kernel_release_cycles'))) {
+            $value = [uint64]$pair[0].Groups[$pair[1]].Value
+            $stackTimingOk = $stackTimingOk -and $(if ($stackDetail) { $value -gt 0 } else { $value -eq 0 })
+        }
+        $stackOk = $stackHighWater.Success -and $stackRelease.Success -and $stackTimingOk -and
             [uint64]$stackHighWater.Groups['reserve'].Value -eq 4194304 -and
             [uint64]$stackHighWater.Groups['initial'].Value -eq 131072 -and
             [uint64]$stackHighWater.Groups['committed'].Value -ge [uint64]$stackHighWater.Groups['initial'].Value -and
             [uint64]$stackHighWater.Groups['committed'].Value -lt [uint64]$stackHighWater.Groups['reserve'].Value -and
-            [uint64]$stackHighWater.Groups['highwater'].Value -gt 0 -and
             [uint64]$stackHighWater.Groups['highwater'].Value -le [uint64]$stackHighWater.Groups['committed'].Value -and
             [uint64]$stackHighWater.Groups['reserve'].Value -ge ([uint64]$stackHighWater.Groups['highwater'].Value * 16) -and
-            [uint64]$stackHighWater.Groups['create_cycles'].Value -gt 0 -and
             [uint64]$stackRelease.Groups['reserve'].Value -eq [uint64]$stackHighWater.Groups['reserve'].Value -and
             [uint64]$stackRelease.Groups['initial'].Value -eq [uint64]$stackHighWater.Groups['initial'].Value -and
             [uint64]$stackRelease.Groups['committed'].Value -eq [uint64]$stackHighWater.Groups['committed'].Value -and
@@ -875,12 +879,8 @@ function Test-ApiMarkerContract {
             [uint64]$stackRelease.Groups['releases'].Value -gt 0 -and
             [uint64]$stackRelease.Groups['create_cycles'].Value -eq [uint64]$stackHighWater.Groups['create_cycles'].Value -and
             [uint64]$stackRelease.Groups['create_cycles_max'].Value -ge [uint64]$stackRelease.Groups['create_cycles'].Value -and
-            [uint64]$stackRelease.Groups['release_cycles'].Value -gt 0 -and
             [uint64]$stackRelease.Groups['release_cycles_max'].Value -ge [uint64]$stackRelease.Groups['release_cycles'].Value -and
-            [uint64]$stackRelease.Groups['kernel_highwater'].Value -gt 0 -and
             [uint64]$stackRelease.Groups['kernel_highwater'].Value -le 65536 -and
-            [uint64]$stackRelease.Groups['kernel_create_cycles'].Value -gt 0 -and
-            [uint64]$stackRelease.Groups['kernel_release_cycles'].Value -gt 0 -and
             [uint64]$stackRelease.Groups['cache_cached'].Value -le 8 -and
             [uint64]$stackRelease.Groups['cache_hits'].Value -gt 0 -and
             [uint64]$stackRelease.Groups['cache_misses'].Value -gt 0 -and
@@ -1051,8 +1051,8 @@ if ($SelfTest) {
         'R4BASIC presenter: published_frames=3 skipped_frames=1 full_frames=1 damage_frames=2 compacted_frames=0 damage_regions=4 indexed8_frames=3 indexed8_blocks=9 indexed8_resource_bytes=12000 xrgb_fallback_frames=0 raster_blocks=9 sampled_pixels=224500' + "`r`n" +
         'R4BASIC audio: state=ready muted=0 playback=unavailable lazy_opens=1 service_ops=4 service_ops_cycle_max=1 opens=1 writes=2 closes=1 active_cycles=4 silent_cycles=2 paused_cycles=0 muted_cycles=0 active_quanta=2 silent_quanta=1 generated_bytes=7680 accepted_bytes=3840 suppressed_bytes=1920 discarded_bytes=1920 paused_bytes=0 muted_bytes=0 busy=0 resyncs=0' + "`r`n" +
         'R4BASIC audio-guest: scheduled_frames=1920 accepted_frames=960 suppressed_frames=480 discarded_frames=480 resolved_frames=1920 unresolved_frames=0 foreground_waits=2 foreground_wakes=2 background=1 direct_events=4 reserve_grows=1 phase_lookups=3' + "`r`n" +
-        '[R4XSTACK] highwater owner=42 thread=0 module=C:\R4OS\SUBSYSTEMS\r4os.basic\R4BASIC.R4X profile=desktop reserve=4194304 initial=131072 committed=196608 highwater=154464 create_cycles=2500000' + "`r`n" +
-        '[R4XSTACK] release owner=42 profile=desktop reserve=4194304 initial=131072 committed=196608 highwater=154464 creates=4 releases=3 create_cycles=2500000 create_cycles_max=2700000 release_cycles=1700000 release_cycles_max=1800000 kernel_highwater_max=39800 kernel_create_cycles_max=3500000 kernel_release_cycles_max=2100000 kernel_cache_cached=8 kernel_cache_hits=20 kernel_cache_misses=12 critical_available=4 critical_in_use=0' + "`r`n" +
+        '[R4XSTACK] highwater owner=42 detail=on thread=0 module=C:\R4OS\SUBSYSTEMS\r4os.basic\R4BASIC.R4X profile=desktop reserve=4194304 initial=131072 committed=196608 highwater=154464 create_cycles=2500000' + "`r`n" +
+        '[R4XSTACK] release owner=42 detail=on profile=desktop reserve=4194304 initial=131072 committed=196608 highwater=154464 creates=4 releases=3 create_cycles=2500000 create_cycles_max=2700000 release_cycles=1700000 release_cycles_max=1800000 kernel_highwater_max=39800 kernel_create_cycles_max=3500000 kernel_release_cycles_max=2100000 kernel_cache_cached=8 kernel_cache_hits=20 kernel_cache_misses=12 critical_available=4 critical_in_use=0' + "`r`n" +
         '[R4BASIC-LAUNCH] id=0123456789ABCDEF mode=H phase=admission ns=140' + "`r`n" +
         '[R4BASIC-LAUNCH] id=0123456789ABCDEF mode=H phase=loader-complete ns=160 duration_ns=20 range_reads=12 fs_requests=13 gate_waits=0 fs_ticks=2 sections=4 imports=4 relocations=2110' + "`r`n" +
         '[R4BASIC-LAUNCH] id=0123456789ABCDEF mode=H phase=r4xstart ns=170'
@@ -1080,6 +1080,15 @@ if ($SelfTest) {
         $valid += "`r`n[SMPPROBE] result=SKIPPED cpus=1 reason=single-cpu"
     }
     if ((Test-ApiMarkerContract $valid -Quiet) -ne 0) { throw 'valid marker set did not pass' }
+    $baseMode = [regex]::Replace($valid, '(?m)^\[R4XSTACK\].*$', {
+        param($match)
+        $line = $match.Value.Replace('detail=on', 'detail=off')
+        return [regex]::Replace($line, '(highwater|create_cycles|create_cycles_max|release_cycles|release_cycles_max|kernel_highwater_max|kernel_create_cycles_max|kernel_release_cycles_max)=\d+', '$1=0')
+    })
+    if ((Test-ApiMarkerContract $baseMode -Quiet) -ne 0) { throw 'base instrumentation marker set did not pass' }
+    $badBase = $baseMode.Replace('highwater=0', 'highwater=1')
+    if ((Test-ApiMarkerContract $badBase -Quiet) -eq 0) { throw 'disabled stack high-water measurement was not rejected' }
+
     foreach ($marker in $required) {
         $missing = (($required | Where-Object { $_ -ne $marker }) -join "`r`n")
         if ((Test-ApiMarkerContract $missing -Quiet) -eq 0) { throw ('missing marker was not rejected: ' + $marker) }
