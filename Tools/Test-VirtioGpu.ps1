@@ -40,7 +40,7 @@ $autoexec=Join-Path $scratch 'AUTOEXEC.BAT'
      '--output',$extraPlan,'--inventory-output',$privateInventory,'--kernel-version-source',(Join-Path $context.repositories 'Kernel/VERSION.R4S'),
      '--kernel-artifact',(Join-Path $context.repositories 'Kernel/zig-out/bin/r4os.elf'))
  # Slim/core modules are already selected; explicit includes admit only
- # additional scopes. NVIDIA has belonged to Slim since 0.79.9.
+ # additional scopes, including the optional NVIDIA driver.
  foreach($requiredTarget in @($target,$diagnosticTarget)){
      if($requiredTarget -notin $regular.entries.target){$selection+=@('--include-target',$requiredTarget)}
  }

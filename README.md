@@ -109,25 +109,25 @@ per profile, calculates SHA-256 checksums, and records the exact repository
 commits and tool versions in a source manifest. Output is written below
 `Artifacts/Distribution/Releases/<version>/` in the mapped workspace.
 
-Graphics inclusion and activation are separate. NVIDIA has `IMAGE_SCOPE=slim`
-and belongs to ordinary Slim and Full images. AMDGPU, R4AMD, and R4ACO have
-`IMAGE_SCOPE=none`; an explicit `./Build.sh image Full -GraphicsVendor amd`
-(or `Build.bat` on Windows) adds the AMD stack to the normal profile, retaining
-NVIDIA. Both drivers can coexist in one image; no vendor-specific kernel is
-required. Required module artifacts must already be built.
+Standard Slim and Full releases use `GRAPHICS=SOFTWARE` and the firmware
+framebuffer. Native GPU drivers are optional: NVIDIA, R4NV, R4NAK, AMDGPU,
+R4AMD, and R4ACO have `IMAGE_SCOPE=none`. An explicit
+`./Build.sh image Full -GraphicsVendor nvidia` or `-GraphicsVendor amd`
+(or `Build.bat` on Windows) adds the selected vendor's stack to the normal
+profile. Required module artifacts must already be built.
 Ordinary `Release prepare/publish` does not pass `-GraphicsVendor` to image
-creation, so a previously expanded AMD image plan is not preserved by that
+creation, so a previously expanded graphics image plan is not preserved by that
 regeneration. `publish -Prepared` is the separate path for exact previously
-prepared packages. The versioned `Injection/CONFIG.R4S` uses `GRAPHICS=AUTO`,
-`OPTION NVIDIA mode=auto`, and `OPTION AMDGPU mode=passive`; adding AMD payloads
-does not enable native AMD output. Native AMD startup requires an explicit
-`mode=native` setting and a supported board.
+prepared packages. Adding graphics payloads preserves the software boot
+policy. Native activation requires an explicit `GRAPHICS=AUTO` setting and
+a supported board; NVIDIA uses `mode=auto`, while AMD also requires
+`mode=native` instead of its default `mode=passive`.
 The final image plan derives its boot configuration after applying overlays:
 `DRIVER=AMDGPU` and `DRIVER=NVIDIA` are retained only if the corresponding
 R4D is present in that exact plan. Other boot settings and GPU options are
 preserved, and source overlays are never rewritten. Thus an ordinary Full
-image does not report a missing AMDGPU file; an explicit AMD image retains
-its AMD driver entry and the configured passive/native policy.
+image does not request either absent native GPU driver; an explicit graphics
+image retains its selected driver entry and the configured mode policy.
 
 Each package contains one `disk.img` with BIOSBOOT/BOOT/SYSTEM/RECOVERY/DATA,
 fresh DATA, the exact independent `recovery.zip`, USB creation starters,
@@ -216,8 +216,8 @@ DISPLAYD artifacts, creates a separate Test image with the canonical module
 inventory, and checks failed-load cleanup, driver records and usable bootfb
 with four vCPUs and no guest network. The default `all` selection continues
 to run the three Virtio cases. No NVIDIA hardware behavior is emulated by
-the absence case. NVIDIA.R4D is included in normal profiles through its
-`IMAGE_SCOPE=slim`; this explicit check controls its diagnostic configuration.
+the absence case. NVIDIA.R4D has `IMAGE_SCOPE=none`; this explicit check
+includes the driver and controls its diagnostic configuration.
 
 `graphics-test Test nvidia-runtime` exercises NVIDIA 0.1.9's resident CPU heap
 and monotonic clock providers on kernel 0.1.144 / DriverApi33. Init and a real worker each verify
