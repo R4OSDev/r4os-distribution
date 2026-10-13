@@ -53,7 +53,7 @@ single-vector MSI-X, and the cross-CPU monotonic clock/IRQ proof. QEMU stops as
 soon as the final `[QUICKPROBE] result=DONE` marker confirms both bounded probe
 groups. It therefore does not start userland, R4GB, or R4SNES.
 The standard QEMU configuration keeps the boot volume on ICH9 AHCI and attaches the
-fresh data image as an NVMe namespace. The existing 1-MB FSDIAG guest probe and
+fresh data image as an NVMe namespace. The existing 1-MB Spectra filesystem guest probe and
 required ownership/mount markers therefore cover canonical NVME.R4D discovery
 and data-volume I/O on every normal headless acceptance run.
 Both standard and browser acceptance run `REG APITEST`, `REG MIGRATESELFTEST`,
@@ -67,7 +67,7 @@ covered.
 Building the Benchmark profile never starts a benchmark. The `benchmark`
 action is the only measured path: it requires a complete request, creates a
 fresh run data image, uses the versioned fixed QEMU environment, requires a
-complete PERFDIAG machine block and regular guest poweroff, and writes the
+complete SPECTRA machine block and regular guest poweroff, and writes the
 current machine-readable result below the Benchmark profile. Normal builds,
 tests, headless acceptance, and GUI runs never invoke it.
 

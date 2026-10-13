@@ -222,14 +222,14 @@ geschlossene Abschluesse sowie messbare Pfadcache-, Verdichtungs- und
 Pufferspitzen. GORILLA selbst fuehrt keine sequentielle Dateioperation aus;
 daher muessen seine zugehoerigen Zaehler konsistent null bleiben.
 
-Die Test-AUTOEXEC startet `FSDIAG /PAGECACHE` als gezielte 1-MB-Gastprobe.
+Die Test-AUTOEXEC startet `SPECTRA CHECK FILESYSTEM /PAGECACHE` als gezielte 1-MB-Gastprobe.
 Vor dem 8-KB-Readback reduziert sie saubere Cache-Residenz über den vorhandenen
 begrenzten Reclaim-Vertrag auf den Policy-Floor. Die Markerauswertung verlangt
 damit reproduzierbar weniger NVMe-Backendrequests und Fill-Lockabgaben als
 gefüllte 4-KB-Seiten, rohe Seiten-/Sektor-/Byte-/Fehlerzähler, die absichtlich
 beibehaltene sichere Zweifachkopie sowie autonomen budgetierten
 Dirty-Fortschritt. Stream-, selektiver Commit-, Readback- und Abbruchvertrag
-bleiben Teil derselben Probe; die umfangreiche 14-MB-FSDIAG-Suite wird dadurch
+bleiben Teil derselben Probe; die umfangreiche 14-MB-Spectra filesystem-Suite wird dadurch
 nicht in jeden Standardlauf aufgenommen.
 
 Standard- und Browser-AUTOEXEC starten ausserdem `REG APITEST`,
@@ -245,7 +245,7 @@ Die Standard-QEMU-Konfiguration bindet das Bootvolume an einen expliziten
 ICH9-AHCI-Controller und das frische Datenimage als NVMe-Namespace ein. Der
 Headless-Markervertrag verlangt beide kanonischen Preloadbesitzer. Das Laden
 des Systemvolumes prueft den IDENTIFY-basierten synchronen AHCI-Bootpfad und
-den spaeteren parallelen Blockworkerpfad; die vorhandene 1-MB-FSDIAG-Probe
+den spaeteren parallelen Blockworkerpfad; die vorhandene 1-MB-Spectra filesystem-Probe
 liefert auf dem NVMe-Datenvolume Stream-, Readback-, Flush-, Pagecache- und
 Datenintegritaets-I/O. Ein zusaetzlicher kalter 1-MB-Read des installierten
 R4SNES-Moduls belegt auf NTFS, dass Mehrseiten-Demand-Fills Backendanfragen
@@ -260,7 +260,7 @@ Klickifax liefert dabei die Offline-Gastmarker. KlickifaxLive wird lediglich
 installiert, weil seine Live-Proben Netzwerk benoetigen und das Headless-QEMU
 bewusst mit deaktiviertem Netzwerk startet.
 
-Das Benchmarkprofil waehlt den Full-Umfang und nimmt PERFDIAG als einzige
+Das Benchmarkprofil waehlt den Full-Umfang und nimmt SPECTRA als einzige
 explizite Diagnose aus `IMAGE_SCOPE=test` hinzu. Es verwendet
 `BenchmarkInjection` ueber der normalen Injection, setzt die Shell explizit
 auf das AUTOEXEC-faehige Terminal und verwendet keine lokalen oder
@@ -272,7 +272,7 @@ Wiederholungszahl und der festen Umgebungs-ID
 `r4os-q35-haswell-smp4-1g-tcg-gpt1-v1`. Der Runner erzeugt ein getrenntes frisches
 DATA in einer privaten disk.img mit genau einer Workload und startet q35 mit TCG single-thread,
 Haswell, vier vCPUs, 1 GiB und ohne Netzwerk. Erfolg verlangt genau einen
-vollstaendigen PERFDIAG-NDJSON-Block und regulaeres Poweroff. Anforderung,
+vollstaendigen SPECTRA-NDJSON-Block und regulaeres Poweroff. Anforderung,
 Logs, Lauf-Datenimage und `benchmark-result.json` liegen unter
 `Artifacts/Distribution/Profiles/Benchmark/Runs/current/`.
 

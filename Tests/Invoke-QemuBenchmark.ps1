@@ -96,7 +96,7 @@ function Get-ValidatedRequest(
 }
 
 function New-GuestRequestText($Request) {
-    $workloadFlag = '/' + $Request.workload.ToUpperInvariant()
+    $workloadFlag = $Request.workload.ToUpperInvariant()
     $cacheFlag = '/' + $Request.cache_state.ToUpperInvariant()
     $requestJson = $Request | ConvertTo-Json -Compress
     $lines = @(
@@ -104,7 +104,7 @@ function New-GuestRequestText($Request) {
         'ECHO R4BENCH request begin',
         ('ECHO ' + $requestJson),
         'ECHO R4BENCH request end',
-        ('C:\R4OS\SOFTWARE\TERMINAL\DIAG\PERFDIAG.R4X /BENCHMARK ' + $workloadFlag + ' /REPEAT:' + $Request.repetitions + ' ' + $cacheFlag),
+        ('C:\R4OS\SOFTWARE\TERMINAL\DIAG\SPECTRA.R4X BENCH ' + $workloadFlag + ' /REPEAT:' + $Request.repetitions + ' ' + $cacheFlag),
         'ECHO R4BENCH guest poweroff',
         'POWEROFF'
     )
@@ -195,32 +195,32 @@ function Read-BenchmarkRecords([string[]]$Lines, $Request, $QemuExitCode) {
     }
     if ($validatedExitCode -eq 124) { throw 'Benchmark timed out before regular guest poweroff.' }
     if ($validatedExitCode -ne 0) { throw ('QEMU benchmark failed with exit code ' + $validatedExitCode + '.') }
-    foreach ($marker in @('R4BENCH request begin', 'R4BENCH request end', 'PERFDIAG machine-result begin', 'PERFDIAG machine-result end', 'PERFDIAG result: OK', 'R4BENCH guest poweroff')) {
+    foreach ($marker in @('R4BENCH request begin', 'R4BENCH request end', 'SPECTRA PERFORMANCE machine-result begin', 'SPECTRA PERFORMANCE machine-result end', 'SPECTRA PERFORMANCE result: OK', 'R4BENCH guest poweroff')) {
         if ((Get-ExactCount $Lines $marker) -ne 1) {
             throw ('Benchmark log must contain exactly one marker: ' + $marker)
         }
     }
-    if (@($Lines | Where-Object { $_ -match 'PERFDIAG result: FAILED|CPU Exception|PANIC' }).Count -ne 0) {
+    if (@($Lines | Where-Object { $_ -match 'SPECTRA PERFORMANCE result: FAILED|CPU Exception|PANIC' }).Count -ne 0) {
         throw 'Benchmark log contains a failure marker.'
     }
 
-    $begin = [Array]::IndexOf($Lines, 'PERFDIAG machine-result begin')
-    $end = [Array]::IndexOf($Lines, 'PERFDIAG machine-result end')
-    if ($begin -lt 0 -or $end -le $begin + 1) { throw 'PERFDIAG machine-result block is incomplete.' }
+    $begin = [Array]::IndexOf($Lines, 'SPECTRA PERFORMANCE machine-result begin')
+    $end = [Array]::IndexOf($Lines, 'SPECTRA PERFORMANCE machine-result end')
+    if ($begin -lt 0 -or $end -le $begin + 1) { throw 'SPECTRA PERFORMANCE machine-result block is incomplete.' }
     $records = [Collections.Generic.List[object]]::new()
     for ($index = $begin + 1; $index -lt $end; $index++) {
         try {
             $record = $Lines[$index] | ConvertFrom-Json
         } catch {
-            throw ('Invalid JSON in PERFDIAG machine-result block: ' + $Lines[$index])
+            throw ('Invalid JSON in SPECTRA PERFORMANCE machine-result block: ' + $Lines[$index])
         }
         if ($record.schema -ne 'r4os.perfdiag.ndjson' -or [int]$record.schema_version -ne 7) {
-            throw 'Unexpected PERFDIAG result schema.'
+            throw 'Unexpected SPECTRA PERFORMANCE result schema.'
         }
         $records.Add($record)
     }
     $runRecords = @($records | Where-Object { $_.type -eq 'run' })
-    if ($runRecords.Count -ne 1) { throw 'PERFDIAG machine-result block must contain exactly one run record.' }
+    if ($runRecords.Count -ne 1) { throw 'SPECTRA PERFORMANCE machine-result block must contain exactly one run record.' }
     $run = $runRecords[0]
     if ($run.module_version -ne $Request.workload_version -or
         $run.mode -ne 'benchmark' -or
@@ -228,7 +228,7 @@ function Read-BenchmarkRecords([string[]]$Lines, $Request, $QemuExitCode) {
         $run.benchmark -ne $Request.workload -or
         [int]$run.repetitions -ne $Request.repetitions -or
         $run.result -ne 'ok') {
-        throw 'PERFDIAG run record does not match the explicit benchmark request.'
+        throw 'SPECTRA PERFORMANCE run record does not match the explicit benchmark request.'
     }
     return $records.ToArray()
 }
@@ -251,9 +251,9 @@ function Invoke-SelfTest {
         $exitProbe = Invoke-ControlledProcess '/bin/sh' '-c "exit 7"' (Get-Location).Path 10000
     }
     if ($exitProbe.timed_out -or [int]$exitProbe.exit_code -ne 7) { throw 'Controlled process exit-code capture failed.' }
-    $request = Get-ValidatedRequest 'perfdiag-clock' '0.3.7' 'warm' 5 $benchmarkEnvironmentId
+    $request = Get-ValidatedRequest 'perfdiag-clock' '0.1.0' 'warm' 5 $benchmarkEnvironmentId
     $guestText = New-GuestRequestText $request
-    if (@($guestText -split "`r`n" | Where-Object { $_ -match 'PERFDIAG\.R4X' }).Count -ne 1) { throw 'Guest request does not contain exactly one workload.' }
+    if (@($guestText -split "`r`n" | Where-Object { $_ -match 'SPECTRA\.R4X' }).Count -ne 1) { throw 'Guest request does not contain exactly one workload.' }
     if (@($guestText -split "`r`n" | Where-Object { $_ -eq 'POWEROFF' }).Count -ne 1) { throw 'Guest request does not contain exactly one poweroff.' }
     $argumentLine = Get-QemuArgumentLine 'benchmark.conf' 'benchmark.log'
     foreach ($fixed in @('-accel tcg,thread=single', '-cpu Haswell', '-m 1G', '-smp 4,sockets=1,cores=4,threads=1', '-nic none', '-display none')) {
@@ -263,22 +263,22 @@ function Invoke-SelfTest {
     $goodLog = @(
         'R4BENCH request begin',
         'R4BENCH request end',
-        'PERFDIAG machine-result begin',
-        '{"schema":"r4os.perfdiag.ndjson","schema_version":7,"type":"run","module_version":"0.3.7","mode":"benchmark","cache_state":"warm","benchmark":"clock","repetitions":5,"result":"ok"}',
+        'SPECTRA PERFORMANCE machine-result begin',
+        '{"schema":"r4os.perfdiag.ndjson","schema_version":7,"type":"run","module_version":"0.1.0","mode":"benchmark","cache_state":"warm","benchmark":"clock","repetitions":5,"result":"ok"}',
         '{"schema":"r4os.perfdiag.ndjson","schema_version":7,"type":"observer"}',
-        'PERFDIAG machine-result end',
-        'PERFDIAG result: OK',
+        'SPECTRA PERFORMANCE machine-result end',
+        'SPECTRA PERFORMANCE result: OK',
         'R4BENCH guest poweroff'
     )
     $records = Read-BenchmarkRecords $goodLog $request 0
     if ($records.Count -ne 2) { throw 'Complete machine block was not preserved.' }
 
-    Assert-Throws { Get-ValidatedRequest '' '0.3.7' 'warm' 5 $benchmarkEnvironmentId } 'missing request'
-    Assert-Throws { Get-ValidatedRequest 'perfdiag-clock' '0.3.7' 'warm' 5 'unknown-environment' } 'environment mismatch'
+    Assert-Throws { Get-ValidatedRequest '' '0.1.0' 'warm' 5 $benchmarkEnvironmentId } 'missing request'
+    Assert-Throws { Get-ValidatedRequest 'perfdiag-clock' '0.1.0' 'warm' 5 'unknown-environment' } 'environment mismatch'
     Assert-Throws { Read-BenchmarkRecords $goodLog $request 124 } 'timeout'
     Assert-Throws { Read-BenchmarkRecords $goodLog $request $null } 'missing QEMU exit code'
     Assert-Throws { Read-BenchmarkRecords @($goodLog | Where-Object { $_ -ne 'R4BENCH guest poweroff' }) $request 0 } 'missing poweroff'
-    Assert-Throws { Read-BenchmarkRecords @($goodLog | Where-Object { $_ -ne 'PERFDIAG machine-result end' }) $request 0 } 'incomplete machine block'
+    Assert-Throws { Read-BenchmarkRecords @($goodLog | Where-Object { $_ -ne 'SPECTRA PERFORMANCE machine-result end' }) $request 0 } 'incomplete machine block'
     Write-Host '[OK] Benchmark request, fixed QEMU environment and result gates.'
 }
 

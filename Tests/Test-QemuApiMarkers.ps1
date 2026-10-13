@@ -86,9 +86,10 @@ function Test-LockProbeContract {
     if (-not $probe.Success) { return $false }
     $mask = [Convert]::ToUInt64($probe.Groups['mask'].Value, 16)
     $maskCount = ([Convert]::ToString([int64]$mask, 2).Replace('0', '')).Length
+    # Hold times and spin counts are optional detail instrumentation. The
+    # functional result, ownership, stress mask and failures remain required.
     return $probe.Success -and
         [uint64]$probe.Groups['runtime'].Value -gt 0 -and
-        [uint64]$probe.Groups['hold'].Value -gt 0 -and
         [uint64]$probe.Groups['owner'].Value -gt 0 -and
         [uint64]$probe.Groups['iterations'].Value -ge ([uint64]$ExpectedCpuCount * 64) -and
         $maskCount -eq $ExpectedCpuCount
@@ -276,6 +277,8 @@ if ($ClockSmoke) {
             '[QUICKPROBE] result=DONE'
         ) -join "`r`n"
         if ((Test-ClockSmokeContract $validClock -Quiet) -ne 0) { throw 'valid clock-smoke marker set did not pass' }
+        $normalClock = $validClock.Replace('wait_spins=17 max_wait=9 max_hold_cycles=800', 'wait_spins=0 max_wait=0 max_hold_cycles=0')
+        if ((Test-ClockSmokeContract $normalClock -Quiet) -ne 0) { throw 'normal instrumentation mode did not pass' }
         foreach ($invalidClock in @(
                 $validClock.Replace('online=4', 'online=3'),
                 $validClock.Replace('speedup_milli=2000', 'speedup_milli=1049'),
@@ -343,9 +346,9 @@ $required = @(
     'REG migrate selftest: OK',
     'REGEDIT snapshot batch selftest: OK',
     'REGEDIT selftest: OK',
-    'FSDIAG ntfs metadata cache: OK',
-    'FSDIAG pagecache policy: OK',
-    'FSDIAG result: OK',
+    'SPECTRA FILESYSTEM ntfs metadata cache: OK',
+    'SPECTRA FILESYSTEM pagecache policy: OK',
+    'SPECTRA FILESYSTEM result: OK',
     'AUDIOD master: OK volume+mute streams=2 fanout=common persistence=restart',
     'AUDIOD lifecycle: OK cycles=4 restart=replay multi=2 stale=none',
     'AUDIOD HDA diagnostic: OK core=selection+transport+route+format runtime=irq+position counters=separate',
@@ -375,10 +378,10 @@ $required = @(
     'R4SNES E2E rejection: OK id=00000000000000D4 class=firmware error=Missing window=closed resources=closed',
     'R4SNES explorer E2E: OK catalog=MODULES.JSON assoc=ids-only formats=.sfc+.smc probe=zero-byte instances=2 input=physical video=xrgb32 audio=app-audio save=sram+rtc rejection=invalid+firmware close=witness+separate',
     'R4SNES long-run E2E: OK duration=60s instances=2 focus=alternating lifecycle=pause+resume+reset+mute endings=witness+close desktop=responsive',
-    'LOADERD result: OK',
+    'SPECTRA LOADER result: OK',
     'APPHEAPD allocator churn: OK small=64 direct=32',
     'APPHEAPD result: OK churn=bounded cleanup=trimmed',
-    'RESDIAG result: OK',
+    'SPECTRA RESOURCES result: OK',
     'DISPLAYD damage-present: OK regions=2 pixels=8',
     'DISPLAYD result: OK',
     'EXPLORER BAS source-probe: cases=3 info_calls=3 read_calls=0 read_bytes=0 limit_bytes=262144',
@@ -431,8 +434,8 @@ $forbidden = @(
     'REG: api-selftest',
     'REG: migrate-',
     'REGEDIT selftest failed:',
-    'FSDIAG ntfs metadata cache: FAILED',
-    'FSDIAG result: FAILED',
+    'SPECTRA FILESYSTEM ntfs metadata cache: FAILED',
+    'SPECTRA FILESYSTEM result: FAILED',
     'AUDIOD master: FAILED',
     'AUDIOD lifecycle: FAILED',
     'AUDIOD HDA diagnostic: FAILED',
@@ -453,9 +456,9 @@ $forbidden = @(
     'R4SNES E2E runtime: FAILED',
     'R4SNES E2E rejection: FAILED',
     'R4SNES E2E diagnostic: FAILED',
-    'LOADERD result: FAILED',
+    'SPECTRA LOADER result: FAILED',
     'APPHEAPD result: FAILED',
-    'RESDIAG result: FAILED',
+    'SPECTRA RESOURCES result: FAILED',
     '[R4D] runtime load DISPBLIT [FAILED]',
     'DISPLAYD damage-present: FAILED',
     'DISPLAYD result: FAILED',
