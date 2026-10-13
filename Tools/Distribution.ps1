@@ -135,7 +135,12 @@ function Start-R4DistributionInteractive($Context,[string]$Name,[string]$Adapter
 }
 function Start-R4DistributionHeadless($Context,[string]$Name,[string]$Variant) {
  $profile=Get-R4DistributionProfile $Context $Name
- if($Name -cne 'Test' -or $profile.TEST_OVERLAY -cne '1' -or $Variant -cnotin @('','browser','smp4','clock4','smpfail4')){throw 'Headless acceptance requires Test and four vCPUs.'}
+ if($Name -cne 'Test' -or $profile.TEST_OVERLAY -cne '1' -or $Variant -cnotin @('','browser','smp4','clock4','smpfail4','standard4','reference4')){throw 'Headless acceptance requires Test and four vCPUs.'}
+ if($Variant -cin @('','smp4','standard4','reference4')){
+  . (Join-Path $PSScriptRoot 'SpectraStandard.ps1')
+  $null=Start-R4SpectraStandard $Context -SelfReference:($Variant -ceq 'reference4')
+  if($Variant -cin @('standard4','reference4')){return}
+ }
  . (Join-Path $PSScriptRoot 'Qemu-Media.ps1')
  $run=New-R4QemuMedia -SourceRoot (Join-Path $Context.output 'Profiles/Test') -Mode Fresh -Name ('headless-'+$(if($Variant){$Variant}else{'standard'}))
  # The existing Test-profile NVMEIRQ probe requires a real virtual controller

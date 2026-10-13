@@ -60,6 +60,10 @@ function Normalize-StartProcessEnvironment {
 Assert-File $qemu 'QEMU executable'
 Assert-File $config 'QEMU config'
 $hostProfile = Resolve-R4QemuHostProfile $qemu
+if ($env:R4OS_QEMU_EXPECTED_BACKEND -and $env:R4OS_QEMU_EXPECTED_BACKEND -cne $hostProfile.Name) {
+    throw 'The selected accelerator differs from the benchmark metadata.'
+}
+$accelerator = if ($env:R4OS_QEMU_STRICT_ACCELERATOR -ceq '1') { $hostProfile.AcceleratorChain.Split(':')[0] } else { $hostProfile.AcceleratorChain }
 if (-not $logPath -or -not $errorPath) {
     Write-Host 'QEMU headless helper: log paths are not configured.'
     exit 125
@@ -89,7 +93,7 @@ $argumentLine = (@(
     '-cpu', $hostProfile.CpuModel,
     '-m', '1G',
     '-smp', ([string]$cpuCount),
-    '-machine', ('accel=' + $hostProfile.AcceleratorChain),
+    '-machine', ('accel=' + $accelerator),
     '-nic', 'none',
     '-audiodev', (Quote-Argument $audioDevice),
     '-global', 'hda-duplex.audiodev=headless-audio',
