@@ -5,6 +5,15 @@ Apache License 2.0 applies only to original R4OS material. Third-party
 components retain the licenses listed below. Complete license texts are stored
 in this directory.
 
+Kernel Rust core/compiler runtime (Rust 1.99.0)
+---------------------------------------------
+The kernel uses the pinned x86_64-unknown-none Rust toolchain and retains
+upstream Rust/LLVM/per-file license and copyright terms. The complete
+unmodified upstream library copyright and license report is stored in
+RUST-1.99-LIBRARY-LICENSES.html. This is independent of the older Rust
+runtime used by the separately owned R4NAK shader compiler.
+Source: https://github.com/rust-lang/rust/tree/1.99.0
+
 Native Mesa EGL/OpenGL software runtime (R4GL)
 --------------------------------------------
 Mesa 26.2.2 and selected Zig-bundled libc++ sources retain their original

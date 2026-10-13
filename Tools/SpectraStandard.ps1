@@ -25,6 +25,7 @@ function Start-R4SpectraStandard($Context,[switch]$SelfReference) {
  $plan=Join-Path $scratch 'image-adds.txt';$entries=[Collections.Generic.List[string]]::new();$replaced=@{}
  $artifactSpecs=@(@('kernel','Kernel','/boot/r4os.elf'),@('spectra','Diagnostics/Spectra','/R4OS/SOFTWARE/TERMINAL/DIAG/SPECTRA.R4X'),@('lifecycle-fixture','Diagnostics/Spectra','/R4OS/SOFTWARE/TERMINAL/DIAG/SPECTRA/STDCHILD.R4X'),@('terminal','Apps/Terminal','/R4OS/SOFTWARE/TERMINAL/TERMINAL.R4X'),@('servman','Apps/ServiceManager','/R4OS/SOFTWARE/TERMINAL/SERVMAN.R4X'))
  $sourceFiles=@{}
+ $kernelBuild=$null
  foreach($line in [IO.File]::ReadLines($sourcePlan)){
   $split=$line.LastIndexOf(':/');if($split -lt 0){throw 'Invalid canonical image plan line.'}
   $target=$line.Substring($split+1);$source=$line.Substring(0,$split)
@@ -39,6 +40,12 @@ function Start-R4SpectraStandard($Context,[switch]$SelfReference) {
   }
   if($target -ieq '/R4OS/CONFIG/VERSION.R4S'){
    $snapshot=Join-Path $scratch 'VERSION.R4S';Copy-Item -LiteralPath $source -Destination $snapshot;$source=$snapshot
+  }
+  if($target -ieq '/boot/r4os.elf'){
+   $kernelOwner=Join-Path $Context.repositories 'Kernel'
+   . (Join-Path $kernelOwner 'Tools/BuildMetadata.ps1')
+   $kernelBuild=Get-R4KernelBuildMetadata -KernelRoot $kernelOwner -Artifact $source
+   [IO.File]::WriteAllText((Join-Path $scratch 'kernel.build.json'),($kernelBuild|ConvertTo-Json -Depth 24),[Text.UTF8Encoding]::new($false))
   }
   $sourceFiles[$target.ToUpperInvariant()]=$source;$entries.Add($source+':'+$target)
  }
@@ -79,11 +86,15 @@ function Start-R4SpectraStandard($Context,[switch]$SelfReference) {
   $repo=Join-Path $Context.repositories $item[1]
   $commit=([string](& git -C $repo rev-parse HEAD)).Trim();if($LASTEXITCODE -ne 0){throw 'Artifact owner commit missing.'}
   $dirty=@(& git -C $repo status --porcelain).Count -ne 0
-  $artifacts.Add([ordered]@{component=$item[0];commit=$commit;dirty=$dirty;sha256=(Get-FileHash -LiteralPath $file).Hash.ToLowerInvariant();build_options=$(if($item[0] -ceq 'kernel'){@{optimize='ReleaseSafe';metrics=$null;metrics_source='guest-header'}}else{@{optimize='ReleaseSmall';red_zone=$false}})})
+  $buildOptions=if($item[0] -ceq 'kernel'){
+   if(!$kernelBuild){throw 'The exact kernel compiler/profile record was not captured.'}
+   [ordered]@{languages=$kernelBuild.languages;compilers=$kernelBuild.compilers;profiles=$kernelBuild.profiles;options=$kernelBuild.options;configuration_sha256=$kernelBuild.configuration_sha256;metrics=$null;metrics_source='guest-header'}
+  }else{@{optimize='ReleaseSmall';red_zone=$false}}
+  $artifacts.Add([ordered]@{component=$item[0];commit=$commit;dirty=$dirty;sha256=(Get-FileHash -LiteralPath $file).Hash.ToLowerInvariant();build_options=$buildOptions})
  }
  $artifacts.Add([ordered]@{component='fresh-image';sha256=(Get-Content -Raw -LiteralPath (Join-Path $run 'source.json')|ConvertFrom-Json).sourceSha256;image_method='r4os-gpt-1';boot_config_sha256=(Get-FileHash $configPath).Hash.ToLowerInvariant();autoexec_sha256=(Get-FileHash $autoexec).Hash.ToLowerInvariant()})
  $versionFile=$sourceFiles['/R4OS/CONFIG/VERSION.R4S'];$release=(Get-InstallationFields $versionFile).RELEASE_VERSION
- $kernelVersion=(Get-InstallationFields (Join-Path $Context.repositories 'Kernel/VERSION.R4S')).KERNEL_VERSION
+ $kernelVersion=$kernelBuild.kernel_version
  $metadata=[ordered]@{run_id=$id;host_id=$hostId;started_at_utc=$null;finished_at_utc=$null;release_version=$release;kernel_version=$kernelVersion;environment_id=('r4os-standard-smp4-'+$hostProfile.Name.ToLowerInvariant()+'-1');comparison_key=$comparison;environment=$environment;artifacts=@($artifacts.ToArray())}
  $serial=Join-Path $evidence 'serial.log';$errors=Join-Path $evidence 'qemu.err';$contextPath=Join-Path $evidence 'context.json';$outputPath=Join-Path $evidence 'run.json'
  $nvme=Join-Path $run 'nvme.img';$f=[IO.File]::Open($nvme,[IO.FileMode]::Create,[IO.FileAccess]::Write,[IO.FileShare]::None);try{$f.SetLength(16MB);$f.Flush($true)}finally{$f.Dispose()}
