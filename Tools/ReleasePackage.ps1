@@ -89,6 +89,9 @@ function New-R4OSReleasePackage {
     foreach($file in @(Get-ChildItem -LiteralPath $BootRoot -File -Recurse | Sort-Object FullName -CaseSensitive)){
         $path=[IO.Path]::GetRelativePath($BootRoot,$file.FullName).Replace('\','/')
         if(@($path.Split('/')|Where-Object {$_ -ieq 'limine.conf'}).Count -ne 0){continue}
+        # The installation manifest remains inside disk.img. Recovery creates
+        # it for the target identity; it is not one of the managed BOOT files.
+        if($path -ieq 'boot/r4os-installation.json'){continue}
         $target=Join-Path $stage "BOOT/$path";[IO.Directory]::CreateDirectory((Split-Path $target -Parent))|Out-Null
         Copy-Item -LiteralPath $file.FullName -Destination $target
         $bootFiles+=$path
