@@ -128,6 +128,7 @@ fn buildSystemHive(allocator: std.mem.Allocator) ![]u8 {
     defer values.deinit(scratch);
 
     try addString(scratch, &values, "SYSTEM\\Environment", "PATH", default_terminal_path);
+    try addBool(scratch, &values, "SYSTEM\\Kernel\\Debug", "Com1DebugAfterBoot", true);
 
     try addBool(scratch, &values, "SYSTEM\\Shell\\Taskbar\\QuickLaunch", "Enabled", true);
     try addU32(scratch, &values, "SYSTEM\\Shell\\Taskbar\\QuickLaunch", "Count", quick_launch_items.len);
