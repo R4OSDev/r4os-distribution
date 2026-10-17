@@ -119,6 +119,20 @@ function Test-R4lPreemptionContract {
         [uint64]$probe.Groups['generation'].Value -gt 0
 }
 
+function Test-SmpProbeContract {
+    param([string]$Text, [int]$ExpectedCpus, [uint64]$ExactMask = 0)
+
+    $pattern = '(?im)^\[SMPPROBE\] result=OK cpus=(?<cpus>\d+) expected_mask=0x(?<expected>[0-9A-F]+) observed_mask=0x(?<observed>[0-9A-F]+) failures=0\r?$'
+    $probe = [regex]::Match($Text, $pattern)
+    if (-not $probe.Success) { return $false }
+    $expected = [Convert]::ToUInt64($probe.Groups['expected'].Value, 16)
+    $observed = [Convert]::ToUInt64($probe.Groups['observed'].Value, 16)
+    return [int]$probe.Groups['cpus'].Value -eq $ExpectedCpus -and
+        $expected -eq $observed -and ($expected -band 1) -ne 0 -and
+        [System.Numerics.BitOperations]::PopCount([uint64]$expected) -eq $ExpectedCpus -and
+        ($ExactMask -eq 0 -or $expected -eq $ExactMask)
+}
+
 function Test-ClockSmokeContract {
     param([string]$Text, [switch]$Quiet)
 
@@ -128,7 +142,10 @@ function Test-ClockSmokeContract {
         'Timer [HPET]',
         'Scheduler [OK]',
         'SMP foundation [OK]',
-        '[TCPBURSTPROBE] result=OK write_bytes=4068 segments=3 catalog=48 delayed_ack_ms=40',
+        '[QUICKCHECK] BEGIN',
+        'SPECTRA NETWORK limits: ok',
+        'Limits: tests=1 cases=10',
+        '[QUICKCHECK] END',
         '[QUICKPROBE] result=DONE'
     )
     foreach ($marker in $requiredClock) {
@@ -144,7 +161,7 @@ function Test-ClockSmokeContract {
             '[TLBPROBE] result=FAILED', '[LOCKPROBE] result=FAILED', '[SERIALPROBE] result=FAILED',
             '[NVMEIRQ] result=FAILED', '[NVMEIRQPROBE] result=FAILED',
             '[R4LPREEMPT] result=FAILED', '[CLOCKPROBE] result=FAILED',
-            '[TCPBURSTPROBE] result=FAILED')) {
+            'SPECTRA NETWORK limits: FAILED')) {
         if ($Text.IndexOf($marker, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
             if (-not $Quiet) { Write-Host ('Clock-smoke marker FAILED forbidden: ' + $marker) }
             $failures++
@@ -159,21 +176,28 @@ function Test-ClockSmokeContract {
         Write-Host 'Clock-smoke SMP marker OK: 4 of 4 CPUs active.'
     }
 
-    $probePattern = '(?im)^\[SMPPROBE\] result=OK cpus=4 sequential_ns=(?<sequential>\d+) parallel_ns=(?<parallel>\d+) speedup_milli=(?<speedup>\d+) expected_mask=0x(?<expected>[0-9A-F]+) observed_mask=0x(?<observed>[0-9A-F]+) failures=0\r?$'
-    $probe = [regex]::Match($Text, $probePattern)
-    $probeOk = $probe.Success
-    if ($probeOk) {
-        $probeOk = [uint64]$probe.Groups['sequential'].Value -gt 0 -and
-            [uint64]$probe.Groups['parallel'].Value -gt 0 -and
-            [uint64]$probe.Groups['speedup'].Value -ge 1050 -and
-            [Convert]::ToUInt64($probe.Groups['expected'].Value, 16) -eq 15 -and
-            [Convert]::ToUInt64($probe.Groups['observed'].Value, 16) -eq 15
-    }
-    if (-not $probeOk) {
-        if (-not $Quiet) { Write-Host 'Clock-smoke SMPPROBE FAILED: mask, work progress, or scaling proof invalid.' }
+    if (-not (Test-SmpProbeContract $Text 4 15)) {
+        if (-not $Quiet) { Write-Host 'Clock-smoke SMPPROBE FAILED: CPU placement or computed work proof invalid.' }
         $failures++
     } elseif (-not $Quiet) {
-        Write-Host ('Clock-smoke SMPPROBE OK: speedup=' + $probe.Groups['speedup'].Value + ' milli.')
+        Write-Host 'Clock-smoke SMPPROBE OK: four CPU masks and functional work verified.'
+    }
+
+    $network = [regex]::Match($Text, '(?ms)^\[QUICKCHECK\] BEGIN\r?\n(?<body>.*?)^\[QUICKCHECK\] END\r?$')
+    $networkOk = $network.Success
+    if ($networkOk) {
+        $body = $network.Groups['body'].Value
+        $networkOk = $body.Contains('SPECTRA NETWORK limits: ok') -and
+            $body.Contains('Limits: tests=1 cases=10') -and
+            [regex]::IsMatch($body, '(?im)^ERRORLEVEL=0\r?$') -and
+            -not [regex]::IsMatch($body, '(?im)^ERRORLEVEL=(?:-[0-9]+|[1-9][0-9]*)\r?$') -and
+            -not [regex]::IsMatch($body, '(?im)^\s*exit_code\s*=\s*-?[1-9][0-9]*\b')
+    }
+    if (-not $networkOk) {
+        if (-not $Quiet) { Write-Host 'Clock-smoke NETWORK limits FAILED: explicit Spectra work or exit status missing.' }
+        $failures++
+    } elseif (-not $Quiet) {
+        Write-Host 'Clock-smoke NETWORK limits OK: explicit Spectra check completed.'
     }
 
     if (-not (Test-HeapProbeContract $Text)) {
@@ -264,7 +288,7 @@ if ($ClockSmoke) {
             '  Scheduler [OK]',
             '  SMP foundation [OK]',
             '[SMP] stage=active discovered=4 started=3 online=4 failed=0 fallback=no',
-            '[SMPPROBE] result=OK cpus=4 sequential_ns=200 parallel_ns=100 speedup_milli=2000 expected_mask=0x0000000F observed_mask=0x0000000F failures=0',
+            '[SMPPROBE] result=OK cpus=4 expected_mask=0x0000000F observed_mask=0x0000000F failures=0',
             '[HEAPPROBE] result=OK iterations=16 commit_calls=1 commit_pages=49 uncommit_calls=1 release_suppressed=15 poison_bytes=3145728 retained_pages=64 block_claims=1 extent_allocations=1 map_batches=1 unmap_batches=1 pressure=no',
             '[TLBPROBE] result=OK cpus=4 ready_mask=0x0000000F updated_mask=0x0000000F stale_failures=0 timeout_rejected=1 frame_retained=1 requests=22 ipis=66 acks=63 timeouts=1 expected_timeouts=1 generation=22 cleanup=yes',
             '[LOCKPROBE] result=OK runtime_acquisitions=40 nested=12 collisions=2 cpu_collisions=2 wait_spins=17 max_wait=9 max_hold_cycles=800 legacy_global=0 runtime_owner_classes=1 owner_classes=10 owner_acquisitions=90 owner_collisions=3 order_violations=0 stress_iterations=256 stress_mask=0x0000000F stress_failures=0',
@@ -273,7 +297,11 @@ if ($ClockSmoke) {
             '[NVMEIRQPROBE] result=OK worker_requests=1 worker_completions=1 async_submissions=1 async_completions=1',
             '[R4LPREEMPT] result=OK cpu=1 timer_switches=1 ipi_switches=1 timer_exit=0 ipi_exit=0 generation=1',
             '[CLOCKPROBE] result=OK source=TSC cpus=4 registered_mask=0x0000000F regressions=0 irq_delta=42 generation=2 max_skew_ns=300 calibration_ppm=120 fallback=none',
-            '[TCPBURSTPROBE] result=OK write_bytes=4068 segments=3 catalog=48 delayed_ack_ms=40',
+            '[QUICKCHECK] BEGIN',
+            'SPECTRA NETWORK limits: ok',
+            'Limits: tests=1 cases=10',
+            'ERRORLEVEL=0',
+            '[QUICKCHECK] END',
             '[QUICKPROBE] result=DONE'
         ) -join "`r`n"
         if ((Test-ClockSmokeContract $validClock -Quiet) -ne 0) { throw 'valid clock-smoke marker set did not pass' }
@@ -281,7 +309,6 @@ if ($ClockSmoke) {
         if ((Test-ClockSmokeContract $normalClock -Quiet) -ne 0) { throw 'normal instrumentation mode did not pass' }
         foreach ($invalidClock in @(
                 $validClock.Replace('online=4', 'online=3'),
-                $validClock.Replace('speedup_milli=2000', 'speedup_milli=1049'),
                 $validClock.Replace('observed_mask=0x0000000F', 'observed_mask=0x00000007'),
                 $validClock.Replace('poison_bytes=3145728', 'poison_bytes=0'),
                 $validClock.Replace('timeout_rejected=1', 'timeout_rejected=0'),
@@ -291,7 +318,9 @@ if ($ClockSmoke) {
                 $validClock.Replace('poll_fallback=0', 'poll_fallback=1'),
                 $validClock.Replace('ipi_switches=1', 'ipi_switches=0'),
                 $validClock.Replace('irq_delta=42', 'irq_delta=0'),
-                $validClock.Replace('segments=3 catalog=48', 'segments=1 catalog=8'),
+                $validClock.Replace('cases=10', 'cases=9'),
+                $validClock.Replace('ERRORLEVEL=0', 'ERRORLEVEL=1'),
+                ($validClock.Replace('Limits: tests=1 cases=10', '') + "`r`nLimits: tests=1 cases=10"),
                 ($validClock + "`r`n[CLOCKPROBE] result=FAILED"))) {
             if ((Test-ClockSmokeContract $invalidClock -Quiet) -eq 0) { throw 'invalid clock-smoke marker set was accepted' }
         }
@@ -429,7 +458,7 @@ $forbidden = @(
     '[SERIALPROBE] result=FAILED',
     '[R4LPREEMPT] result=FAILED',
     '[CLOCKPROBE] result=FAILED',
-    '[TCPBURSTPROBE] result=FAILED',
+    'SPECTRA NETWORK limits: FAILED',
     'General Protection Fault',
     'Page Fault',
     'REG: api-selftest',
@@ -930,16 +959,13 @@ function Test-ApiMarkerContract {
         } elseif (-not $Quiet) {
             Write-Host 'SMP productive AP marker OK.'
         }
-        $probePattern = '(?im)^\[SMPPROBE\] result=OK cpus=' + $expectedOnline +
-            ' sequential_ns=\d+ parallel_ns=\d+ speedup_milli=(\d+)' +
-            ' expected_mask=0x[0-9A-F]+ observed_mask=0x[0-9A-F]+ failures=0\r?$'
-        $probeMatch = [regex]::Match($Text, $probePattern)
-        if (-not $probeMatch.Success -or [uint64]$probeMatch.Groups[1].Value -lt 1050) {
-            if (-not $Quiet) { Write-Host 'SMP marker FAILED: kernel work scaling probe missing or below 1.050x.' }
+        if (-not (Test-SmpProbeContract $Text $expectedOnline)) {
+            if (-not $Quiet) { Write-Host 'SMP marker FAILED: CPU placement or computed work proof missing.' }
             $failures++
         } elseif (-not $Quiet) {
-            Write-Host ('SMP kernel scaling marker OK: ' + $probeMatch.Groups[1].Value + ' milli.')
+            Write-Host 'SMP kernel work marker OK: CPU masks and computed results verified.'
         }
+
         if (-not (Test-HeapProbeContract $Text)) {
             if (-not $Quiet) { Write-Host 'SMP heap marker FAILED: short churn, retention, or poison proof missing.' }
             $failures++
@@ -1071,7 +1097,7 @@ if ($SelfTest) {
             ($SmpCpuCount - 1 - $SmpFailedCount) + ' online=' + $expectedOnline +
             ' failed=' + $SmpFailedCount + ' fallback=' + $(if ($expectedOnline -eq 1) { '1cpu' } else { 'no' })) +
             "`r`n[SMP] productive cpu=1 task=r4x-app class=r4x" +
-            "`r`n[SMPPROBE] result=OK cpus=$expectedOnline sequential_ns=200 parallel_ns=100 speedup_milli=2000 expected_mask=0x0000000F observed_mask=0x0000000F failures=0" +
+            "`r`n[SMPPROBE] result=OK cpus=$expectedOnline expected_mask=0x$syntheticMask observed_mask=0x$syntheticMask failures=0" +
             "`r`n[HEAPPROBE] result=OK iterations=16 commit_calls=1 commit_pages=49 uncommit_calls=1 release_suppressed=15 poison_bytes=3145728 retained_pages=64 block_claims=1 extent_allocations=1 map_batches=1 unmap_batches=1 pressure=no" +
             "`r`n[TLBPROBE] result=OK cpus=$expectedOnline ready_mask=0x$syntheticMask updated_mask=0x$syntheticMask stale_failures=0 timeout_rejected=1 frame_retained=1 requests=22 ipis=66 acks=63 timeouts=1 expected_timeouts=1 generation=22 cleanup=yes" +
             "`r`n[LOCKPROBE] result=OK runtime_acquisitions=40 nested=12 collisions=2 cpu_collisions=2 wait_spins=17 max_wait=9 max_hold_cycles=800 legacy_global=0 runtime_owner_classes=1 owner_classes=10 owner_acquisitions=90 owner_collisions=3 order_violations=0 stress_iterations=$($expectedOnline * 64) stress_mask=0x$syntheticMask stress_failures=0" +

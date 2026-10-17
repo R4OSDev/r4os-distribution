@@ -133,6 +133,42 @@ function Start-R4DistributionInteractive($Context,[string]$Name,[string]$Adapter
  Invoke-R4Distribution 'pwsh' @('-NoProfile','-File',(Join-Path $PSScriptRoot 'Invoke-Qemu.ps1'),'-Mode',$Mode,'-QemuPath',$Context.qemu,'-ConfigPath',(Join-Path $Context.root 'QEMU/standard.conf'),
   '-WorkingDirectory',(Join-Path $Context.output "Profiles/$Name"),'-SerialLogPath',(Join-Path $Context.logs 'qemu-ssh-debug.log'),'-NetworkAdapter',$Adapter)
 }
+function New-R4QuickSource($Context) {
+ # Kernel invariants run before the shell; privileged TCP work belongs to
+ # the existing explicit Spectra check in a minimal standalone terminal.
+ $canonical=Join-Path $Context.output 'Profiles/Test'
+ $kernel=Get-Content -Raw -LiteralPath (Join-Path $Context.root '../Kernel/zig-out/bin/r4os.build.json')|ConvertFrom-Json -AsHashtable
+ $image=Get-Content -Raw -LiteralPath (Join-Path $canonical 'image.json')|ConvertFrom-Json -AsHashtable
+ if($image.structure.bootHashes['boot/r4os.elf'] -cne $kernel.sha256){throw 'Rebuild the Test image before Quick; its BOOT kernel is stale.'}
+ $quick=Join-Path $Context.output 'Diagnostics/Quick'
+ $inputs=Join-Path $quick 'Inputs';[IO.Directory]::CreateDirectory($inputs)|Out-Null
+ $config=[IO.File]::ReadAllText((Join-Path $Context.root 'TestInjection/CONFIG.R4S'))
+ $config=[regex]::Replace($config,'(?m)^SHELL=.*$','SHELL=/R4OS/SOFTWARE/TERMINAL/TERMINAL.R4X')
+ $config=[regex]::Replace($config,'(?m)^SHELL_ARGS=.*$','SHELL_ARGS=')
+ $config=[regex]::Replace($config,'(?m)^OPTION SMP selftest=.*$','OPTION SMP selftest=yes')
+ $configPath=Join-Path $inputs 'CONFIG.R4S'
+ [IO.File]::WriteAllText($configPath,$config,[Text.UTF8Encoding]::new($true))
+ $autoexec=Join-Path $inputs 'AUTOEXEC.BAT'
+ [IO.File]::WriteAllLines($autoexec,@('@ECHO OFF','SET TEMP=C:\TEMP',
+  'C:\R4OS\SOFTWARE\TERMINAL\SERVMAN.R4X BOOT','ECHO [QUICKCHECK] BEGIN',
+  'C:\R4OS\SOFTWARE\TERMINAL\DIAG\SPECTRA.R4X CHECK NETWORK LIMIT','SET',
+  'ECHO [QUICKCHECK] END','ECHO [QUICKPROBE] result=DONE','POWEROFF'),[Text.UTF8Encoding]::new($false))
+ $entries=[Collections.Generic.List[string]]::new()
+ foreach($line in [IO.File]::ReadLines((Join-Path $canonical 'image-adds.txt'))){
+  $split=$line.LastIndexOf(':/');if($split -lt 0){throw 'Invalid Test image input'}
+  $file=$line.Substring(0,$split);$target=$line.Substring($split+1)
+  if($target -ieq '/CONFIG.R4S'){$file=$configPath}
+  if($target -ieq '/AUTOEXEC.BAT'){$file=$autoexec}
+  $entries.Add($file+':'+$target)
+ }
+ $plan=Join-Path $inputs 'image-adds.txt'
+ [IO.File]::WriteAllLines($plan,$entries,[Text.UTF8Encoding]::new($false))
+ $source=Join-Path $quick 'Source'
+ $null=New-R4OSInstallationImage -Root $Context.root -Profile Test -InputList $plan -OutputRoot $source -ToolsReady
+ $record=Get-Content -Raw -LiteralPath (Join-Path $source 'image.json')|ConvertFrom-Json -AsHashtable
+ if($record.structure.bootHashes['boot/r4os.elf'] -cne $kernel.sha256){throw 'Quick BOOT kernel differs from its validated artifact.'}
+ return $source
+}
 function Start-R4DistributionHeadless($Context,[string]$Name,[string]$Variant) {
  $profile=Get-R4DistributionProfile $Context $Name
  if($Name -cne 'Test' -or $profile.TEST_OVERLAY -cne '1' -or $Variant -cnotin @('','browser','smp4','clock4','smpfail4','standard4','reference4')){throw 'Headless acceptance requires Test and four vCPUs.'}
@@ -142,7 +178,8 @@ function Start-R4DistributionHeadless($Context,[string]$Name,[string]$Variant) {
   if($Variant -cin @('standard4','reference4')){return}
  }
  . (Join-Path $PSScriptRoot 'Qemu-Media.ps1')
- $run=New-R4QemuMedia -SourceRoot (Join-Path $Context.output 'Profiles/Test') -Mode Fresh -Name ('headless-'+$(if($Variant){$Variant}else{'standard'}))
+ $source=if($Variant -ceq 'clock4'){New-R4QuickSource $Context}else{Join-Path $Context.output 'Profiles/Test'}
+ $run=New-R4QemuMedia -SourceRoot $source -Mode Fresh -Name ('headless-'+$(if($Variant){$Variant}else{'standard'}))
  # The existing Test-profile NVMEIRQ probe requires a real virtual controller
  # and namespace. Keep its disposable zero-filled media in this fresh run;
  # the standard interactive configuration remains the SATA boot profile.
