@@ -14,7 +14,6 @@ Ausgangseinheiten:
     Code/BuildTools/ImageCreator/
     Code/BuildTools/NtfsVerify/
     Code/BuildTools/R4UPack/
-    Code/BuildTools/SerialLinkHost/
     DevTools/Scripts/CreateDefaultRegistry.zig
     DevTools/Scripts/CreateImageAddList.zig
     DevTools/Scripts/CreatePreloadImage.zig

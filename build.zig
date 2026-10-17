@@ -61,7 +61,6 @@ pub fn build(b: *std.Build) void {
     r4u_pack_root.addImport("r4u_artifact", r4u_artifact);
     const r4u_pack = b.addExecutable(.{ .name = "r4upack", .root_module = r4u_pack_root });
 
-    const serial_link_host = addTool(b, "seriallink-host", "Tools/SerialLinkHost/src/main.zig", target, optimize);
     const image_plan = addTool(b, "image-plan", "Tools/ImagePlan/src/main.zig", target, optimize);
     const preload_image = addTool(b, "preload-image", "Tools/PreloadImage/src/main.zig", target, optimize);
     const default_registry = addTool(b, "default-registry", "Tools/DefaultRegistry/src/main.zig", target, optimize);
@@ -70,7 +69,6 @@ pub fn build(b: *std.Build) void {
         image_creator,
         ntfs_verify,
         r4u_pack,
-        serial_link_host,
         image_plan,
         preload_image,
         default_registry,

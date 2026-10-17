@@ -6,7 +6,6 @@ SERVICE;name=DHCPSVC;path=C:\R4OS\SERVICES\DHCPSVC.R4X;args=/RUN;start=auto;enab
 SERVICE;name=TIMESVC;path=C:\R4OS\SERVICES\TIMESVC.R4X;args=/RUN;start=auto;enabled=yes;description=Time configuration service
 SERVICE;name=LOGSVC;path=C:\R4OS\SERVICES\LOGSVC.R4X;args=/RUN;start=auto;enabled=yes;description=Log aggregation service
 SERVICE;name=AUDSVC;path=C:\R4OS\SERVICES\AUDSVC.R4X;args=/RUN;start=auto;enabled=yes;description=Audio and mixer service
-SERVICE;name=R4SLSVC;path=C:\R4OS\SERVICES\R4SLSVC.R4X;args=/RUN;start=auto;enabled=yes;description=Serial link service
 SERVICE;name=TCPSVC;path=C:\R4OS\SERVICES\TCPSVC.R4X;args=/RUN;start=auto;enabled=yes;description=TCP connection service
 SERVICE;name=FTPSVC;path=C:\R4OS\SERVICES\FTPSVC.R4X;args=/RUN;start=auto;enabled=yes;description=FTP server service
 SERVICE;name=SSHD;path=C:\R4OS\SERVICES\SSHD.R4X;args=/RUN;start=auto;enabled=yes;description=SSH server service
