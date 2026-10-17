@@ -4,6 +4,13 @@ function Start-R4SpectraStandard($Context,[switch]$SelfReference) {
  . (Join-Path $PSScriptRoot 'Qemu-Media.ps1')
  $spectra=Join-Path $Context.repositories 'Diagnostics/Spectra'
  . (Join-Path $spectra 'Tools/StandardBenchmark.ps1')
+ $reference=$null
+ if(!$SelfReference){
+  $api=$env:R4OS_DEVCENTER_API_URL
+  $hostSettings=Join-Path $Context.workspace 'Tools/BenchmarkHost.R4S'
+  if(!$api -and (Test-Path -LiteralPath $hostSettings)){$api=(Get-InstallationFields $hostSettings)['DEVCENTER_API_URL']}
+  $reference=Resolve-SpectraReference -Descriptor (Join-Path $spectra 'Baselines/standard-2.reference.json') -CacheRoot (Join-Path $Context.output 'Diagnostics/SpectraStandard') -ApiUrl $api
+ }
  $id=[guid]::NewGuid().ToString();$evidence=Join-Path $Context.output ('Diagnostics/SpectraStandard/'+$id)
  $scratch=Join-Path $Context.workspace ('Temp/SpectraStandard/'+$id)
  [IO.Directory]::CreateDirectory($scratch)|Out-Null;[IO.Directory]::CreateDirectory($evidence)|Out-Null
@@ -63,7 +70,7 @@ function Start-R4SpectraStandard($Context,[switch]$SelfReference) {
   execution='qemu';vcpus='4';ram_bytes='1073741824';
   qemu=[ordered]@{version=$qemuVersion;backend=$hostProfile.Name.ToLowerInvariant();machine='q35';cpu_selection=$hostProfile.CpuModel;network='none';host_audio='none';rtc='default';strict_accelerator=$true};
   storage=[ordered]@{layout='r4os-gpt-1';image_mb='16384';boot_mb='128';system_mb='10240';recovery_mb='5120';controller='ich9-ahci';format='raw';host_cache='none';filesystem='ntfs';fixture='fresh-image';nvme_namespace_bytes='16777216'};
-  workloads=$script:SpectraWorkloads;cache_state='warm-per-area-1';warmup_runs='1';repetitions='5'
+  workloads=$script:SpectraWorkloads;cache_state='active-per-area-1s-3batches-v2';warmup_runs='1';warmup_min_ns='1000000000';warmup_min_batches='3';repetitions='5'
  }
  $method.workloads=[ordered]@{};foreach($key in $script:SpectraWorkloads.Keys){$method.workloads[$key]=$script:SpectraWorkloads[$key]}
  $method.workloads.boot_state='terminal-preprompt-servman-boot-settle200-no-smp-selftest-v1'
@@ -106,7 +113,7 @@ function Start-R4SpectraStandard($Context,[switch]$SelfReference) {
   $metadata.finished_at_utc=[DateTime]::UtcNow.ToString('o');foreach($key in $saved.Keys){[Environment]::SetEnvironmentVariable($key,$saved[$key])}
   [IO.File]::WriteAllText($contextPath,($metadata|ConvertTo-Json -Depth 32),[Text.UTF8Encoding]::new($false))
  }
- $reference=Join-Path $spectra 'Baselines/standard-1.json';$arguments=@('-NoProfile','-File',(Join-Path $spectra 'Tools/Export-StandardBenchmark.ps1'),'-GuestRecords',$serial,'-Context',$contextPath,'-Output',$outputPath)
+ $arguments=@('-NoProfile','-File',(Join-Path $spectra 'Tools/Export-StandardBenchmark.ps1'),'-GuestRecords',$serial,'-Context',$contextPath,'-Output',$outputPath)
  if($SelfReference){$arguments+='-SelfReference'}elseif(Test-Path -LiteralPath $reference){$arguments+=@('-Reference',$reference)}
  & pwsh @arguments|Out-Host;$exportCode=$LASTEXITCODE
  if($code -ne 0 -or $exportCode -ne 0){throw "Spectra standard phase failed; QEMU=$code export=$exportCode; evidence=$evidence"}
