@@ -152,16 +152,26 @@ function Start-R4DistributionHeadless($Context,[string]$Name,[string]$Variant) {
   $nvmeFile.Lock(0,[Math]::Max([long]1,$nvmeFile.Length))
   $nvmeFile.SetLength(0);$nvmeFile.SetLength(16MB);$nvmeFile.Flush($true)
  }finally{$nvmeFile.Dispose()}
+ # Managed C:/D: are NTFS. Existing FAT-specific cache cases need their own
+ # disposable volume; never use the internal boot/recovery partitions as fixtures.
+ $fatPath=''
+ if($Variant -cne 'clock4'){
+  $fatPath=Join-Path $run 'fat32-test.img'
+  $fatMarker=Join-Path $run 'FATTEST.R4S'
+  [IO.File]::WriteAllText($fatMarker,"R4OS_FAT_FIXTURE=PRIVATE_TEST`n",[Text.UTF8Encoding]::new($false))
+  Invoke-R4Distribution (Join-Path $Context.prefix ('bin/imagecreater'+$Context.suffix)) @('--output',$fatPath,'--size','64','--add',($fatMarker+':/TEMP/FATTEST.R4S'))
+ }
  [IO.Directory]::CreateDirectory($Context.logs)|Out-Null
  $log=Join-Path $Context.logs "qemu-test-$Variant.log";$errors=Join-Path $Context.logs "qemu-test-$Variant.err"
  foreach($path in @($log,$errors)){if(Test-Path $path){Remove-Item -LiteralPath $path -Force}}
  $values=@{R4OS_QEMU_EXE=$Context.qemu;R4OS_QEMU_CONFIG=Join-Path $Context.root 'QEMU/standard.conf';R4OS_QEMU_LOG=$log;R4OS_QEMU_ERROR_LOG=$errors;R4OS_QEMU_WORKING_DIRECTORY=$run;R4OS_QEMU_CPUS='4';
-  R4OS_QEMU_NVME_TEST_DISK=$nvmePath;R4OS_QEMU_STOP_MARKER=$(if($Variant -ceq 'clock4'){'[QUICKPROBE] result=DONE'}else{''});QEMU_TEST_TIMEOUT_SECONDS=$(if($env:QEMU_TEST_TIMEOUT_SECONDS){$env:QEMU_TEST_TIMEOUT_SECONDS}elseif($Variant -ceq 'clock4'){'60'}else{'1200'})}
+  R4OS_QEMU_NVME_TEST_DISK=$nvmePath;R4OS_QEMU_FAT_TEST_DISK=$fatPath;R4OS_QEMU_STOP_MARKER=$(if($Variant -ceq 'clock4'){'[QUICKPROBE] result=DONE'}else{''});QEMU_TEST_TIMEOUT_SECONDS=$(if($env:QEMU_TEST_TIMEOUT_SECONDS){$env:QEMU_TEST_TIMEOUT_SECONDS}elseif($Variant -ceq 'clock4'){'60'}else{'1200'})}
  $saved=@{};foreach($key in $values.Keys){$saved[$key]=[Environment]::GetEnvironmentVariable($key);[Environment]::SetEnvironmentVariable($key,[string]$values[$key])}
  try{& pwsh -NoProfile -File (Join-Path $Context.root 'Tests/Invoke-QemuHeadless.ps1');$code=$LASTEXITCODE}
  finally{foreach($key in $saved.Keys){[Environment]::SetEnvironmentVariable($key,$saved[$key])}}
  $arguments=@('-NoProfile','-File',(Join-Path $Context.root 'Tests/Test-QemuApiMarkers.ps1'),'-LogPath',$log,'-ErrorPath',$errors,'-QemuExitCode',[string]$code,'-SmpCpuCount','4')
  if($Variant -ceq 'clock4'){$arguments+='-ClockSmoke'}
+ if($Variant -ceq 'browser'){$arguments+='-Browser'}
  if($Variant -ceq 'smpfail4'){$arguments+=@('-SmpFailedCount','1')}
  Invoke-R4Distribution 'pwsh' $arguments
 }

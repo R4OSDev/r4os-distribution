@@ -87,6 +87,12 @@ $nvmeArguments = if ($nvmeTestDisk) {
     @('-drive', (Quote-Argument ('if=none,id=r4nvme,format=raw,file=' + $nvmeTestDisk.Replace(',', ',,'))),
       '-device', 'nvme,drive=r4nvme,serial=R4OS-NVMEIRQ')
 } else { @() }
+$fatTestDisk = $env:R4OS_QEMU_FAT_TEST_DISK
+if ($fatTestDisk) { Assert-File $fatTestDisk 'Private FAT32 test volume' }
+$fatArguments = if ($fatTestDisk) {
+    @('-drive', (Quote-Argument ('if=none,id=r4fat,format=raw,file=' + $fatTestDisk.Replace(',', ',,'))),
+      '-device', 'ide-hd,drive=r4fat,bus=ahci0.1')
+} else { @() }
 
 $argumentLine = (@(
     '-readconfig', (Quote-Argument $config),
@@ -101,7 +107,7 @@ $argumentLine = (@(
     '-display', 'none',
     '-no-reboot',
     '-name', (Quote-Argument ('R4OS test ' + $cpuCount + 'cpu'))
-) + $nvmeArguments) -join ' '
+) + $nvmeArguments + $fatArguments) -join ' '
 
 Write-Host ('=== QEMU headless smoke; host=' + $hostProfile.Name + '; cpus=' + $cpuCount + ' timeout ' + $timeoutSeconds + 's ===')
 Normalize-StartProcessEnvironment
