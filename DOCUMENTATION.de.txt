@@ -75,7 +75,7 @@ und storage_tools.limine fuer GPT, Installationsbeschreibung, Bootverweise
 und BIOS-Stages. Das 22528-MB-Image besitzt BIOSBOOT 1 MB, BOOT 128 MB
 FAT32/ESP, SYSTEM 16384 MB NTFS, RECOVERY 5120 MB FAT32 und DATA NTFS im Rest.
 Slim, Full und Test verwenden diesen Plan. Das Benchmarkprofil behaelt fuer
-die feste Spectra-Suite-2-Referenz 16384 MB gesamt und 10240 MB SYSTEM.
+die feste Spectra-Suite-3-Arbeitslast 16384 MB gesamt und 10240 MB SYSTEM.
 CURRENT und PREVIOUS enthalten bytegleich dasselbe vollstaendige Paket.
 Der normale Kernel, Preload, Boot-R4Ps und UEFI-Bootloader liegen auf BOOT;
 Recovery-Kernel und RAM-Image werden direkt von RECOVERY geladen.
@@ -140,7 +140,9 @@ Eine externe Port- oder Firewallfreigabe ist dafuer nicht erforderlich.
 deaktiviert das Netzwerk, schreibt serielle Logs unter
 `Artifacts/Distribution/Logs`, wertet die verbindlichen Boot-/API-Marker aus
 und verlangt ein geordnetes Gast-Poweroff. Auch der Benchmark bleibt
-netzwerklos und unveraendert an seine feste TCG-/Haswell-Umgebung gebunden.
+netzwerklos und verwendet den gemeinsamen QEMU-Hostprofilbesitzer. STANDARD
+nutzt alle vier bereitgestellten vCPUs; Arbeitslast und Messprotokoll folgen
+Suite 3. Der tatsaechliche Hardware-/Emulationskontext wird im Export erfasst.
 
 Die Variante `headless Test clock4` ist eine kurze SMP4-Abnahme. Sie prueft
 Boot, vier aktive CPUs, parallelen Fortschritt, generationstreue TLB-
