@@ -72,8 +72,10 @@ bereits gebaute Kernel-/Runtime-Paar des Recovery-Repositories paketiert.
 
 ImageCreator create-installation verwendet SDK storage_tools.installation
 und storage_tools.limine fuer GPT, Installationsbeschreibung, Bootverweise
-und BIOS-Stages. Das 16384-MB-Image besitzt BIOSBOOT 1 MB, BOOT 128 MB
-FAT32/ESP, SYSTEM 10240 MB NTFS, RECOVERY 5120 MB FAT32 und DATA NTFS im Rest.
+und BIOS-Stages. Das 22528-MB-Image besitzt BIOSBOOT 1 MB, BOOT 128 MB
+FAT32/ESP, SYSTEM 16384 MB NTFS, RECOVERY 5120 MB FAT32 und DATA NTFS im Rest.
+Slim, Full und Test verwenden diesen Plan. Das Benchmarkprofil behaelt fuer
+die feste Spectra-Suite-2-Referenz 16384 MB gesamt und 10240 MB SYSTEM.
 CURRENT und PREVIOUS enthalten bytegleich dasselbe vollstaendige Paket.
 Der normale Kernel, Preload, Boot-R4Ps und UEFI-Bootloader liegen auf BOOT;
 Recovery-Kernel und RAM-Image werden direkt von RECOVERY geladen.
@@ -307,7 +309,7 @@ Releases
 
 Seit 0.76.15 besitzt Tools/ReleasePackage.ps1 zusaetzlich den neuen
 Recovery-lesbaren Schema-1-Paketerzeuger New-R4OSReleasePackage. Er erhaelt
-ein einzelnes 16384-MB-GPT-Image, verwaltete BOOT-Dateien, Legal und ein
+ein einzelnes 22528-MB-GPT-Image, verwaltete BOOT-Dateien, Legal und ein
 bereits gebautes eigenstaendiges Recovery-ZIP. Das Manifest bindet Version,
 Architektur, Slim/Full-Profil, Assetname, Layout, Recovery-Version und jeden
 Nutzpfad mit SHA256; limine.conf wird nicht als verwalteter Bootpfad aufgenommen.

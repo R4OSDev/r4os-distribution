@@ -383,6 +383,7 @@ fn runCreateInstallation(gpa: std.mem.Allocator, io: std.Io, cwd: std.Io.Dir, ar
     var release: ?[]const u8 = null;
     var kernel: ?[]const u8 = null;
     var medium: common.Medium = .local;
+    var image_bytes: u64 = common.standard_bytes;
     var entries: std.ArrayList(AddEntry) = .empty;
     var recovery: std.ArrayList(AddEntry) = .empty;
     var i: usize = 0;
@@ -394,6 +395,8 @@ fn runCreateInstallation(gpa: std.mem.Allocator, io: std.Io, cwd: std.Io.Dir, ar
             medium = std.meta.stringToEnum(common.Medium, value) orelse return error.BadArgs;
         } else if (std.mem.eql(u8, arg, "--add-list")) {
             try appendAddList(a, try cwd.readFileAlloc(io, value, a, .limited(4 * 1024 * 1024)), &entries);
+        } else if (std.mem.eql(u8, arg, "--image-mb")) {
+            image_bytes = try std.math.mul(u64, try std.fmt.parseInt(u64, value, 10), 1024 * 1024);
         } else if (std.mem.eql(u8, arg, "--recovery-list")) {
             try appendAddList(a, try cwd.readFileAlloc(io, value, a, .limited(4 * 1024 * 1024)), &recovery);
         } else return error.BadArgs;
@@ -404,7 +407,7 @@ fn runCreateInstallation(gpa: std.mem.Allocator, io: std.Io, cwd: std.Io.Dir, ar
     var entropy: [7][16]u8 = undefined;
     std.Io.random(io, std.mem.asBytes(&entropy));
     const ids = try common.Identifiers.fromEntropy(entropy);
-    const layout = try common.Layout.prepare(common.standard_bytes / 512, 512, ids);
+    const layout = try common.Layout.prepareSource(image_bytes, ids);
     var boot_entries: std.ArrayList(AddEntry) = .empty;
     var system_entries: std.ArrayList(AddEntry) = .empty;
     var boot_files: std.ArrayList([]const u8) = .empty;
@@ -452,7 +455,7 @@ fn runCreateInstallation(gpa: std.mem.Allocator, io: std.Io, cwd: std.Io.Dir, ar
     var target = storage_tools.host_file.File{ .file = output_file.file, .io = io, .sectors = 0 };
     try target.acquire();
     defer target.release();
-    try target.resize(common.standard_bytes / 512);
+    try target.resize(image_bytes / 512);
     const device = target.device(null);
     const work = try a.alloc(u8, storage_tools.io.scratch_bytes);
     var table = try storage_tools.partition.Plan.read(device, work);
@@ -502,5 +505,5 @@ fn runCreateInstallation(gpa: std.mem.Allocator, io: std.Io, cwd: std.Io.Dir, ar
     target.release();
     try output_file.replace(io);
     if (manifest_output) |path| try cwd.writeFile(io, .{ .sub_path = path, .data = manifest });
-    std.debug.print("R4OS five-partition image: {s}, {d} MB, SYSTEM {d} MB, disk {s}, default {s}\n", .{ destination, common.standard_bytes / (1024 * 1024), common.system_mb, common.guid.format(ids.disk), @tagName(medium) });
+    std.debug.print("R4OS five-partition image: {s}, {d} MB, SYSTEM {d} MB, disk {s}, default {s}\n", .{ destination, image_bytes / (1024 * 1024), layout.part(.SYSTEM).count / 2048, common.guid.format(ids.disk), @tagName(medium) });
 }

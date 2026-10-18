@@ -129,6 +129,12 @@ preserved, and source overlays are never rewritten. Thus an ordinary Full
 image does not request either absent native GPU driver; an explicit graphics
 image retains its selected driver entry and the configured mode policy.
 
+New images use 22 GB: 128 MB BOOT, 16 GB SYSTEM (C:), 5 GB RECOVERY,
+1 MB BIOSBOOT and the remaining space as DATA (D:). Slim, Full and Test
+share this layout. The Benchmark profile retains the fixed Suite-2 geometry
+(16 GB image, 10 GB SYSTEM) for comparable Spectra STANDARD runs. Updates
+keep the existing partition sizes and IDs.
+
 Each package contains one `disk.img` with BIOSBOOT/BOOT/SYSTEM/RECOVERY/DATA,
 fresh DATA, the exact independent `recovery.zip`, USB creation starters,
 QEMU configuration, legal files, and a manifest with all file hashes.

@@ -24,8 +24,10 @@ function Build-R4DistributionTools($Context,[switch]$Tests) {
 function Get-R4DistributionProfile($Context,[string]$Name) {
  if($Name -cnotin @('Slim','Full','Test','Benchmark')){throw 'Profile must be Slim, Full, Test or Benchmark.'}
  $profile=Get-InstallationFields (Join-Path $Context.root "Profiles/$Name.R4S")
- if($profile.PROFILE -cne $Name -or $profile.LAYOUT -cne 'r4os-gpt-1' -or $profile.IMAGE_MB -cne '16384' -or
-    $profile.BOOT_MB -cne '128' -or $profile.SYSTEM_MB -cne '10240' -or $profile.RECOVERY_MB -cne '5120' -or $profile.DATA_SIZE -cne 'rest'){throw "Invalid common layout in $Name profile."}
+ $imageMb=if($Name -ceq 'Benchmark'){'16384'}else{'22528'}
+ $systemMb=if($Name -ceq 'Benchmark'){'10240'}else{'16384'}
+ if($profile.PROFILE -cne $Name -or $profile.LAYOUT -cne 'r4os-gpt-1' -or $profile.IMAGE_MB -cne $imageMb -or
+    $profile.BOOT_MB -cne '128' -or $profile.SYSTEM_MB -cne $systemMb -or $profile.RECOVERY_MB -cne '5120' -or $profile.DATA_SIZE -cne 'rest'){throw "Invalid common layout in $Name profile."}
  return $profile
 }
 function Get-R4DistributionLegalNames {return @('R4OS-LICENSE.txt','R4OS-NOTICE.txt','THIRD-PARTY-NOTICES.txt','RUST-1.99-LIBRARY-LICENSES.html','Limine-BSD-2-Clause.txt','FreeType-FTL.txt','Brotli-MIT.txt','zlib.txt','stb_image-MIT.txt','LITTLECMS-LICENSE.txt','RTL8168-GPL-2.0-only.txt','libdisplay-info-MIT.txt','NVIDIA-570.144-LICENSE.txt','NVIDIA-570.144-HEADERS-LICENSE.txt','NVIDIA-570.144-GSP-BOOT-LICENSE.txt','NVIDIA-570.144-PRAMIN-LICENSE.txt','NVIDIA-570.144-BAR1-LICENSE.txt','NVIDIA-BOOT-DISPLAY-LICENSE.txt','NVIDIA-DISPLAY-CONTEXT-LICENSE.txt','NVIDIA-DISPLAY-COLOR-LICENSE.txt','NVIDIA-DISPLAY-ASSETS-LICENSE.txt','NVIDIA-CONNECTORS-LICENSE.txt','NVIDIA-GSP-LOG-LICENSE.txt','NVIDIA-GSP-RUNTIME-LICENSE.txt','NVGOB.TXT','R4NAK-NOTICES.txt','R4VK-NOTICES.txt','R4GL-NOTICES.txt','NATIVE-MATH-NOTICES.txt','NATIVE-SCAN-NOTICES.txt','R4VIDEO-NOTICES.txt','FFmpeg-LGPL-2.1.txt','R4ENC-NOTICES.txt','OpenH264-BSD-2-Clause.txt','AMD-FIRMWARE-LICENSE.txt','AMD-FIRMWARE-WHENCE.txt','AMDGPU-SOURCE-NOTICES.txt','R4AMD-NOTICES.txt','R4ACO-NOTICES.txt','uACPI-MIT.txt')}

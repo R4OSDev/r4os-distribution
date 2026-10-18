@@ -105,11 +105,16 @@ function New-R4OSInstallationImage {
     [IO.File]::WriteAllText($recoveryList,($lines -join "`n")+"`n",$utf8)
     $release=(Get-InstallationFields (Join-Path $Root 'Injection/R4OS/CONFIG/VERSION.R4S')).RELEASE_VERSION
     $kernelVersion=(Get-InstallationFields (Join-Path (Get-InstallationPath $repositories $settings.KERNEL_ROOT) 'VERSION.R4S')).KERNEL_VERSION
+    $profileSettings=Get-InstallationFields (Join-Path $Root "Profiles/$Profile.R4S")
     $image=Join-Path $OutputRoot 'disk.img';$manifestPath=Join-Path $OutputRoot 'installation.json'
     Invoke-InstallationTool (Join-Path $prefix "bin/imagecreater$suffix") @('create-installation','--output',$image,'--manifest-out',$manifestPath,
-        '--add-list',$InputList,'--recovery-list',$recoveryList,'--release-version',$release,'--kernel-version',$kernelVersion,'--medium',$Medium)
+        '--add-list',$InputList,'--recovery-list',$recoveryList,'--release-version',$release,'--kernel-version',$kernelVersion,'--medium',$Medium,'--image-mb',$profileSettings.IMAGE_MB)
     . (Join-Path $PSScriptRoot 'InstallationImage.Check.ps1')
     $checked=Test-R4OSInstallationImage -Image $image -Medium $Medium
+    if($checked.bytes -ne [long]$profileSettings.IMAGE_MB*1MB -or
+       $checked.installation.partitions.SYSTEM.sectorCount -ne [long]$profileSettings.SYSTEM_MB*2048 -or
+       $checked.installation.partitions.BOOT.sectorCount -ne [long]$profileSettings.BOOT_MB*2048 -or
+       $checked.installation.partitions.RECOVERY.sectorCount -ne [long]$profileSettings.RECOVERY_MB*2048){throw 'Physical image geometry differs from its profile.'}
     $record=[ordered]@{schema=1;technical=$selectedRecovery.technical;profile=$Profile;medium=$Medium;image=$image;bytes=([IO.FileInfo]$image).Length;
         sha256=(Get-FileHash -LiteralPath $image -Algorithm SHA256).Hash.ToLowerInvariant();installation=(Get-Content -Raw -LiteralPath $manifestPath|ConvertFrom-Json -AsHashtable);
         recoveryVersion=$recovery.recoveryVersion;recoveryPackageSha256=$selectedRecovery.sha256;recoveryPackage=$RecoveryPackage;structure=$checked}

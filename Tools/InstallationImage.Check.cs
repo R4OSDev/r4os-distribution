@@ -142,7 +142,7 @@ public sealed class InstallationImageCheck : IDisposable {
             // new default explicitly. Nonstandard SYSTEM targets may be smaller
             // within their existing boundary, but never move RECOVERY or DATA.
             long recoveryFirst=checked((long)U64(entries,3*128+32));
-            Require(recoveryFirst==2363392 || recoveryFirst==21237760,"Supported SYSTEM layout");
+            Require(recoveryFirst==2363392 || recoveryFirst==21237760 || recoveryFirst==33820672,"Supported SYSTEM layout");
             long recoveryCount=recoveryFirst==2363392 ? 1048576 : 10485760;
             long dataFirst=recoveryFirst+recoveryCount;
             Require(sectors>=dataFirst+32769+33,"Minimum DATA extent");

@@ -58,7 +58,7 @@ function Start-R4SpectraStandard($Context,[switch]$SelfReference) {
  }
  if(!$replaced.config -or !$replaced.autoexec){throw 'Test image lacks canonical boot configuration.'}
  [IO.File]::WriteAllLines($plan,$entries,[Text.UTF8Encoding]::new($false))
- $built=New-R4OSInstallationImage -Root $Context.root -Profile Test -InputList $plan -OutputRoot (Join-Path $evidence 'Source') -ToolsReady
+ $built=New-R4OSInstallationImage -Root $Context.root -Profile Benchmark -InputList $plan -OutputRoot (Join-Path $evidence 'Source') -ToolsReady
  $run=New-R4QemuMedia -SourceRoot (Split-Path $built.image -Parent) -Mode Fresh -Name standard-smp4
  $hostProfile=Resolve-R4QemuHostProfile $Context.qemu
  $hostId=$env:R4OS_BENCHMARK_HOST_ID
