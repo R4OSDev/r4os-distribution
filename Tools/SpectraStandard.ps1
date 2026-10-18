@@ -9,7 +9,7 @@ function Start-R4SpectraStandard($Context,[switch]$SelfReference) {
   $api=$env:R4OS_DEVCENTER_API_URL
   $hostSettings=Join-Path $Context.workspace 'Tools/BenchmarkHost.R4S'
   if(!$api -and (Test-Path -LiteralPath $hostSettings)){$api=(Get-InstallationFields $hostSettings)['DEVCENTER_API_URL']}
-  $reference=Resolve-SpectraReference -Descriptor (Join-Path $spectra 'Baselines/standard-2.reference.json') -CacheRoot (Join-Path $Context.output 'Diagnostics/SpectraStandard') -ApiUrl $api
+  $reference=Resolve-SpectraReference -Descriptor (Join-Path $spectra 'Baselines/standard-3.reference.json') -CacheRoot (Join-Path $Context.output 'Diagnostics/SpectraStandard') -ApiUrl $api
  }
  $id=[guid]::NewGuid().ToString();$evidence=Join-Path $Context.output ('Diagnostics/SpectraStandard/'+$id)
  $scratch=Join-Path $Context.workspace ('Temp/SpectraStandard/'+$id)
@@ -27,7 +27,7 @@ function Start-R4SpectraStandard($Context,[switch]$SelfReference) {
  $autoexec=Join-Path $scratch 'AUTOEXEC.BAT'
  $lines=@('@ECHO OFF','SET TEMP=C:\TEMP','C:\R4OS\SOFTWARE\TERMINAL\SERVMAN.R4X BOOT',
   'ECHO [SPECTRA-STANDARD] BEGIN','C:\R4OS\SOFTWARE\TERMINAL\DIAG\SPECTRA.R4X BENCH STANDARD /SETTLE:200 /JSON',
-  'SET','ECHO [SPECTRA-STANDARD] END','POWEROFF')
+  'SET','ECHO [SPECTRA-STANDARD] END','C:\R4OS\SOFTWARE\TERMINAL\DIAG\SPECTRA.R4X METRICS SMP /JSON','POWEROFF')
  [IO.File]::WriteAllLines($autoexec,$lines,[Text.UTF8Encoding]::new($false))
  $plan=Join-Path $scratch 'image-adds.txt';$entries=[Collections.Generic.List[string]]::new();$replaced=@{}
  $artifactSpecs=@(@('kernel','Kernel','/boot/r4os.elf'),@('spectra','Diagnostics/Spectra','/R4OS/SOFTWARE/TERMINAL/DIAG/SPECTRA.R4X'),@('lifecycle-fixture','Diagnostics/Spectra','/R4OS/SOFTWARE/TERMINAL/DIAG/SPECTRA/STDCHILD.R4X'),@('terminal','Apps/Terminal','/R4OS/SOFTWARE/TERMINAL/TERMINAL.R4X'),@('servman','Apps/ServiceManager','/R4OS/SOFTWARE/TERMINAL/SERVMAN.R4X'))
@@ -68,14 +68,14 @@ function Start-R4SpectraStandard($Context,[switch]$SelfReference) {
  $qemuVersion=([string](@(& $Context.qemu --version)[0])).Trim();if($LASTEXITCODE -ne 0){throw 'QEMU version query failed.'}
  $method=[ordered]@{
   execution='qemu';vcpus='4';ram_bytes='1073741824';
+  cpu_policy='all-available-v1';measurement='parallel-wall-ns-per-operation-v3';filesystem='ntfs';settle_ms='200';
   qemu=[ordered]@{version=$qemuVersion;backend=$hostProfile.Name.ToLowerInvariant();machine='q35';cpu_selection=$hostProfile.CpuModel;network='none';host_audio='none';rtc='default';strict_accelerator=$true};
   storage=[ordered]@{layout='r4os-gpt-1';image_mb='16384';boot_mb='128';system_mb='10240';recovery_mb='5120';controller='ich9-ahci';format='raw';host_cache='none';filesystem='ntfs';fixture='fresh-image';nvme_namespace_bytes='16777216'};
-  workloads=$script:SpectraWorkloads;cache_state='active-per-area-1s-3batches-v2';warmup_runs='1';warmup_min_ns='1000000000';warmup_min_batches='3';repetitions='5'
+  workloads=$script:SpectraWorkloads;cache_state='parallel-active-per-area-1s-3batches-v3';warmup_runs='1';warmup_min_ns='1000000000';warmup_min_batches='3';repetitions='5'
  }
  $method.workloads=[ordered]@{};foreach($key in $script:SpectraWorkloads.Keys){$method.workloads[$key]=$script:SpectraWorkloads[$key]}
- $method.workloads.boot_state='terminal-preprompt-servman-boot-settle200-no-smp-selftest-v1'
  $method.workloads.lifecycle_fixture_sha256=(Get-FileHash -LiteralPath $sourceFiles['/R4OS/SOFTWARE/TERMINAL/DIAG/SPECTRA/STDCHILD.R4X']).Hash.ToLowerInvariant()
- $methodBytes=[Text.Encoding]::UTF8.GetBytes((Get-SpectraCanonical $method));$comparison=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($methodBytes)).ToLowerInvariant()
+ $methodBytes=[Text.Encoding]::UTF8.GetBytes((Get-SpectraCanonical (Get-SpectraMethod $method)));$comparison=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($methodBytes)).ToLowerInvariant()
  $environment=[ordered]@{};foreach($key in $method.Keys){$environment[$key]=$method[$key]}
  $environment.host=[ordered]@{operating_system=[Runtime.InteropServices.RuntimeInformation]::OSDescription;architecture=[Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString();processor_count=[string][Environment]::ProcessorCount}
  $cpuLabel=$null
@@ -102,10 +102,10 @@ function Start-R4SpectraStandard($Context,[switch]$SelfReference) {
  $artifacts.Add([ordered]@{component='fresh-image';sha256=(Get-Content -Raw -LiteralPath (Join-Path $run 'source.json')|ConvertFrom-Json).sourceSha256;image_method='r4os-gpt-1';boot_config_sha256=(Get-FileHash $configPath).Hash.ToLowerInvariant();autoexec_sha256=(Get-FileHash $autoexec).Hash.ToLowerInvariant()})
  $versionFile=$sourceFiles['/R4OS/CONFIG/VERSION.R4S'];$release=(Get-InstallationFields $versionFile).RELEASE_VERSION
  $kernelVersion=$kernelBuild.kernel_version
- $metadata=[ordered]@{run_id=$id;host_id=$hostId;started_at_utc=$null;finished_at_utc=$null;release_version=$release;kernel_version=$kernelVersion;environment_id=('r4os-standard-smp4-'+$hostProfile.Name.ToLowerInvariant()+'-1');comparison_key=$comparison;environment=$environment;artifacts=@($artifacts.ToArray())}
+ $metadata=[ordered]@{run_id=$id;host_id=$hostId;started_at_utc=$null;finished_at_utc=$null;release_version=$release;kernel_version=$kernelVersion;environment_id=('r4os-standard3-smp4-'+$hostProfile.Name.ToLowerInvariant()+'-1');comparison_key=$comparison;environment=$environment;artifacts=@($artifacts.ToArray())}
  $serial=Join-Path $evidence 'serial.log';$errors=Join-Path $evidence 'qemu.err';$contextPath=Join-Path $evidence 'context.json';$outputPath=Join-Path $evidence 'run.json'
  $nvme=Join-Path $run 'nvme.img';$f=[IO.File]::Open($nvme,[IO.FileMode]::Create,[IO.FileAccess]::Write,[IO.FileShare]::None);try{$f.SetLength(16MB);$f.Flush($true)}finally{$f.Dispose()}
- $values=@{R4OS_QEMU_EXE=$Context.qemu;R4OS_QEMU_CONFIG=Join-Path $Context.root 'QEMU/standard.conf';R4OS_QEMU_WORKING_DIRECTORY=$run;R4OS_QEMU_LOG=$serial;R4OS_QEMU_ERROR_LOG=$errors;R4OS_QEMU_CPUS='4';R4OS_QEMU_STOP_MARKER='';R4OS_QEMU_NVME_TEST_DISK=$nvme;R4OS_QEMU_STRICT_ACCELERATOR='1';R4OS_QEMU_EXPECTED_BACKEND=$hostProfile.Name;QEMU_TEST_TIMEOUT_SECONDS='240'}
+ $values=@{R4OS_QEMU_EXE=$Context.qemu;R4OS_QEMU_CONFIG=Join-Path $Context.root 'QEMU/standard.conf';R4OS_QEMU_WORKING_DIRECTORY=$run;R4OS_QEMU_LOG=$serial;R4OS_QEMU_ERROR_LOG=$errors;R4OS_QEMU_CPUS='4';R4OS_QEMU_STOP_MARKER='';R4OS_QEMU_NVME_TEST_DISK=$nvme;R4OS_QEMU_STRICT_ACCELERATOR='1';R4OS_QEMU_EXPECTED_BACKEND=$hostProfile.Name;QEMU_TEST_TIMEOUT_SECONDS='420'}
  $saved=@{};foreach($key in $values.Keys){$saved[$key]=[Environment]::GetEnvironmentVariable($key);[Environment]::SetEnvironmentVariable($key,$values[$key])}
  $metadata.started_at_utc=[DateTime]::UtcNow.ToString('o')
  try{& pwsh -NoProfile -File (Join-Path $Context.root 'Tests/Invoke-QemuHeadless.ps1')|Out-Host;$code=$LASTEXITCODE}
