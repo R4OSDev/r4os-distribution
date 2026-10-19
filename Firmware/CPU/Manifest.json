@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "format": "R4U0",
+  "firmware": [
+    {
+      "id": 1,
+      "vendor": 1,
+      "name": "Intel Haswell 06-3c-03",
+      "path": "Intel/06-3c-03.bin",
+      "bytes": 23552,
+      "sha256": "2af41bcbe3412aec07c720e2be6ebdd092adaf8a7635efef6c5480a0b53a185d",
+      "signature": 198339,
+      "platform_mask": 50,
+      "revision": 40,
+      "minimum_revision": 0,
+      "commit": "bdc92abe5c499c3fd7988b76a128d05c9120a520",
+      "source": "https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/blob/bdc92abe5c499c3fd7988b76a128d05c9120a520/intel-ucode/06-3c-03",
+      "license": "Injection/R4OS/LICENSES/INTEL-CPU-MICROCODE-LICENSE.txt"
+    },
+    {
+      "id": 2,
+      "vendor": 2,
+      "name": "AMD Milan 19h/01h/B1; full family19h container",
+      "path": "AMD/microcode_amd_fam19h.bin",
+      "bytes": 128644,
+      "sha256": "c614d6db8056c5c67a9189b225124127d56990a190305bcb3927d50e132de7dd",
+      "signature": 10489617,
+      "platform_mask": 0,
+      "revision": 167776734,
+      "minimum_revision": 167776729,
+      "commit": "a2dcb924f0897368b0b4f305cbf9808cdda90ce0",
+      "source": "https://kernel.googlesource.com/pub/scm/linux/kernel/git/firmware/linux-firmware/+/a2dcb924f0897368b0b4f305cbf9808cdda90ce0/amd-ucode/microcode_amd_fam19h.bin",
+      "license": "Injection/R4OS/LICENSES/AMD-CPU-MICROCODE-LICENSE.txt"
+    }
+  ]
+}

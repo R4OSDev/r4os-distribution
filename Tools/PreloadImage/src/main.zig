@@ -28,6 +28,8 @@ pub fn main(init: std.process.Init) !void {
     const args = try init.minimal.args.toSlice(init.arena.allocator());
 
     var output_path: ?[]const u8 = null;
+    var cpu_microcode: ?[]u8 = null;
+    defer if (cpu_microcode) |bytes| allocator.free(bytes);
     var entries: std.ArrayList(EntrySpec) = .empty;
     defer {
         for (entries.items) |entry| allocator.free(entry.bytes);
@@ -41,6 +43,19 @@ pub fn main(init: std.process.Init) !void {
             if (i + 1 >= args.len) return error.BadArgs;
             i += 1;
             output_path = args[i];
+        } else if (std.mem.eql(u8, arg, "--cpu-microcode")) {
+            if (cpu_microcode != null or i + 1 >= args.len) return error.BadArgs;
+            i += 1;
+            const bytes = try cwd.readFileAlloc(io, args[i], allocator, .limited(262144));
+            errdefer allocator.free(bytes);
+            if (bytes.len < 32 or !std.mem.eql(u8, bytes[0..4], "R4U0") or
+                std.mem.readInt(u16, bytes[4..6], .little) != 1 or
+                std.mem.readInt(u16, bytes[6..8], .little) != 32 or
+                std.mem.readInt(u32, bytes[8..12], .little) != 2 or
+                std.mem.readInt(u32, bytes[12..16], .little) != bytes.len or
+                std.mem.readInt(u32, bytes[16..20], .little) != 64 or
+                !std.mem.allEqual(u8, bytes[20..32], 0)) return error.BadCpuMicrocode;
+            cpu_microcode = bytes;
         } else if (std.mem.eql(u8, arg, "--add")) {
             if (i + 4 >= args.len) return error.BadArgs;
             const kind = parseKind(args[i + 1]) orelse return error.BadKind;
@@ -78,7 +93,10 @@ pub fn main(init: std.process.Init) !void {
     }
     if (total_size > std.math.maxInt(u32)) return error.ImageTooLarge;
 
-    const image = try allocator.alloc(u8, total_size);
+    // Keep the original R4I header/table/payload byte-for-byte. Older kernels
+    // bound their existing module parser by total_size and ignore this tail.
+    const image_size = try std.math.add(usize, total_size, if (cpu_microcode) |bytes| bytes.len else 0);
+    const image = try allocator.alloc(u8, image_size);
     defer allocator.free(image);
     @memset(image, 0);
 
@@ -103,6 +121,7 @@ pub fn main(init: std.process.Init) !void {
         writeLe32(record[92..96], @intCast(entry.bytes.len));
         @memcpy(image[entry.offset .. entry.offset + entry.bytes.len], entry.bytes);
     }
+    if (cpu_microcode) |bytes| @memcpy(image[total_size..], bytes);
 
     try cwd.writeFile(io, .{ .sub_path = out, .data = image });
     std.debug.print("PRELOAD.R4I created: {s} ({d} entries, {d} bytes)\n", .{ out, entries.items.len, total_size });

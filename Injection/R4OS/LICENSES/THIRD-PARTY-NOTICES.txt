@@ -475,3 +475,13 @@ in the public R4OSDev/r4os-driver-acpiplatform repository.
 DISPLAYD0.1.58 independent TuringColor2D image oracle adapts Mesa26.2.2
 nil/copy.rs and tiling.rs, MIT, Copyright2024 Valve Corp. and Collabora, Ltd.
 Full notice and pinned provenance: NVGOB.TXT (also embedded as NVIDIA-GOB-MIT.txt in DISPLAYD.R4X).
+
+CPU microcode early preload (0.85.33)
+-----------------------------------
+The preload appendix contains unmodified Intel Haswell06-3c-03 and AMD
+family19h microcode files. Pinned source commits, hashes and exact initial
+load profiles are in Distribution/Firmware/CPU/Manifest.json. Intel terms:
+INTEL-CPU-MICROCODE-LICENSE.txt. AMD terms: AMD-CPU-MICROCODE-LICENSE.txt;
+AMD-CPU-MICROCODE-README.txt retains the vendor's patch/base-revision notes.
+Bundled data and a virtual-machine boot do not establish a successful native
+CPU microcode update. No vendor endorsement or certification is implied.

@@ -33,7 +33,10 @@ function Test-GraphicsPreloadResources([string]$Path,$Modules) {
   $header=Read-GraphicsBytes $stream 0 64
   if([Text.Encoding]::ASCII.GetString($header,0,4) -cne 'R4I0' -or [BitConverter]::ToUInt16($header,4) -ne 1 -or [BitConverter]::ToUInt16($header,6) -ne 64){throw 'Invalid boot preload header.'}
   $count=[BitConverter]::ToUInt32($header,8);$table=[BitConverter]::ToUInt32($header,12);$data=[BitConverter]::ToUInt32($header,16)
-  if($count -ne $Modules.Count -or $count -gt 32 -or $table -lt 64 -or $table+128*$count -gt $data -or [BitConverter]::ToUInt32($header,20) -ne $stream.Length){throw 'Preload directory differs from the versioned component set.'}
+  $legacyBytes=[long][BitConverter]::ToUInt32($header,20)
+  if($count -ne $Modules.Count -or $count -gt 32 -or $table -lt 64 -or $table+128*$count -gt $data -or $data -gt $legacyBytes -or $legacyBytes -gt $stream.Length){throw 'Preload directory differs from the versioned component set.'}
+  . (Join-Path $PSScriptRoot 'CpuMicrocodeFormat.ps1')
+  Test-R4CpuMicrocodeAppendix -Stream $stream -LegacyBytes $legacyBytes
   $seen=@{}
   for($i=0;$i -lt $count;$i++){
    $entry=Read-GraphicsBytes $stream ($table+128*$i) 128
@@ -45,7 +48,7 @@ function Test-GraphicsPreloadResources([string]$Path,$Modules) {
    $kind=[BitConverter]::ToUInt16($entry,0)
    if(($module[0].kind -ceq 'R4P' -and $kind -ne 2) -or ($module[0].kind -ceq 'R4D' -and $kind -ne 3)){throw 'Preload component kind differs.'}
    $offset=[BitConverter]::ToUInt32($entry,88);$bytes=[BitConverter]::ToUInt32($entry,92)
-   if($offset -lt $data -or $bytes -ne (Get-Item $module[0].artifact).Length){throw 'Preload component range differs.'}
+   if($offset -lt $data -or [long]$offset+$bytes -gt $legacyBytes -or $bytes -ne (Get-Item $module[0].artifact).Length){throw 'Preload component range differs.'}
    $digest=Get-GraphicsRangeHash $stream $offset $bytes
    if($digest -cne (Get-FileHash $module[0].artifact).Hash.ToLowerInvariant()){throw 'Preload bytes differ from the separately versioned module.'}
    [pscustomobject]@{name=$name;source=$module[0].artifact;bytes=$bytes;sha256=$digest}
