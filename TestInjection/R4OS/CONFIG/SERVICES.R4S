@@ -4,6 +4,7 @@ SERVICE;name=CLIPSVC;path=C:\R4OS\SERVICES\CLIPSVC.R4X;args=/RUN;start=auto;enab
 SERVICE;name=DNSSVC;path=C:\R4OS\SERVICES\DNSSVC.R4X;args=/RUN;start=auto;enabled=yes;description=DNS resolver service
 SERVICE;name=DHCPSVC;path=C:\R4OS\SERVICES\DHCPSVC.R4X;args=/RUN;start=auto;enabled=yes;description=DHCP lease service
 SERVICE;name=TIMESVC;path=C:\R4OS\SERVICES\TIMESVC.R4X;args=/RUN;start=auto;enabled=yes;description=Time configuration service
+SERVICE;name=POWERSVC;path=C:\R4OS\SERVICES\POWERSVC.R4X;args=/RUN;start=auto;enabled=yes;description=CPU profile service
 SERVICE;name=LOGSVC;path=C:\R4OS\SERVICES\LOGSVC.R4X;args=/RUN;start=auto;enabled=yes;description=Log aggregation service
 SERVICE;name=AUDSVC;path=C:\R4OS\SERVICES\AUDSVC.R4X;args=/RUN;start=auto;enabled=yes;description=Audio and mixer service
 SERVICE;name=TCPSVC;path=C:\R4OS\SERVICES\TCPSVC.R4X;args=/RUN;start=auto;enabled=yes;description=TCP connection service

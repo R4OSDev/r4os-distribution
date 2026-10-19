@@ -1,0 +1,4 @@
+﻿# R4OS CPU profile intent. Hardware activation is separate explicit consent.
+R4S_FORMAT=1
+SCHEMA=POWER
+PROFILE=firmware
