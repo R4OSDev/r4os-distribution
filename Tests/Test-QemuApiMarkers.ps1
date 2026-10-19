@@ -139,7 +139,6 @@ function Test-ClockSmokeContract {
     $failures = 0
     $requiredClock = @(
         'Booted via Limine [OK]',
-        'Timer [HPET]',
         'Scheduler [OK]',
         'SMP foundation [OK]',
         '[QUICKCHECK] BEGIN',
@@ -148,6 +147,20 @@ function Test-ClockSmokeContract {
         '[QUICKCHECK] END',
         '[QUICKPROBE] result=DONE'
     )
+    $hpetEvent = $Text.IndexOf('Timer [HPET]', [StringComparison]::Ordinal) -ge 0
+    $lapicEvent = $Text.IndexOf('Timer [LAPIC]', [StringComparison]::Ordinal) -ge 0
+    $deadline = [regex]::Match($Text, '(?m)^\[TSCDEADLINE\] cpu=0 active=1 epoch=(?<epoch>\d+) generation=(?<generation>\d+) arms=(?<arms>\d+) irqs=\d+ stale=\d+ fallbacks=\d+ reason=0\r?$')
+    $qualifiedDeadline = $deadline.Success -and
+        [uint64]$deadline.Groups['epoch'].Value -gt 0 -and
+        [uint32]$deadline.Groups['generation'].Value -gt 0 -and
+        [uint32]$deadline.Groups['generation'].Value -lt [uint32]::MaxValue -and
+        [uint64]$deadline.Groups['arms'].Value -gt 0
+    if (($hpetEvent -and -not $lapicEvent) -or ($lapicEvent -and -not $hpetEvent -and $qualifiedDeadline)) {
+        if (-not $Quiet) { Write-Host ('Clock-smoke event timer OK: ' + $(if ($lapicEvent) { 'qualified LAPIC TSC-deadline' } else { 'HPET fallback' })) }
+    } else {
+        if (-not $Quiet) { Write-Host 'Clock-smoke event timer FAILED: require HPET or actual qualified LAPIC deadline epoch/clock/arm receipt.' }
+        $failures++
+    }
     foreach ($marker in $requiredClock) {
         if ($Text.IndexOf($marker, [StringComparison]::OrdinalIgnoreCase) -lt 0) {
             if (-not $Quiet) { Write-Host ('Clock-smoke marker FAILED missing: ' + $marker) }
@@ -161,6 +174,7 @@ function Test-ClockSmokeContract {
             '[TLBPROBE] result=FAILED', '[LOCKPROBE] result=FAILED', '[SERIALPROBE] result=FAILED',
             '[NVMEIRQ] result=FAILED', '[NVMEIRQPROBE] result=FAILED',
             '[R4LPREEMPT] result=FAILED', '[CLOCKPROBE] result=FAILED',
+            '[TSCDEADLINE-CHECK] result=FAILED',
             'SPECTRA NETWORK limits: FAILED')) {
         if ($Text.IndexOf($marker, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
             if (-not $Quiet) { Write-Host ('Clock-smoke marker FAILED forbidden: ' + $marker) }
@@ -305,6 +319,21 @@ if ($ClockSmoke) {
             '[QUICKPROBE] result=DONE'
         ) -join "`r`n"
         if ((Test-ClockSmokeContract $validClock -Quiet) -ne 0) { throw 'valid clock-smoke marker set did not pass' }
+        $deadlineMarker = '[TSCDEADLINE] cpu=0 active=1 epoch=1 generation=2 arms=5 irqs=4 stale=0 fallbacks=0 reason=0'
+        $validDeadline = $validClock.Replace('Timer [HPET]', 'Timer [LAPIC]') + "`r`n" + $deadlineMarker
+        if ((Test-ClockSmokeContract $validDeadline -Quiet) -ne 0) { throw 'qualified LAPIC deadline did not pass' }
+        foreach ($invalidDeadline in @(
+                $validDeadline.Replace($deadlineMarker, ''),
+                $validDeadline.Replace('active=1 epoch=1', 'active=0 epoch=1'),
+                $validDeadline.Replace('epoch=1 generation=2', 'epoch=0 generation=2'),
+                $validDeadline.Replace('generation=2 arms=5', 'generation=0 arms=5'),
+                $validDeadline.Replace('generation=2 arms=5', 'generation=4294967295 arms=5'),
+                $validDeadline.Replace('arms=5 irqs=4', 'arms=0 irqs=4'),
+                $validDeadline.Replace('fallbacks=0 reason=0', 'fallbacks=0 reason=4'),
+                ($validDeadline + "`r`n[TSCDEADLINE-CHECK] result=FAILED"),
+                ($validDeadline + "`r`nTimer [HPET]"))) {
+            if ((Test-ClockSmokeContract $invalidDeadline -Quiet) -eq 0) { throw 'unqualified/failed LAPIC deadline accepted' }
+        }
         $normalClock = $validClock.Replace('wait_spins=17 max_wait=9 max_hold_cycles=800', 'wait_spins=0 max_wait=0 max_hold_cycles=0')
         if ((Test-ClockSmokeContract $normalClock -Quiet) -ne 0) { throw 'normal instrumentation mode did not pass' }
         foreach ($invalidClock in @(
@@ -459,6 +488,7 @@ $forbidden = @(
     '[SERIALPROBE] result=FAILED',
     '[R4LPREEMPT] result=FAILED',
     '[CLOCKPROBE] result=FAILED',
+    '[TSCDEADLINE-CHECK] result=FAILED',
     'SPECTRA NETWORK limits: FAILED',
     'General Protection Fault',
     'Page Fault',
