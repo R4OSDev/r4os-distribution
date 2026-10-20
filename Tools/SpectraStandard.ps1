@@ -62,6 +62,9 @@ function Start-R4SpectraStandard($Context,[switch]$SelfReference) {
  if(!$replaced.config -or !$replaced.autoexec){throw 'Test image lacks canonical boot configuration.'}
  [IO.File]::WriteAllLines($plan,$entries,[Text.UTF8Encoding]::new($false))
  $built=New-R4OSInstallationImage -Root $Context.root -Profile Benchmark -InputList $plan -OutputRoot $sourceRoot -ToolsReady
+ $kernelHash=(Get-FileHash -LiteralPath $sourceFiles['/BOOT/R4OS.ELF'] -Algorithm SHA256).Hash.ToLowerInvariant()
+ if($built.structure.bootHashes['boot/r4os.elf'] -cne $kernelHash){throw 'Benchmark BOOT kernel readback differs from the captured artifact.'}
+ Write-Host ('Benchmark BOOT kernel readback verified: '+$kernelHash)
  $run=New-R4QemuMedia -SourceRoot (Split-Path $built.image -Parent) -Mode Fresh -Name standard-smp4
  $hostProfile=Resolve-R4QemuHostProfile $Context.qemu
  $hostId=$env:R4OS_BENCHMARK_HOST_ID
