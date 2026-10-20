@@ -14,6 +14,7 @@ function Start-R4SpectraStandard($Context,[switch]$SelfReference) {
  }
  $id=[guid]::NewGuid().ToString();$evidence=Join-Path $Context.output ('Diagnostics/SpectraStandard/'+$id)
  $scratch=Join-Path $Context.workspace ('Temp/SpectraStandard/'+$id)
+ $sourceRoot=Join-Path $evidence 'Source'
  [IO.Directory]::CreateDirectory($scratch)|Out-Null;[IO.Directory]::CreateDirectory($evidence)|Out-Null
  try {
  $sourcePlan=Join-Path $Context.output 'Profiles/Test/image-adds.txt'
@@ -60,7 +61,7 @@ function Start-R4SpectraStandard($Context,[switch]$SelfReference) {
  }
  if(!$replaced.config -or !$replaced.autoexec){throw 'Test image lacks canonical boot configuration.'}
  [IO.File]::WriteAllLines($plan,$entries,[Text.UTF8Encoding]::new($false))
- $built=New-R4OSInstallationImage -Root $Context.root -Profile Benchmark -InputList $plan -OutputRoot (Join-Path $scratch 'Source') -ToolsReady
+ $built=New-R4OSInstallationImage -Root $Context.root -Profile Benchmark -InputList $plan -OutputRoot $sourceRoot -ToolsReady
  $run=New-R4QemuMedia -SourceRoot (Split-Path $built.image -Parent) -Mode Fresh -Name standard-smp4
  $hostProfile=Resolve-R4QemuHostProfile $Context.qemu
  $hostId=$env:R4OS_BENCHMARK_HOST_ID
@@ -127,6 +128,7 @@ function Start-R4SpectraStandard($Context,[switch]$SelfReference) {
  Write-Host ('Spectra standard SMP4 phase passed: '+$outputPath)
  return $outputPath
  } finally {
+  Remove-R4TestDirectory $Context.workspace $sourceRoot
   Remove-R4TestDirectory $Context.workspace $scratch
  }
 }
