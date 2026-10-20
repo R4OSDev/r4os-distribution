@@ -15,9 +15,14 @@ function Get-R4DistributionContext([string]$Root) {
   zig=Join-Path (Get-InstallationPath $dev $s.ZIG_ROOT) "zig$suffix";qemu=Join-Path (Get-InstallationPath $dev $s.QEMU_ROOT) "qemu-system-x86_64$suffix";
   legal=Join-Path $Root 'Injection/R4OS/LICENSES';logs=Join-Path $out 'Logs'}
 }
-function Build-R4DistributionTools($Context,[switch]$Tests) {
+function Build-R4DistributionTools($Context,[switch]$Tests,[switch]$FontTests,[string]$LegacyFontFixtures='') {
  $arguments=@('build','--prefix',$Context.prefix,'--cache-dir',(Join-Path $Context.output '.Cache/build'),'--global-cache-dir',(Join-Path $Context.output '.Cache/global'),'-Doptimize=ReleaseSafe',"--fork=$($Context.sdk)","--fork=$($Context.contract)","--fork=$($Context.libraries)")
  if($Tests){$arguments+='test'}
+ if($FontTests){
+  if($Tests){throw 'Select either all distribution tests or focused font tests.'}
+  $arguments+=@('font-test','--summary','all')
+  if($LegacyFontFixtures){$arguments+='-Dlegacy-font-fixtures='+[IO.Path]::GetFullPath($LegacyFontFixtures,$Context.root)}
+ }
  Push-Location -LiteralPath $Context.root
  try{Invoke-R4Distribution $Context.zig $arguments}finally{Pop-Location}
 }
@@ -30,7 +35,7 @@ function Get-R4DistributionProfile($Context,[string]$Name) {
     $profile.BOOT_MB -cne '128' -or $profile.SYSTEM_MB -cne $systemMb -or $profile.RECOVERY_MB -cne '5120' -or $profile.DATA_SIZE -cne 'rest'){throw "Invalid common layout in $Name profile."}
  return $profile
 }
-function Get-R4DistributionLegalNames {return @('R4OS-LICENSE.txt','R4OS-NOTICE.txt','THIRD-PARTY-NOTICES.txt','RUST-1.99-LIBRARY-LICENSES.html','Limine-BSD-2-Clause.txt','FreeType-FTL.txt','Brotli-MIT.txt','zlib.txt','stb_image-MIT.txt','LITTLECMS-LICENSE.txt','RTL8168-GPL-2.0-only.txt','libdisplay-info-MIT.txt','NVIDIA-570.144-LICENSE.txt','NVIDIA-570.144-HEADERS-LICENSE.txt','NVIDIA-570.144-GSP-BOOT-LICENSE.txt','NVIDIA-570.144-PRAMIN-LICENSE.txt','NVIDIA-570.144-BAR1-LICENSE.txt','NVIDIA-BOOT-DISPLAY-LICENSE.txt','NVIDIA-DISPLAY-CONTEXT-LICENSE.txt','NVIDIA-DISPLAY-COLOR-LICENSE.txt','NVIDIA-DISPLAY-ASSETS-LICENSE.txt','NVIDIA-CONNECTORS-LICENSE.txt','NVIDIA-GSP-LOG-LICENSE.txt','NVIDIA-GSP-RUNTIME-LICENSE.txt','NVGOB.TXT','R4NAK-NOTICES.txt','R4VK-NOTICES.txt','R4GL-NOTICES.txt','NATIVE-MATH-NOTICES.txt','NATIVE-SCAN-NOTICES.txt','R4VIDEO-NOTICES.txt','FFmpeg-LGPL-2.1.txt','R4ENC-NOTICES.txt','OpenH264-BSD-2-Clause.txt','AMD-FIRMWARE-LICENSE.txt','AMD-FIRMWARE-WHENCE.txt','AMDGPU-SOURCE-NOTICES.txt','R4AMD-NOTICES.txt','R4ACO-NOTICES.txt','uACPI-MIT.txt','UNICODE-DATA-NOTICES.txt')}
+function Get-R4DistributionLegalNames {return @('R4OS-LICENSE.txt','R4OS-NOTICE.txt','THIRD-PARTY-NOTICES.txt','RUST-1.99-LIBRARY-LICENSES.html','Limine-BSD-2-Clause.txt','FreeType-FTL.txt','Brotli-MIT.txt','zlib.txt','stb_image-MIT.txt','LITTLECMS-LICENSE.txt','RTL8168-GPL-2.0-only.txt','libdisplay-info-MIT.txt','NVIDIA-570.144-LICENSE.txt','NVIDIA-570.144-HEADERS-LICENSE.txt','NVIDIA-570.144-GSP-BOOT-LICENSE.txt','NVIDIA-570.144-PRAMIN-LICENSE.txt','NVIDIA-570.144-BAR1-LICENSE.txt','NVIDIA-BOOT-DISPLAY-LICENSE.txt','NVIDIA-DISPLAY-CONTEXT-LICENSE.txt','NVIDIA-DISPLAY-COLOR-LICENSE.txt','NVIDIA-DISPLAY-ASSETS-LICENSE.txt','NVIDIA-CONNECTORS-LICENSE.txt','NVIDIA-GSP-LOG-LICENSE.txt','NVIDIA-GSP-RUNTIME-LICENSE.txt','NVGOB.TXT','R4NAK-NOTICES.txt','R4VK-NOTICES.txt','R4GL-NOTICES.txt','NATIVE-MATH-NOTICES.txt','NATIVE-SCAN-NOTICES.txt','R4VIDEO-NOTICES.txt','FFmpeg-LGPL-2.1.txt','R4ENC-NOTICES.txt','OpenH264-BSD-2-Clause.txt','AMD-FIRMWARE-LICENSE.txt','AMD-FIRMWARE-WHENCE.txt','AMDGPU-SOURCE-NOTICES.txt','R4AMD-NOTICES.txt','R4ACO-NOTICES.txt','uACPI-MIT.txt','UNICODE-DATA-NOTICES.txt','FONT8X8-PUBLIC-DOMAIN.txt')}
 function Test-R4DistributionLegal($Context,[string]$Plan='',[string]$Staged='') {
  $text=if($Plan){Get-Content -Raw -LiteralPath $Plan}else{''}
  foreach($name in Get-R4DistributionLegalNames){

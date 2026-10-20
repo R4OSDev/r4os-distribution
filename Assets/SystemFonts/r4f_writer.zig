@@ -24,7 +24,7 @@ const BitmapOptions = struct {
     row_scale: usize = 1,
     weight: u16 = 400,
     style_flags: u32 = r4f.STYLE_MONOSPACE,
-    charset: u16 = r4f.CHARSET_CP437,
+    charset: u16 = r4f.CHARSET_UNICODE,
     extra_glyphs: []const BitmapGlyph = &.{},
 };
 
@@ -33,6 +33,11 @@ pub fn writeBuiltinAsciiBitmap(allocator: std.mem.Allocator, glyphs: []const [8]
     if (opts.row_scale == 0 or opts.pixel_height != 8 * opts.row_scale) return error.BadRowScale;
     const glyph_count = glyphs.len + opts.extra_glyphs.len;
     if (glyphs.len == 0 or glyph_count > std.math.maxInt(u16)) return error.BadGlyphCount;
+    for (0..glyphs.len) |i| {
+        const cp = std.math.add(u32, opts.first_codepoint, @intCast(i)) catch return error.InvalidUnicodeScalar;
+        if (!r4f.validScalar(cp)) return error.InvalidUnicodeScalar;
+    }
+    for (opts.extra_glyphs) |glyph| if (!r4f.validScalar(glyph.codepoint)) return error.InvalidUnicodeScalar;
 
     var names: std.ArrayList(u8) = .empty;
     defer names.deinit(allocator);
@@ -84,14 +89,14 @@ pub fn writeBuiltinAsciiBitmap(allocator: std.mem.Allocator, glyphs: []const [8]
     try appendU32(&gmap, allocator, @intCast(glyph_count));
     for (glyphs, 0..) |_, glyph_id| {
         try appendU16(&gmap, allocator, 0);
-        try appendU16(&gmap, allocator, opts.charset);
+        try appendU16(&gmap, allocator, r4f.CHARSET_UNICODE);
         try appendU32(&gmap, allocator, opts.first_codepoint + @as(u32, @intCast(glyph_id)));
         try appendU32(&gmap, allocator, @intCast(glyph_id));
         try appendU32(&gmap, allocator, 0);
     }
     for (opts.extra_glyphs, glyphs.len..) |glyph, glyph_id| {
         try appendU16(&gmap, allocator, 0);
-        try appendU16(&gmap, allocator, opts.charset);
+        try appendU16(&gmap, allocator, r4f.CHARSET_UNICODE);
         try appendU32(&gmap, allocator, glyph.codepoint);
         try appendU32(&gmap, allocator, @intCast(glyph_id));
         try appendU32(&gmap, allocator, 0);
@@ -183,7 +188,7 @@ pub const RasterOptions = struct {
     line_height: i16,
     weight: u16 = 400,
     style_flags: u32 = 0,
-    charset: u16 = r4f.CHARSET_WINDOWS_1252,
+    charset: u16 = r4f.CHARSET_UNICODE,
 };
 
 pub fn writeRasterFont(allocator: std.mem.Allocator, glyphs: []const RasterGlyph, opts: RasterOptions) ![]u8 {
@@ -192,6 +197,7 @@ pub fn writeRasterFont(allocator: std.mem.Allocator, glyphs: []const RasterGlyph
     var max_width: u16 = 0;
     var max_bytes_per_row: u16 = 0;
     for (glyphs) |g| {
+        if (!r4f.validScalar(g.codepoint)) return error.InvalidUnicodeScalar;
         if (g.height != opts.pixel_height or g.width == 0) return error.UnsupportedBitmapSize;
         const bpr: u16 = @intCast((@as(usize, g.width) + 7) / 8);
         if (g.data.len < @as(usize, bpr) * opts.pixel_height) return error.ShortGlyphData;
@@ -249,7 +255,7 @@ pub fn writeRasterFont(allocator: std.mem.Allocator, glyphs: []const RasterGlyph
     try appendU32(&gmap, allocator, @intCast(glyphs.len));
     for (glyphs, 0..) |g, glyph_id| {
         try appendU16(&gmap, allocator, 0);
-        try appendU16(&gmap, allocator, opts.charset);
+        try appendU16(&gmap, allocator, r4f.CHARSET_UNICODE);
         try appendU32(&gmap, allocator, g.codepoint);
         try appendU32(&gmap, allocator, @intCast(glyph_id));
         try appendU32(&gmap, allocator, 0);

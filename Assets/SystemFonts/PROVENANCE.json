@@ -1,0 +1,832 @@
+{
+  "revision": "0.85.40",
+  "planned_scalar_count": 257,
+  "ascii": "Original R4OS Terminal ASCII retained",
+  "extra_glyph_count": 162,
+  "unicode_scope": "CP437 printable 0x20..0x7e,0x80..0xff; 32 distinct historical PC pictures; U+20AC and U+FFFD. No C0 scalar glyphs.",
+  "upstream": {
+    "status": "downloaded_for_review",
+    "project": "dhepper/font8x8",
+    "commit": "8e279d2d864e79128e96188a6b9526cfa3fbfef9",
+    "files": {
+      "README": {
+        "url": "https://raw.githubusercontent.com/dhepper/font8x8/8e279d2d864e79128e96188a6b9526cfa3fbfef9/README",
+        "sha256": "885cc022fa9c844695b364e77e6a18ab2be74678a181827f1ce893071205cb65",
+        "bytes": 1994
+      },
+      "font8x8.h": {
+        "url": "https://raw.githubusercontent.com/dhepper/font8x8/8e279d2d864e79128e96188a6b9526cfa3fbfef9/font8x8.h",
+        "sha256": "7ce4fc037a13552d3f0bb8e7aff4ada477ad2f167e56358945fa788e7c1d50f7",
+        "bytes": 494
+      },
+      "font8x8_basic.h": {
+        "url": "https://raw.githubusercontent.com/dhepper/font8x8/8e279d2d864e79128e96188a6b9526cfa3fbfef9/font8x8_basic.h",
+        "sha256": "49d8df366296b203ca3211bc0672cf2a762135bf12710735b6292756b19dffd5",
+        "bytes": 9596
+      },
+      "font8x8_ext_latin.h": {
+        "url": "https://raw.githubusercontent.com/dhepper/font8x8/8e279d2d864e79128e96188a6b9526cfa3fbfef9/font8x8_ext_latin.h",
+        "sha256": "e0582e9a6b3f85dbb983c72d95c9a50c3547ad5e895d16ef167e20777d053f1b",
+        "bytes": 8116
+      },
+      "font8x8_greek.h": {
+        "url": "https://raw.githubusercontent.com/dhepper/font8x8/8e279d2d864e79128e96188a6b9526cfa3fbfef9/font8x8_greek.h",
+        "sha256": "e80e7b27948f7729bd8d0fae4110124a812516ea65bae2d82d8c16fbf40b9ffd",
+        "bytes": 5046
+      },
+      "font8x8_misc.h": {
+        "url": "https://raw.githubusercontent.com/dhepper/font8x8/8e279d2d864e79128e96188a6b9526cfa3fbfef9/font8x8_misc.h",
+        "sha256": "01a77242dc9e623b359e1b262fdc02110de1a6834432b7167534196b769f23e5",
+        "bytes": 1372
+      },
+      "font8x8_box.h": {
+        "url": "https://raw.githubusercontent.com/dhepper/font8x8/8e279d2d864e79128e96188a6b9526cfa3fbfef9/font8x8_box.h",
+        "sha256": "f7171735837d05bdfd943b0f54f72100a065d0bc0e50385edc7319ae65b0e2b6",
+        "bytes": 12041
+      },
+      "font8x8_block.h": {
+        "url": "https://raw.githubusercontent.com/dhepper/font8x8/8e279d2d864e79128e96188a6b9526cfa3fbfef9/font8x8_block.h",
+        "sha256": "a6b97a0819fa79fbba259f69e7dc2e34586703151648d68889e2a8b71831342f",
+        "bytes": 3241
+      },
+      "font8x8_control.h": {
+        "url": "https://raw.githubusercontent.com/dhepper/font8x8/8e279d2d864e79128e96188a6b9526cfa3fbfef9/font8x8_control.h",
+        "sha256": "66c10295de288722d4c9384d5bf84e2c82c1a07f8ad020d2e3c0588e80dd1f9e",
+        "bytes": 2780
+      }
+    },
+    "upstream_license": "Public Domain declared by original author",
+    "pixel_order": "LSB leftmost, reverse each row for R4F MSB"
+  },
+  "glyphs": {
+    "U+00A0": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 0,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00A1": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 1,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00A2": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 2,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00A3": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 3,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00A5": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 5,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00A7": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 7,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00AA": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 10,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00AB": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 11,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00AC": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 12,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00B0": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 16,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00B1": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 17,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00B2": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 18,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00B5": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 21,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00B6": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 22,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00B7": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 23,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00BA": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 26,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00BB": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 27,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00BC": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 28,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00BD": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 29,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00BF": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 31,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00C4": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 36,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00C5": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 37,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00C6": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 38,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00C7": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 39,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00C9": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 41,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00D1": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 49,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00D6": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 54,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00DC": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 60,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00DF": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 63,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00E0": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 64,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00E1": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 65,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00E2": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 66,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00E4": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 68,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00E5": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 69,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00E6": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 70,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00E7": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 71,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00E8": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 72,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00E9": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 73,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00EA": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 74,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00EB": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 75,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00EC": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 76,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00ED": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 77,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00EE": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 78,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00EF": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 79,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00F1": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 81,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00F2": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 82,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00F3": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 83,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00F4": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 84,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00F6": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 86,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00F7": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 87,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00F9": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 89,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00FA": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 90,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00FB": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 91,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00FC": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 92,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+00FF": {
+      "file": "font8x8_ext_latin.h",
+      "array_index": 95,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+0192": {
+      "file": "font8x8_misc.h",
+      "array_index": 1,
+      "transform": "reverse each row byte; explicit semantic assignment for unnumbered misc entries"
+    },
+    "U+0393": {
+      "file": "font8x8_greek.h",
+      "array_index": 3,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+0398": {
+      "file": "font8x8_greek.h",
+      "array_index": 8,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+03A3": {
+      "file": "font8x8_greek.h",
+      "array_index": 19,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+03A6": {
+      "file": "font8x8_greek.h",
+      "array_index": 22,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+03A9": {
+      "file": "font8x8_greek.h",
+      "array_index": 25,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+03B1": {
+      "file": "font8x8_greek.h",
+      "array_index": 33,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+03B4": {
+      "file": "font8x8_greek.h",
+      "array_index": 36,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+03B5": {
+      "file": "font8x8_greek.h",
+      "array_index": 37,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+03C0": {
+      "file": "font8x8_greek.h",
+      "array_index": 48,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+03C3": {
+      "file": "font8x8_greek.h",
+      "array_index": 51,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+03C4": {
+      "file": "font8x8_greek.h",
+      "array_index": 52,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+03C6": {
+      "file": "font8x8_greek.h",
+      "array_index": 54,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2022": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+203C": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+207F": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+20A7": {
+      "file": "font8x8_misc.h",
+      "array_index": 0,
+      "transform": "reverse each row byte; explicit semantic assignment for unnumbered misc entries"
+    },
+    "U+20AC": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+2190": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+2191": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+2192": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+2193": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+2194": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+2195": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+21A8": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+2219": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+221A": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+221E": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+221F": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+2229": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+2248": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+2261": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+2264": {
+      "file": "font8x8_misc.h",
+      "array_index": 5,
+      "transform": "reverse each row byte; explicit semantic assignment for unnumbered misc entries"
+    },
+    "U+2265": {
+      "file": "font8x8_misc.h",
+      "array_index": 6,
+      "transform": "reverse each row byte; explicit semantic assignment for unnumbered misc entries"
+    },
+    "U+2302": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+2310": {
+      "file": "font8x8_misc.h",
+      "array_index": 4,
+      "transform": "reverse each row byte; explicit semantic assignment for unnumbered misc entries"
+    },
+    "U+2320": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+2321": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+2500": {
+      "file": "font8x8_box.h",
+      "array_index": 0,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2502": {
+      "file": "font8x8_box.h",
+      "array_index": 2,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+250C": {
+      "file": "font8x8_box.h",
+      "array_index": 12,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2510": {
+      "file": "font8x8_box.h",
+      "array_index": 16,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2514": {
+      "file": "font8x8_box.h",
+      "array_index": 20,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2518": {
+      "file": "font8x8_box.h",
+      "array_index": 24,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+251C": {
+      "file": "font8x8_box.h",
+      "array_index": 28,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2524": {
+      "file": "font8x8_box.h",
+      "array_index": 36,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+252C": {
+      "file": "font8x8_box.h",
+      "array_index": 44,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2534": {
+      "file": "font8x8_box.h",
+      "array_index": 52,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+253C": {
+      "file": "font8x8_box.h",
+      "array_index": 60,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2550": {
+      "file": "font8x8_box.h",
+      "array_index": 80,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2551": {
+      "file": "font8x8_box.h",
+      "array_index": 81,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2552": {
+      "file": "font8x8_box.h",
+      "array_index": 82,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2553": {
+      "file": "font8x8_box.h",
+      "array_index": 83,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2554": {
+      "file": "font8x8_box.h",
+      "array_index": 84,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2555": {
+      "file": "font8x8_box.h",
+      "array_index": 85,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2556": {
+      "file": "font8x8_box.h",
+      "array_index": 86,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2557": {
+      "file": "font8x8_box.h",
+      "array_index": 87,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2558": {
+      "file": "font8x8_box.h",
+      "array_index": 88,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2559": {
+      "file": "font8x8_box.h",
+      "array_index": 89,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+255A": {
+      "file": "font8x8_box.h",
+      "array_index": 90,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+255B": {
+      "file": "font8x8_box.h",
+      "array_index": 91,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+255C": {
+      "file": "font8x8_box.h",
+      "array_index": 92,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+255D": {
+      "file": "font8x8_box.h",
+      "array_index": 93,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+255E": {
+      "file": "font8x8_box.h",
+      "array_index": 94,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+255F": {
+      "file": "font8x8_box.h",
+      "array_index": 95,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2560": {
+      "file": "font8x8_box.h",
+      "array_index": 96,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2561": {
+      "file": "font8x8_box.h",
+      "array_index": 97,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2562": {
+      "file": "font8x8_box.h",
+      "array_index": 98,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2563": {
+      "file": "font8x8_box.h",
+      "array_index": 99,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2564": {
+      "file": "font8x8_box.h",
+      "array_index": 100,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2565": {
+      "file": "font8x8_box.h",
+      "array_index": 101,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2566": {
+      "file": "font8x8_box.h",
+      "array_index": 102,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2567": {
+      "file": "font8x8_box.h",
+      "array_index": 103,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2568": {
+      "file": "font8x8_box.h",
+      "array_index": 104,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2569": {
+      "file": "font8x8_box.h",
+      "array_index": 105,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+256A": {
+      "file": "font8x8_box.h",
+      "array_index": 106,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+256B": {
+      "file": "font8x8_box.h",
+      "array_index": 107,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+256C": {
+      "file": "font8x8_box.h",
+      "array_index": 108,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2580": {
+      "file": "font8x8_block.h",
+      "array_index": 0,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2584": {
+      "file": "font8x8_block.h",
+      "array_index": 4,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2588": {
+      "file": "font8x8_block.h",
+      "array_index": 8,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+258C": {
+      "file": "font8x8_block.h",
+      "array_index": 12,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2590": {
+      "file": "font8x8_block.h",
+      "array_index": 16,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2591": {
+      "file": "font8x8_block.h",
+      "array_index": 17,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2592": {
+      "file": "font8x8_block.h",
+      "array_index": 18,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+2593": {
+      "file": "font8x8_block.h",
+      "array_index": 19,
+      "transform": "reverse each row byte; source LSB-left to R4F MSB-left"
+    },
+    "U+25A0": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+25AC": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+25B2": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+25BA": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+25BC": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+25C4": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+25CB": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+25D8": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+25D9": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+263A": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+263B": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+263C": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+2640": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+2642": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+2660": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+2663": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+2665": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+2666": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+266A": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+266B": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    },
+    "U+FFFD": {
+      "author": "R4OS",
+      "format": "authored MSB-left 8x8 pixel rows"
+    }
+  },
+  "comment_corrections": "Range arrays use declared base plus array index: upstream comments contain repeated U+00B2, U+0399, U+03A5 and U+254B. Misc assignments are explicit."
+}

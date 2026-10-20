@@ -144,3 +144,13 @@ remain in src/gsp_memory_caps.zig and the runtime license, whose unchanged
 full text. Six raw C request/reply pairs and source identities are recorded
 in src/fixtures/memory-caps-570.144.json; detailed workspace evidence is under
 ExFiles/Reference/GFX/Nvidia/0.79.11/memory-caps-20260912.
+
+
+Font8x8 supplementary bitmap glyphs (0.85.40)
+------------------------------------------
+Daniel Hepper/Marcel Sondaar/IBM font8x8, pinned commit
+8e279d2d864e79128e96188a6b9526cfa3fbfef9, declares Public Domain.
+Original author notices/README accompany every image in
+/R4OS/LICENSES/FONT8X8-PUBLIC-DOMAIN.txt. Original headers, hashes, per-glyph
+assignments and row-bit transformation are retained under Assets/SystemFonts.
+Source: https://github.com/dhepper/font8x8

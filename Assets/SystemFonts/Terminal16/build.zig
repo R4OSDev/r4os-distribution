@@ -13,7 +13,7 @@ pub fn build(b: *std.Build) void {
         }),
     });
     const r4f_format = b.createModule(.{
-        .root_source_file = b.path("../../Libraries/R4FONT/Bindings/Zig/font_format.zig"),
+        .root_source_file = b.path("../../../../Libraries/R4FONT/Bindings/Zig/font_format.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -23,7 +23,15 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     r4f_writer.addImport("r4f_format", r4f_format);
+    const extended = b.createModule(.{
+        .root_source_file = b.path("../extended_glyphs.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    extended.addImport("r4f_writer", r4f_writer);
+
     exe.root_module.addImport("r4f_writer", r4f_writer);
+    exe.root_module.addImport("extended_glyphs", extended);
 
     const run_cmd = b.addRunArtifact(exe);
     const output = run_cmd.addOutputFileArg("TERMINAL16.R4F");

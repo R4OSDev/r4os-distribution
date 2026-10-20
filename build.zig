@@ -75,7 +75,29 @@ pub fn build(b: *std.Build) void {
     };
     for (tools) |tool| b.installArtifact(tool);
 
-    const font_tests = addSystemFonts(b, libraries_dependency.namedLazyPath("r4font_format"), optimize);
+    const font_tests = addSystemFonts(b, libraries_dependency, optimize);
+
+    const import_root = b.createModule(.{
+        .root_source_file = libraries_dependency.namedLazyPath("r4font_import"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const import_options = b.addOptions();
+    import_options.addOption(?[]const u8, "legacy_fonts_path", b.option([]const u8, "legacy-font-fixtures", "Optional local research FON directory; not distributed"));
+    import_root.addOptions("font_test_options", import_options);
+    import_root.addImport("r4std_legacy_tables", b.createModule(.{
+        .root_source_file = libraries_dependency.namedLazyPath("r4std_legacy_tables"),
+        .target = b.graph.host,
+    }));
+    import_root.addImport("r4std_console_text", b.createModule(.{
+        .root_source_file = libraries_dependency.namedLazyPath("r4std_console_text"),
+        .target = b.graph.host,
+    }));
+    const run_import = b.addRunArtifact(b.addTest(.{ .root_module = import_root }));
+    const font_step = b.step("font-test", "Build system fonts and run real R4FONT import/generator owner tests");
+    font_step.dependOn(font_tests);
+    font_step.dependOn(&run_import.step);
+    font_step.dependOn(b.getInstallStep());
 
     const image_plan_tests = b.addTest(.{
         .root_module = b.createModule(.{
@@ -105,16 +127,17 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_image_plan_tests.step);
     test_step.dependOn(&run_r4u_pack_tests.step);
     test_step.dependOn(font_tests);
+    test_step.dependOn(&run_import.step);
 }
 
 fn addSystemFonts(
     b: *std.Build,
-    r4f_format_path: std.Build.LazyPath,
+    libraries: *std.Build.Dependency,
     optimize: std.builtin.OptimizeMode,
 ) *std.Build.Step {
     const target = b.graph.host;
     const r4f_format = b.createModule(.{
-        .root_source_file = r4f_format_path,
+        .root_source_file = libraries.namedLazyPath("r4font_format"),
         .target = target,
         .optimize = optimize,
     });
@@ -124,14 +147,22 @@ fn addSystemFonts(
         .optimize = optimize,
     });
     r4f_writer.addImport("r4f_format", r4f_format);
+    const extended = b.createModule(.{
+        .root_source_file = b.path("Assets/SystemFonts/extended_glyphs.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    extended.addImport("r4f_writer", r4f_writer);
 
     const terminal8 = addFontGenerator(b, "terminal8-fontgen", "Assets/SystemFonts/Terminal8/src/main.zig", target, optimize);
     terminal8.root_module.addImport("r4f_writer", r4f_writer);
+    terminal8.root_module.addImport("extended_glyphs", extended);
     const terminal8_run = b.addRunArtifact(terminal8);
     installSystemFont(b, terminal8_run.addOutputFileArg(system_font_names[0]), system_font_names[0]);
 
     const terminal16 = addFontGenerator(b, "terminal16-fontgen", "Assets/SystemFonts/Terminal16/src/main.zig", target, optimize);
     terminal16.root_module.addImport("r4f_writer", r4f_writer);
+    terminal16.root_module.addImport("extended_glyphs", extended);
     const terminal16_run = b.addRunArtifact(terminal16);
     installSystemFont(b, terminal16_run.addOutputFileArg(system_font_names[1]), system_font_names[1]);
 
@@ -144,6 +175,7 @@ fn addSystemFonts(
     r4sans_root.addImport("r4f_format", r4f_format);
     r4sans_root.addImport("r4f_writer", r4f_writer);
     r4sans_root.addImport("base_glyphs", base_glyphs);
+    r4sans_root.addImport("extended_glyphs", extended);
     const r4sans = b.addExecutable(.{ .name = "r4sans-fontgen", .root_module = r4sans_root });
     const r4sans_run = b.addRunArtifact(r4sans);
     for (system_font_names[2..]) |name| installSystemFont(b, r4sans_run.addOutputFileArg(name), name);
@@ -152,8 +184,22 @@ fn addSystemFonts(
     test_root.addImport("r4f_format", r4f_format);
     test_root.addImport("r4f_writer", r4f_writer);
     test_root.addImport("base_glyphs", base_glyphs);
+    test_root.addImport("extended_glyphs", extended);
+    test_root.addImport("r4std_legacy_tables", b.createModule(.{
+        .root_source_file = libraries.namedLazyPath("r4std_legacy_tables"),
+        .target = target,
+    }));
     const tests = b.addTest(.{ .root_module = test_root });
-    return &b.addRunArtifact(tests).step;
+    const group = b.step("font-generator-test", "Run generator and bitmap writer cases");
+    group.dependOn(&b.addRunArtifact(tests).step);
+    const writer_root = b.createModule(.{
+        .root_source_file = b.path("Assets/SystemFonts/r4f_writer.zig"),
+        .target = target,
+        .optimize = .Debug,
+    });
+    writer_root.addImport("r4f_format", r4f_format);
+    group.dependOn(&b.addRunArtifact(b.addTest(.{ .root_module = writer_root })).step);
+    return group;
 }
 
 fn addFontGenerator(

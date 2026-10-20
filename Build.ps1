@@ -1,12 +1,13 @@
 param(
- [Parameter(Position=0)][ValidateSet('tools','test','plan','image','verify','qemu','ssh','headless','graphics-test','graphics-packages','benchmark','recovery-image','check')][string]$Action='tools',
+ [Parameter(Position=0)][ValidateSet('tools','test','font-test','plan','image','verify','qemu','ssh','headless','graphics-test','graphics-packages','benchmark','recovery-image','check')][string]$Action='tools',
  [Parameter(Position=1)][ValidateSet('','Slim','Full','Test','Benchmark')][string]$Profile='',
  [Parameter(Position=2)][string]$Variant='', [Parameter(Position=3)][string]$WorkloadVersion='',
  [Parameter(Position=4)][string]$CacheState='', [Parameter(Position=5)][int]$Repetitions=0,
  [Parameter(Position=6)][string]$EnvironmentId='',
  [string]$InputList='', [Alias('RecoveryPackage')][string]$RecoveryCandidate='',
  [ValidateSet('local','usb')][string]$Medium='local', [string]$OutputRoot='',
- [ValidateSet('all','platform','preload','core','api','video','desktop')][string]$GraphicsGroup='all', [ValidateSet('nvidia','amd')][string]$GraphicsVendor='nvidia', [string]$ReleaseVersion=''
+ [ValidateSet('all','platform','preload','core','api','video','desktop')][string]$GraphicsGroup='all', [ValidateSet('nvidia','amd')][string]$GraphicsVendor='nvidia', [string]$ReleaseVersion='',
+ [string]$LegacyFontFixtures=''
 )
 $ErrorActionPreference='Stop';Set-StrictMode -Version Latest
 try {
@@ -17,6 +18,7 @@ try {
   'tools' {Build-R4DistributionTools $context}
   'check' {Test-R4Distribution $context}
   'test' {Build-R4DistributionTools $context -Tests;Test-R4Distribution $context}
+  'font-test' {Build-R4DistributionTools $context -FontTests -LegacyFontFixtures $LegacyFontFixtures}
   'plan' {New-R4DistributionPlan $context $Profile $Variant $imageGraphics|Out-Null}
   {$_ -in @('image','recovery-image')} {
    if(!$Profile){$Profile='Slim'}

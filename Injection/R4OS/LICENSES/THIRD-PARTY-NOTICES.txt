@@ -499,3 +499,13 @@ INTEL-CPU-MICROCODE-LICENSE.txt. AMD terms: AMD-CPU-MICROCODE-LICENSE.txt;
 AMD-CPU-MICROCODE-README.txt retains the vendor's patch/base-revision notes.
 Bundled data and a virtual-machine boot do not establish a successful native
 CPU microcode update. No vendor endorsement or certification is implied.
+
+
+Font8x8 supplementary bitmap glyphs (0.85.40)
+------------------------------------------
+Daniel Hepper/Marcel Sondaar/IBM font8x8, pinned commit
+8e279d2d864e79128e96188a6b9526cfa3fbfef9, declares Public Domain.
+Original author notices/README accompany every image in
+/R4OS/LICENSES/FONT8X8-PUBLIC-DOMAIN.txt. Original headers, hashes, per-glyph
+assignments and row-bit transformation are retained under Assets/SystemFonts.
+Source: https://github.com/dhepper/font8x8

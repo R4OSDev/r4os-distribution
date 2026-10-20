@@ -3,8 +3,8 @@ const base_glyphs = @import("base_glyphs");
 const r4f = @import("r4f_format");
 const r4f_writer = @import("r4f_writer");
 
-const western_codepoints = [_]u32{ 0x00C4, 0x00D6, 0x00DC, 0x00DF, 0x00E4, 0x00F6, 0x00FC };
-const glyph_count = 95 + western_codepoints.len;
+const extra = @import("extended_glyphs");
+const glyph_count = 95 + extra.extra_glyphs.len;
 
 const Variant = struct {
     height: u16,
@@ -37,7 +37,7 @@ pub fn main(init: std.process.Init) !void {
     for (variants, 0..) |variant, index| {
         const output = try buildVariant(init.gpa, variant);
         defer init.gpa.free(output);
-        if (output.len > 64 * 1024) return error.FontArtifactTooLarge;
+        if (output.len > 128 * 1024) return error.FontArtifactTooLarge;
         try std.Io.Dir.cwd().writeFile(init.io, .{ .sub_path = args[index + 1], .data = output });
     }
 }
@@ -59,8 +59,8 @@ fn buildVariant(allocator: std.mem.Allocator, variant: Variant) ![]u8 {
         raster[glyph_index] = rasterizeGlyph(codepoint, rows, variant, storage, &storage_offset);
         glyph_index += 1;
     }
-    for (western_codepoints) |western| {
-        raster[glyph_index] = rasterizeGlyph(western, base_glyphs.westernGlyph(western), variant, storage, &storage_offset);
+    for (extra.extra_glyphs) |glyph| {
+        raster[glyph_index] = rasterizeGlyph(glyph.codepoint, glyph.rows, variant, storage, &storage_offset);
         glyph_index += 1;
     }
 
@@ -71,7 +71,7 @@ fn buildVariant(allocator: std.mem.Allocator, variant: Variant) ![]u8 {
         .family_name = "R4 Sans",
         .face_name = variant.face_name,
         .style_name = if (variant.bold) "Bold" else "Regular",
-        .source_name = "Code/System/Fonts/R4Sans",
+        .source_name = "Distribution/Assets/SystemFonts/R4Sans 0.85.40",
         .pixel_height = variant.height,
         .ascent = ascent,
         .descent = descent,
@@ -88,9 +88,10 @@ fn rasterizeGlyph(
     storage: []u8,
     storage_offset: *usize,
 ) r4f_writer.RasterGlyph {
-    const bounds = inkBounds(rows);
+    const grid_symbol = codepoint >= 0x2500 and codepoint <= 0x259f;
+    const bounds = if (grid_symbol) Bounds{ .present = true, .left = 0, .right = 7 } else inkBounds(rows);
     const spacing = @max(@as(u16, 1), variant.height / 8);
-    const bold_pixels: u16 = if (variant.bold) @max(@as(u16, 1), variant.height / 16) else 0;
+    const bold_pixels: u16 = if (variant.bold and !grid_symbol) @max(@as(u16, 1), variant.height / 16) else 0;
     const space_width = @max(@as(u16, 2), @divTrunc(variant.height * 3 + 4, 8));
     const source_width: u16 = if (bounds.present) bounds.right - bounds.left + 1 else 0;
     const available_width = variant.height - bold_pixels;
@@ -125,7 +126,7 @@ fn rasterizeGlyph(
         .codepoint = codepoint,
         .width = width,
         .height = variant.height,
-        .advance = @intCast(if (codepoint == ' ') width else width + spacing),
+        .advance = @intCast(if (codepoint == ' ' or grid_symbol) width else width + spacing),
         .data = data,
     };
 }
@@ -159,7 +160,7 @@ test "R4 Sans derives proportional advances and bounded artifacts" {
     const regular = Variant{ .height = 16, .weight = 400, .bold = false, .face_name = "R4 Sans 16 Regular" };
     const output = try buildVariant(std.testing.allocator, regular);
     defer std.testing.allocator.free(output);
-    try std.testing.expect(output.len > 0 and output.len <= 64 * 1024);
+    try std.testing.expect(output.len > 0 and output.len <= 128 * 1024);
 
     var storage: [256]u8 = undefined;
     var offset: usize = 0;
@@ -187,5 +188,40 @@ test "every bold native face remains inside its R4F em width" {
         const glyph = rasterizeGlyph('W', base_glyphs.builtin_ascii_font['W' - 0x20], variant, storage[0..], &offset);
         try std.testing.expect(glyph.width <= variant.height);
         try std.testing.expect(@as(i32, glyph.advance) <= @as(i32, variant.height + @max(@as(u16, 1), variant.height / 8)));
+    }
+}
+
+test "planned stock repertoire has real distinct glyphs and historical pictures are separate" {
+    const tables = @import("r4std_legacy_tables");
+    for (tables.pc_graphics[1..]) |cp| {
+        if (cp >= 0x20 and cp <= 0x7e) continue;
+        const rows = extra.rowsFor(cp) orelse return error.MissingPlannedGlyph;
+        if (cp != 0xa0) {
+            var ink: u8 = 0;
+            for (rows) |row| ink |= row;
+            try std.testing.expect(ink != 0);
+        }
+    }
+    try std.testing.expect(extra.rowsFor(1) == null);
+    try std.testing.expect(extra.rowsFor(0x7f) == null);
+    try std.testing.expect(extra.rowsFor(0x1f600) == null);
+    try std.testing.expect(extra.rowsFor(0x20ac) != null);
+    try std.testing.expect(extra.rowsFor(0xfffd) != null);
+    for (extra.extra_glyphs, 0..) |glyph, i| {
+        try std.testing.expect(r4f.validScalar(glyph.codepoint));
+        for (extra.extra_glyphs[0..i]) |earlier| try std.testing.expect(earlier.codepoint != glyph.codepoint);
+    }
+    const block = extra.rowsFor(0x2588).?;
+    try std.testing.expectEqualSlices(u8, &([_]u8{0xff} ** 8), &block);
+    for (variants) |variant| {
+        var storage: [200]u8 = undefined;
+        var offset: usize = 0;
+        const glyph = rasterizeGlyph(0x2588, block, variant, &storage, &offset);
+        try std.testing.expectEqual(variant.height, glyph.width);
+        try std.testing.expectEqual(@as(i16, @intCast(variant.height)), glyph.advance);
+        const stride = (@as(usize, glyph.width) + 7) / 8;
+        for (0..glyph.height) |y| for (0..glyph.width) |x| {
+            try std.testing.expect(glyph.data[y * stride + x / 8] & (@as(u8, 0x80) >> @intCast(x % 8)) != 0);
+        };
     }
 }
