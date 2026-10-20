@@ -5,6 +5,20 @@ Apache License 2.0 applies only to original R4OS material. Third-party
 components retain the licenses listed below. Complete license texts are stored
 in this directory.
 
+R4STD legacy character mapping data
+----------------------------------
+R4STD uses factual scalar tables derived from Microsoft's CP437/Windows-1252
+mapping files hosted by Unicode, and a separate Unicode IBMGRAPH C0/DEL
+display interpretation. No third-party codec implementation is included.
+Original provenance/hashes/notices: Libraries/R4STD/ThirdParty/Unicode.
+Unicode License V3 and the complete original IBMGRAPH notice/data are retained
+in UNICODE-DATA-NOTICES.txt. CP437 controls and PC display graphics remain
+separate; the Unicode IBMGRAPH table is not an IBM-supplied mapping.
+Sources:
+https://www.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/PC/CP437.TXT
+https://www.unicode.org/Public/MAPPINGS/VENDORS/MICSFT/WINDOWS/CP1252.TXT
+https://www.unicode.org/Public/MAPPINGS/VENDORS/MISC/IBMGRAPH.TXT
+
 Kernel Rust core/compiler runtime (Rust 1.99.0)
 ---------------------------------------------
 The kernel uses the pinned x86_64-unknown-none Rust toolchain and retains
