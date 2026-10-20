@@ -2,6 +2,7 @@
 function Start-R4SpectraStandard($Context,[switch]$SelfReference) {
  . (Join-Path $PSScriptRoot 'Qemu-HostProfile.ps1')
  . (Join-Path $PSScriptRoot 'Qemu-Media.ps1')
+ . (Join-Path $PSScriptRoot 'Test-Retention.ps1')
  $spectra=Join-Path $Context.repositories 'Diagnostics/Spectra'
  . (Join-Path $spectra 'Tools/StandardBenchmark.ps1')
  $reference=$null
@@ -14,6 +15,7 @@ function Start-R4SpectraStandard($Context,[switch]$SelfReference) {
  $id=[guid]::NewGuid().ToString();$evidence=Join-Path $Context.output ('Diagnostics/SpectraStandard/'+$id)
  $scratch=Join-Path $Context.workspace ('Temp/SpectraStandard/'+$id)
  [IO.Directory]::CreateDirectory($scratch)|Out-Null;[IO.Directory]::CreateDirectory($evidence)|Out-Null
+ try {
  $sourcePlan=Join-Path $Context.output 'Profiles/Test/image-adds.txt'
  if(!(Test-Path -LiteralPath $sourcePlan)){throw 'Build the current Test image before running the standard phase.'}
  $configSource=Join-Path $Context.root 'TestInjection/CONFIG.R4S'
@@ -58,7 +60,7 @@ function Start-R4SpectraStandard($Context,[switch]$SelfReference) {
  }
  if(!$replaced.config -or !$replaced.autoexec){throw 'Test image lacks canonical boot configuration.'}
  [IO.File]::WriteAllLines($plan,$entries,[Text.UTF8Encoding]::new($false))
- $built=New-R4OSInstallationImage -Root $Context.root -Profile Benchmark -InputList $plan -OutputRoot (Join-Path $evidence 'Source') -ToolsReady
+ $built=New-R4OSInstallationImage -Root $Context.root -Profile Benchmark -InputList $plan -OutputRoot (Join-Path $scratch 'Source') -ToolsReady
  $run=New-R4QemuMedia -SourceRoot (Split-Path $built.image -Parent) -Mode Fresh -Name standard-smp4
  $hostProfile=Resolve-R4QemuHostProfile $Context.qemu
  $hostId=$env:R4OS_BENCHMARK_HOST_ID
@@ -119,6 +121,12 @@ function Start-R4SpectraStandard($Context,[switch]$SelfReference) {
  if($code -ne 0 -or $exportCode -ne 0){throw "Spectra standard phase failed; QEMU=$code export=$exportCode; evidence=$evidence"}
  $text=[IO.File]::ReadAllText($serial)
  if(!$text.Contains('[SPECTRA-STANDARD] END') -or $text -match 'KERNEL FATAL|Kernel panic|Zig [Pp]anic|\[CRASH\]'){throw 'Standard guest did not finish cleanly.'}
+ foreach($path in @($serial,$errors,$contextPath)){
+  if(Test-Path -LiteralPath $path){Remove-Item -LiteralPath $path -Force}
+ }
  Write-Host ('Spectra standard SMP4 phase passed: '+$outputPath)
  return $outputPath
+ } finally {
+  Remove-R4TestDirectory $Context.workspace $scratch
+ }
 }

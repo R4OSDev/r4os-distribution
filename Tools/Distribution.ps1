@@ -185,6 +185,9 @@ function Start-R4DistributionHeadless($Context,[string]$Name,[string]$Variant) {
   if($Variant -cin @('standard4','reference4')){return}
  }
  . (Join-Path $PSScriptRoot 'Qemu-Media.ps1')
+ . (Join-Path $PSScriptRoot 'Test-Retention.ps1')
+ $run=$null
+ try {
  $source=if($Variant -ceq 'clock4'){New-R4QuickSource $Context}else{Join-Path $Context.output 'Profiles/Test'}
  $run=New-R4QemuMedia -SourceRoot $source -Mode Fresh -Name ('headless-'+$(if($Variant){$Variant}else{'standard'}))
  # The existing Test-profile NVMEIRQ probe requires a real virtual controller
@@ -218,6 +221,11 @@ function Start-R4DistributionHeadless($Context,[string]$Name,[string]$Variant) {
  if($Variant -ceq 'browser'){$arguments+='-Browser'}
  if($Variant -ceq 'smpfail4'){$arguments+=@('-SmpFailedCount','1')}
  Invoke-R4Distribution 'pwsh' $arguments
+ foreach($path in @($log,$errors)){if(Test-Path -LiteralPath $path){Remove-Item -LiteralPath $path -Force}}
+ } finally {
+  if($run){Remove-R4TestDirectory $Context.workspace $run}
+  if($Variant -ceq 'clock4'){Remove-R4TestDirectory $Context.workspace (Join-Path $Context.output 'Diagnostics/Quick')}
+ }
 }
 function Start-R4DistributionBenchmark($Context,[string]$Name,[string]$Suite,[string]$Version,[string]$Cache,[int]$Count,[string]$Environment) {
  $profile=Get-R4DistributionProfile $Context $Name
