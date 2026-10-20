@@ -64,6 +64,34 @@ if ($env:R4OS_QEMU_EXPECTED_BACKEND -and $env:R4OS_QEMU_EXPECTED_BACKEND -cne $h
     throw 'The selected accelerator differs from the benchmark metadata.'
 }
 $accelerator = if ($env:R4OS_QEMU_STRICT_ACCELERATOR -ceq '1') { $hostProfile.AcceleratorChain.Split(':')[0] } else { $hostProfile.AcceleratorChain }
+$cpuModel = $hostProfile.CpuModel
+$entropyArguments = @()
+foreach ($key in @('R4OS_QEMU_DISABLE_RDRAND', 'R4OS_QEMU_ENTROPY_DEVICE')) {
+    $value = [Environment]::GetEnvironmentVariable($key)
+    if ($value -and $value -cnotin @('0', '1')) { throw ('Invalid Boolean ' + $key) }
+}
+if ($env:R4OS_QEMU_DISABLE_RDRAND -ceq '1' -or $env:R4OS_QEMU_ENTROPY_DEVICE -ceq '1') {
+    if (-not $IsLinux -or $hostProfile.Name -cne 'KVM' -or $accelerator -cne 'kvm') {
+        throw 'The explicit entropy qualification profile requires strict Linux KVM.'
+    }
+}
+if ($env:R4OS_QEMU_DISABLE_RDRAND -ceq '1') { $cpuModel += ',rdrand=off' }
+if ($env:R4OS_QEMU_ENTROPY_DEVICE -ceq '1') {
+    $maximum = 1024
+    $period = 1
+    foreach ($setting in @(@('R4OS_QEMU_RNG_MAX_BYTES', 1, 4096), @('R4OS_QEMU_RNG_PERIOD_MS', 1, 1000))) {
+        $value = [Environment]::GetEnvironmentVariable($setting[0])
+        if (-not $value) { continue }
+        $number = 0
+        if (-not [int]::TryParse($value, [ref]$number) -or $number -lt $setting[1] -or $number -gt $setting[2]) {
+            throw ('Invalid bounded entropy device setting: ' + $setting[0])
+        }
+        if ($setting[0] -ceq 'R4OS_QEMU_RNG_MAX_BYTES') { $maximum = $number } else { $period = $number }
+    }
+    Assert-File '/dev/urandom' 'Host entropy device'
+    $entropyArguments = @('-object', 'rng-random,id=r4entropy,filename=/dev/urandom',
+        '-device', ('virtio-rng-pci,rng=r4entropy,disable-legacy=on,max-bytes=' + $maximum + ',period=' + $period))
+}
 if (-not $logPath -or -not $errorPath) {
     Write-Host 'QEMU headless helper: log paths are not configured.'
     exit 125
@@ -96,7 +124,7 @@ $fatArguments = if ($fatTestDisk) {
 
 $argumentLine = (@(
     '-readconfig', (Quote-Argument $config),
-    '-cpu', $hostProfile.CpuModel,
+    '-cpu', $cpuModel,
     '-m', '1G',
     '-smp', ([string]$cpuCount),
     '-machine', ('accel=' + $accelerator),
@@ -107,7 +135,7 @@ $argumentLine = (@(
     '-display', 'none',
     '-no-reboot',
     '-name', (Quote-Argument ('R4OS test ' + $cpuCount + 'cpu'))
-) + $nvmeArguments + $fatArguments) -join ' '
+) + $nvmeArguments + $fatArguments + $entropyArguments) -join ' '
 
 Write-Host ('=== QEMU headless smoke; host=' + $hostProfile.Name + '; cpus=' + $cpuCount + ' timeout ' + $timeoutSeconds + 's ===')
 Normalize-StartProcessEnvironment
@@ -121,7 +149,23 @@ $startParameters = @{
 if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) {
     $startParameters.WindowStyle = 'Hidden'
 }
+$recordPath = ''
+if ($env:R4OS_QEMU_LAUNCH_RECORD) {
+    $recordPath = [IO.Path]::GetFullPath($env:R4OS_QEMU_LAUNCH_RECORD)
+    if (Test-Path -LiteralPath $recordPath) { throw ('QEMU launch evidence already exists: ' + $recordPath) }
+}
 $process = Start-Process @startParameters
+if ($recordPath) {
+    $record = [ordered]@{ status = 'started'; pid = $process.Id; started_utc = [DateTime]::UtcNow.ToString('o');
+        executable = $qemu; config = $config; cpu_model = $cpuModel; cpus = $cpuCount;
+        accelerator = $accelerator; arguments = $argumentLine; working_directory = $workingDirectory }
+    try {
+        [IO.File]::WriteAllText($recordPath, (($record | ConvertTo-Json -Depth 8) + "`n"), [Text.UTF8Encoding]::new($false))
+    } catch {
+        if (-not $process.HasExited) { $process.Kill(); $process.WaitForExit(5000) | Out-Null }
+        throw
+    }
+}
 if ($stopMarker) {
     $deadline = [DateTime]::UtcNow.AddSeconds($timeoutSeconds)
     while (-not $process.HasExited -and [DateTime]::UtcNow -lt $deadline) {
