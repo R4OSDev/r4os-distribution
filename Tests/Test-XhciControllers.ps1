@@ -47,6 +47,7 @@ function Read-Version([string]$Path,[string]$Key){
 }
 function Work-Snapshot {
     $text=Ssh 'C:\R4OS\SOFTWARE\DESKTOP\DEVMGR.R4X /CONSOLE'
+    $buffers=(@($text -split '\r?\n'|Where-Object {$_ -match 'USB buffer work'}) -join ' ')
     $completion=(@($text -split '\r?\n'|Where-Object {$_ -match 'USB completion wake'}) -join ' ')
     $text=(@($text -split '\r?\n'|Where-Object {$_ -match 'USB (completion|IRQ) work'}) -join ' ')
     $out=@{}
@@ -57,6 +58,7 @@ function Work-Snapshot {
     foreach($key in @('fast','enrolled','recheck','signal','fallbackwait','parks')){
         if($completion -match "\b$key=(\d+)"){$out[$key]=[long]$Matches[1]}
     }
+    foreach($key in @('clear','inbytes','outbytes','pages')){if($buffers -match "\b$key=(\d+)"){$out[$key]=[long]$Matches[1]}}
     return $out
 }
 function Hid-Snapshot {
