@@ -1,6 +1,7 @@
 # Explicit disposable SNES benchmark image. No canonical image is modified.
 function Invoke-R4SnesGuestBenchmark {
- param([ValidateSet('ntsc','pal')][string]$Region='ntsc',[ValidateSet('normal','detail','paired')][string]$Mode='normal',[switch]$CheckOnly,[int]$TimeoutSeconds=420)
+ param([ValidateSet('ntsc','pal')][string]$Region='ntsc',[ValidateSet('normal','detail','paired')][string]$Mode='normal',
+  [ValidateSet('Small','Maximized')][string]$WindowSize='Small',[switch]$OutputAnalysis,[switch]$CheckOnly,[int]$TimeoutSeconds=420)
  $ErrorActionPreference='Stop';Set-StrictMode -Version Latest
  $distribution=Split-Path $PSScriptRoot -Parent
  . (Join-Path $distribution 'Tools/Distribution.ps1')
@@ -12,7 +13,7 @@ function Invoke-R4SnesGuestBenchmark {
  $source=Join-Path $context.output ('Diagnostics/SubsystemBenchmarks/Work/'+$id)
  $null=New-Item -ItemType Directory -Force $scratch
  $starter=Join-Path $distribution $(if($IsWindows){'Build.bat'}else{'Build.sh'})
- $qemu=$null;$records=@();$failure=$null;$metadata=$null;$hostProfile=$null;$presentCount=$null
+ $qemu=$null;$records=@();$failure=$null;$metadata=$null;$hostProfile=$null;$windowOutput=$null;$outputProfile=$null
  try{
   & $starter plan Test|Out-Host
   if($LASTEXITCODE -ne 0){throw 'SNES Test planning failed'}
@@ -31,6 +32,8 @@ function Invoke-R4SnesGuestBenchmark {
   $config=Join-Path $scratch 'CONFIG.R4S';$autoexec=Join-Path $scratch 'AUTOEXEC.BAT';$services=Join-Path $scratch 'SERVICES.R4S'
   $command=if($CheckOnly){'/PERF-CHECK-R4SNES'}else{'/PERF-R4SNES'}
   $shellArgs="$command /SNES-$($Region.ToUpperInvariant()) /SNES-$($Mode.ToUpperInvariant())"
+  if($WindowSize -eq 'Maximized'){$shellArgs+=' /SNES-MAXIMIZED'}
+  if($OutputAnalysis){$shellArgs+=' /SNES-OUTPUT-PROFILE'}
   [IO.File]::WriteAllLines($config,@('GRAPHICS=SOFTWARE','AUTO=PCI','AUTO=ACPI','SHELL=/R4OS/SOFTWARE/DESKTOP/R4DESK.R4X',"SHELL_ARGS=$shellArgs",'DRIVER=DISPBLIT','DRIVER=HDA','DRIVER=SERIAL','DRIVER=CPUPOWER','DRIVER=ACPIPLAT','LOG=verbose'),[Text.UTF8Encoding]::new($true))
   [IO.File]::WriteAllText($autoexec,"@ECHO OFF`r`n",[Text.UTF8Encoding]::new($false))
   $serviceLines=@(Get-Content (Join-Path $distribution 'Injection/R4OS/CONFIG/SERVICES.R4S')|Where-Object {$_ -match '^SERVICE;name=(WINSVC|AUDSVC|CLIPSVC|LOGSVC);'})
@@ -59,6 +62,11 @@ function Invoke-R4SnesGuestBenchmark {
   $artifactPath=$canonical[0].Substring(0,$canonical[0].LastIndexOf(':'))
   if($digest -cne (Get-FileHash $artifactPath).Hash.ToLowerInvariant()){throw 'SNES guest artifact differs'}
   $metadata.r4snes_sha256=$digest
+  $desktopBytes=[R4GuestNtfs]::ReadFile($image,$offset,'/R4OS/SOFTWARE/DESKTOP/R4DESK.R4X')
+  $desktopHash=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($desktopBytes)).ToLowerInvariant()
+  $desktopPath=Join-Path $context.workspace 'Artifacts/Modules/Desktop/R4DESK.R4X'
+  if($desktopHash -cne (Get-FileHash $desktopPath).Hash.ToLowerInvariant()){throw 'SNES Desktop guest artifact differs'}
+  $metadata.desktop_sha256=$desktopHash
   $serial=Join-Path $scratch 'serial.log';$hostProfile=Resolve-R4QemuHostProfile $context.qemu
   $accelerator=$hostProfile.AcceleratorChain.Split(':')[0]
   $start=[Diagnostics.ProcessStartInfo]::new($context.qemu);$start.UseShellExecute=$false;$start.WorkingDirectory=$source;$start.RedirectStandardError=$true
@@ -78,8 +86,16 @@ function Invoke-R4SnesGuestBenchmark {
    throw ('SNES application failed: '+$detail)
   }
   $trace=[Text.Encoding]::UTF8.GetString([R4GuestNtfs]::ReadFile($image,$offset,'/TEMP/SNES-PRESENT.TXT'))
-  $presentCount=@($trace.Split("`n")|Where-Object {$_.Trim()}).Count
-  if(!$records.Count -or !$presentCount){throw 'SNES guest result incomplete'}
+  $generations=@($trace.Split("`n")|Where-Object {$_.Trim()})
+  $windowOutput=[Text.Encoding]::UTF8.GetString([R4GuestNtfs]::ReadFile($image,$offset,'/TEMP/SNES-WINDOW.JSON'))|ConvertFrom-Json -AsHashtable
+  if(!$records.Count -or !$generations.Count -or $windowOutput.records.Count -ne $generations.Count){throw 'SNES guest result incomplete'}
+  for($i=0;$i -lt $generations.Count;$i++){
+   if([ulong]$generations[$i] -ne [ulong]$windowOutput.records[$i].generation){throw 'SNES copy generation traces differ'}
+  }
+  if($OutputAnalysis){
+   $outputProfile=[Text.Encoding]::UTF8.GetString([R4GuestNtfs]::ReadFile($image,$offset,'/TEMP/SNES-OUTPUT.JSON'))|ConvertFrom-Json -AsHashtable
+   if($outputProfile.contract -cne 'desktop-software-output-v1' -or $outputProfile.records.Count -ne 20){throw 'SNES output phase analysis incomplete'}
+  }
  }catch{$failure=$_.Exception.Message}
  finally{
   if($qemu -and !$qemu.HasExited){$qemu.Kill($true);$qemu.WaitForExit()}
@@ -92,5 +108,5 @@ function Invoke-R4SnesGuestBenchmark {
   if(Test-Path $source){Remove-Item -LiteralPath $source -Recurse -Force}
   Remove-Item -LiteralPath $scratch -Recurse -Force
  }
- return [pscustomobject]@{Records=$records;Failure=$failure;Image=$metadata;HostProfile=$hostProfile;GlobalDesktopPresents=$presentCount}
+ return [pscustomobject]@{Records=$records;Failure=$failure;Image=$metadata;HostProfile=$hostProfile;WindowOutput=$windowOutput;OutputAnalysis=$outputProfile}
 }
