@@ -1,5 +1,9 @@
 param(
     [ValidateSet('Foundation','Multi')][string]$Mode='Multi',
+    [switch]$WorkOnly,
+    [switch]$SkipComparison,
+    [switch]$IrqFallback,
+    [string]$KernelArtifact='',
     [string]$Qemu='',
     [string]$OutputRoot='',
     [ValidateRange(30,600)][int]$TimeoutSeconds=180
@@ -29,7 +33,7 @@ $clientLog=Join-Path $OutputRoot 'clients.log'
 $askpass=Join-Path $OutputRoot "askpass$suffix"
 $ssh=(Get-Command "ssh$suffix" -CommandType Application|Select-Object -First 1).Source
 $sftp=(Get-Command "sftp$suffix" -CommandType Application|Select-Object -First 1).Source
-$sshOptions=@('-c','chacha20-poly1305@openssh.com','-o','StrictHostKeyChecking=no','-o',('UserKnownHostsFile='+$(if($IsWindows){'NUL'}else{'/dev/null'})),'-o','LogLevel=ERROR','-o','ConnectTimeout=3','-o','ConnectionAttempts=1')
+$sshOptions=@('-c','chacha20-poly1305@openssh.com','-o','StrictHostKeyChecking=no','-o',('UserKnownHostsFile='+$(if($IsWindows){'NUL'}else{'/dev/null'})),'-o','LogLevel=ERROR','-o','ConnectTimeout=10','-o','ConnectionAttempts=1')
 function Free-Port {
     $listener=[Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback,0)
     try{$listener.Start();return $listener.LocalEndpoint.Port}finally{$listener.Stop()}
@@ -38,6 +42,20 @@ function Checked([string]$Program,[string[]]$Arguments){& $Program @Arguments;if
 function Read-Version([string]$Path,[string]$Key){
     $match=[regex]::Match([IO.File]::ReadAllText($Path),"(?m)^$Key=(.+)$")
     if(!$match.Success){throw "Missing version: $Key"};return $match.Groups[1].Value.Trim()
+}
+function Work-Snapshot {
+    $text=Ssh 'C:\R4OS\SOFTWARE\DESKTOP\DEVMGR.R4X /CONSOLE'
+    $completion=(@($text -split '\r?\n'|Where-Object {$_ -match 'USB completion wake'}) -join ' ')
+    $text=(@($text -split '\r?\n'|Where-Object {$_ -match 'USB (completion|IRQ) work'}) -join ' ')
+    $out=@{}
+    foreach($key in @('calls','loops','sleep','to','ns','irq','wake','fallback')){
+        if($text -notmatch "\b$key=(\d+)"){throw "Missing USB work counter $key."}
+        $out[$key]=[long]$Matches[1]
+    }
+    foreach($key in @('fast','enrolled','recheck','signal','fallbackwait','parks')){
+        if($completion -match "\b$key=(\d+)"){$out[$key]=[long]$Matches[1]}
+    }
+    return $out
 }
 function Input-Snapshot {
     $text=Ssh 'SPECTRA CHECK INPUT'
@@ -91,17 +109,21 @@ function Rsp($Stream,[string]$Command){
     $Stream.WriteByte(43)
     return [Text.Encoding]::ASCII.GetString($reply.ToArray())
 }
-function Halt-StorageController($Session){
+function Halt-StorageController($Session,[switch]$DisableInterrupts){
     $pci=@(Qmp $Session 'query-pci')
     $device=@($pci|ForEach-Object {$_.devices}|Where-Object qdev_id -ceq 'usb2')
     if($device.Count -ne 1){throw 'Fault target is not the exact third controller.'}
     $bar=@($device[0].regions|Where-Object { $_.bar -eq 0 -and $_.type -eq 'memory' })
     if($bar.Count -ne 1 -or [long]$bar[0].address -le 0){throw 'Fault target MMIO is unavailable.'}
-    $port=Free-Port
+    $port=if($Session.PSObject.Properties['GdbPort']){$Session.GdbPort}else{Free-Port}
     $null=Qmp $Session 'stop'
     $tcp=$null
     try {
-        $null=Qmp $Session 'human-monitor-command' @{'command-line'="gdbserver tcp:127.0.0.1:$port"}
+        if(!$Session.PSObject.Properties['GdbPort']){
+            $reply=Qmp $Session 'human-monitor-command' @{'command-line'="gdbserver tcp:127.0.0.1:$port"}
+            if($reply -match 'error|failed|already'){throw "QEMU debugger listener failed: $reply"}
+            $Session|Add-Member -NotePropertyName GdbPort -NotePropertyValue $port
+        }
         $tcp=[Net.Sockets.TcpClient]::new();$tcp.Connect('127.0.0.1',$port)
         $stream=$tcp.GetStream();$stream.ReadTimeout=5000;$stream.WriteTimeout=5000
         if((Rsp $stream 'Qqemu.PhyMemMode:1') -cne 'OK'){throw 'Physical debugger mode unavailable.'}
@@ -112,20 +134,28 @@ function Halt-StorageController($Session){
         $raw=Rsp $stream ('m'+$op.ToString('x')+',4')
         $command=[BitConverter]::ToUInt32([Convert]::FromHexString($raw),0)
         if(($command-band 1) -eq 0){throw 'Fault target was not running.'}
-        $halt=[Convert]::ToHexString([BitConverter]::GetBytes([uint32]($command-band [uint32]4294967294))).ToLowerInvariant()
+        $mask=if($DisableInterrupts){[uint32]4294967291}else{[uint32]4294967294}
+        if($DisableInterrupts -and ($command-band 4) -eq 0){throw 'IRQ target was not interrupt enabled.'}
+        $changed=[uint32]($command-band $mask)
+        $halt=[Convert]::ToHexString([BitConverter]::GetBytes($changed)).ToLowerInvariant()
         if((Rsp $stream ('M'+$op.ToString('x')+',4:'+$halt)) -cne 'OK'){throw 'Hardware halt write failed.'}
+        $readback=Rsp $stream ('m'+$op.ToString('x')+',4')
+        $observed=[BitConverter]::ToUInt32([Convert]::FromHexString($readback),0)
+        if($observed -ne $changed){throw 'Controller command readback differs from the requested hardware change.'}
         $raw=Rsp $stream ('m'+($op+4).ToString('x')+',4')
         $status=[BitConverter]::ToUInt32([Convert]::FromHexString($raw),0)
-        if(($status-band 1) -eq 0){throw 'QEMU did not acknowledge the real controller halt.'}
+        if(!$DisableInterrupts -and ($status-band 1) -eq 0){throw 'QEMU did not acknowledge the real controller halt.'}
+        if($DisableInterrupts -and ($status-band 1) -ne 0){throw 'IRQ suppression unexpectedly halted the controller.'}
         $null=Rsp $stream 'Qqemu.PhyMemMode:0';$null=Rsp $stream 'D'
-        return [ordered]@{controller='usb2';bus=$pci[0].bus;slot=$device[0].slot;function=$device[0].function;mmio=$base.ToString('x');commandBefore=$command;statusAfter=$status;hardwareHalted=$true}
+        return [ordered]@{controller='usb2';bus=$pci[0].bus;slot=$device[0].slot;function=$device[0].function;mmio=$base.ToString('x');commandBefore=$command;commandAfter=$changed;statusAfter=$status;hardwareHalted=(!$DisableInterrupts);interruptsDisabled=[bool]$DisableInterrupts}
     }finally{if($null -ne $tcp){$tcp.Dispose()};$null=Qmp $Session 'cont'}
 }
 $process=$null;$session=$null;$stdout=$null;$stderr=$null;$success=$false
 $expectedActive=if($Mode -ceq 'Foundation'){1}else{3}
 try {
+    if($SkipComparison -and ($WorkOnly -or $Mode -ne 'Multi')){throw '-SkipComparison requires a Multi lifecycle run.'}
     foreach($path in @($creator,$zig,$limine,(Join-Path $source 'image-adds.txt'),(Join-Path $source 'recovery-adds.txt'))){if(!(Test-Path -LiteralPath $path -PathType Leaf)){throw "Missing input: $path"}}
-    $kernel=Join-Path $workspace 'Repositories/Kernel/zig-out/bin/r4os.elf'
+    $kernel=if($KernelArtifact){[IO.Path]::GetFullPath($KernelArtifact,$workspace)}else{Join-Path $workspace 'Repositories/Kernel/zig-out/bin/r4os.elf'}
     $kernelHash=(Get-FileHash -LiteralPath $kernel -Algorithm SHA256).Hash.ToLowerInvariant()
     $canonical=Get-Content -Raw -LiteralPath (Join-Path $source 'image.json')|ConvertFrom-Json -AsHashtable
     if($canonical.structure.bootHashes['boot/r4os.elf'] -cne $kernelHash){throw 'Build the current kernel and Test image before USB acceptance.'}
@@ -144,6 +174,7 @@ try {
         if($line -match '[:|]/CONFIG\.R4S$'){"$config|/CONFIG.R4S"}
         elseif($line -match '[:|]/AUTOEXEC\.BAT$'){"$autoexec|/AUTOEXEC.BAT"}
         elseif($line -match '[:|]/R4OS/CONFIG/SERVICES\.R4S$'){"$(Join-Path $distribution 'Injection/R4OS/CONFIG/SERVICES.R4S')|/R4OS/CONFIG/SERVICES.R4S"}
+        elseif($line -match '[:|]/boot/r4os\.elf$'){"$kernel|/boot/r4os.elf"}
         else{$line}
     }
     # SSH is deliberately Full-only in the normal profile catalogue. Include
@@ -176,7 +207,7 @@ try {
         $mediaArgs=@('format-ntfs','--output',(Join-Path $OutputRoot "usb$i.img"),'--meta',(Join-Path $workspace 'Repositories/SDK/Tests/Fixture/Ntfs/Meta0605'),'--size','32','--partition','--label',"USBTEST$i",'--serial',('86610'+$i),'--add',"${path}:/PAYLOAD$i.BIN")
         if($Mode -ceq 'Multi'){
             $unread=Join-Path $OutputRoot "UNREAD$i.BIN";$bytes=[byte[]]::new(4MB);[Random]::new(86620+$i).NextBytes($bytes)
-            [IO.File]::WriteAllBytes($unread,$bytes);$mediaArgs+=@('--add',"${unread}:/UNREAD$i.BIN")
+            [IO.File]::WriteAllBytes($unread,$bytes);$mediaArgs+=@('--add',"${unread}:/UNREAD$i.BIN",'--add',"${unread}:/FALLBACK$i.BIN")
         }
         Checked $creator $mediaArgs
     }
@@ -244,8 +275,15 @@ try {
     Start-Sleep -Milliseconds 100
     $afterInput=Input-Snapshot
     if($afterInput.accepted -le $beforeInput.accepted -or $afterInput.dropped -ne $beforeInput.dropped -or $afterInput.packets -le $beforeInput.packets){throw 'USB hardware input was not delivered without PS/2.'}
+    $copies=@();$parallel=@();$hotplug=@{};$fault=@{};$parallelMs=0
+    $work=@{skipped=$true;reason='Targeted lifecycle/fault follow-up; fixed comparison retained separately.'}
+    if(!$SkipComparison){
+    $workBefore=Work-Snapshot
+    $process.Refresh();$cpuBefore=$process.TotalProcessorTime.TotalSeconds
+    $workClock=[Diagnostics.Stopwatch]::StartNew()
     $copies=@()
     foreach($item in $payloads){
+        $serialClock=[Diagnostics.Stopwatch]::StartNew()
         $i=$item.index;$letter=$mediumLetters[$i]
         $remote="/$letter/PAYLOAD$i.BIN";$download=Join-Path $OutputRoot "read$i.bin"
         $null=Sftp @("get $remote $(Host-Path $download)")
@@ -254,7 +292,7 @@ try {
         $null=Sftp @("get /$letter/COPY$i.BIN $(Host-Path $download)")
         if((Get-FileHash -LiteralPath $download -Algorithm SHA256).Hash.ToLowerInvariant() -cne $item.sha256){throw "USB copy $i hash mismatch."}
         $null=Ssh "DEL ${letter}:\COPY$i.BIN"
-        $copies+=@{medium=$i;letter=$letter;bytes=$item.bytes;sha256=$item.sha256;read=$true;copy=$true;delete=$true}
+        $copies+=@{medium=$i;letter=$letter;bytes=$item.bytes;sha256=$item.sha256;read=$true;copy=$true;delete=$true;milliseconds=$serialClock.Elapsed.TotalMilliseconds}
     }
     $parallel=@();$hotplug=@{};$fault=@{}
     if($Mode -ceq 'Multi'){
@@ -270,6 +308,31 @@ try {
             $parallel+=@{medium=$i;bytes=$payloads[$i].bytes;sha256=$payloads[$i].sha256;transfer=$done}
         }
         $parallelMs=([Diagnostics.Stopwatch]::GetTimestamp()-$started)*1000.0/[Diagnostics.Stopwatch]::Frequency
+    }
+    $workClock.Stop();$process.Refresh();$cpuAfter=$process.TotalProcessorTime.TotalSeconds
+    $workAfter=Work-Snapshot;$workDelta=@{}
+    foreach($key in $workBefore.Keys){$workDelta[$key]=$workAfter[$key]-$workBefore[$key];if($workDelta[$key] -lt 0){throw 'USB counters reset during fixed work.'}}
+    if($workDelta.to -ne 0){throw 'Fixed USB work had a timeout.'}
+    $work=[ordered]@{definition='2 media: cold payload get, guest COPY/get/delete, concurrent put/get/delete; each payload exactly256KB';payloadBytesPerMedium=256KB;media=2;completedFileOperations=14;hostTransferredBytes=2MB;guestCopyPayloadBytes=512KB;elapsedMilliseconds=$workClock.Elapsed.TotalMilliseconds;qemuCpuSeconds=($cpuAfter-$cpuBefore);counters=$workDelta;before=$workBefore;after=$workAfter;limits='QEMU CPU includes guest/services/emulation; wait loops/parks are quantities, ns includes blocked time. Host SSH/SFTP latency is not isolated hardware completion time.'}
+    }
+    [IO.File]::WriteAllText((Join-Path $OutputRoot 'work-receipt.json'),(@{schema=1;kernelSha256=$kernelHash;actualBootKernelSha256=$bootHash;work=$work;media=$copies;parallel=$parallel}|ConvertTo-Json -Depth 12)+"`n",$utf8)
+    $fallback=@{}
+    if($Mode -ceq 'Multi' -and !$WorkOnly){
+        if($IrqFallback){
+            $fallback=Halt-StorageController $session -DisableInterrupts
+            # Only the fault phase changes host caching. Real direct file I/O
+            # makes delayed completions observable with controller INTE off.
+            $null=Qmp $session 'blockdev-reopen' @{options=@(@{driver='file';'node-name'='media0-file';filename=(Join-Path $OutputRoot 'usb0.img');cache=@{direct=$true;'no-flush'=$false}})}
+            $fallback.directHostIo=$true
+            $beforeFallback=Work-Snapshot
+            $download=Join-Path $OutputRoot 'fallback.bin'
+            $fallbackClock=[Diagnostics.Stopwatch]::StartNew()
+            $null=Sftp @("get /$($mediumLetters[0])/FALLBACK0.BIN $(Host-Path $download)") -TimeoutMilliseconds 60000
+            if((Get-FileHash -LiteralPath $download).Hash.ToLowerInvariant() -cne (Get-FileHash -LiteralPath (Join-Path $OutputRoot 'UNREAD0.BIN')).Hash.ToLowerInvariant()){throw 'IRQ fallback returned wrong bytes.'}
+            $fallback.bytes=4MB;$fallback.milliseconds=$fallbackClock.Elapsed.TotalMilliseconds;$fallback.countersBefore=$beforeFallback;$fallback.countersAfter=Work-Snapshot
+            if($fallback.countersAfter.to -ne $beforeFallback.to){throw 'IRQ fallback timed out.'}
+            if($fallback.countersAfter.fallbackwait -le $beforeFallback.fallbackwait){throw 'No delayed completion exercised the bounded wait fallback.'}
+        }
         $null=Qmp $session 'device_del' @{id='mouse'};Await-Hid 0
         $keyboard=Input-Snapshot;Send-Keys $session @('e');$continued=Input-Snapshot
         if($continued.accepted -le $keyboard.accepted){throw 'Foreign mouse detach reset the keyboard.'}
@@ -309,15 +372,17 @@ try {
         if($after.accepted -le $before.accepted -or $after.packets -le $before.packets){throw 'Controller fault affected foreign HID.'}
         $fault.neighborMediaHash=$payloads[1].sha256;$fault.foreignHidPreserved=$true
     }
-    $usbCheck=Ssh 'SPECTRA CHECK USB /JSON'
-    if($usbCheck -match '"passed":false|"failed":[1-9]'){throw 'Existing USB owner cases failed.'}
+    if(!$WorkOnly){
+        $usbCheck=Ssh 'SPECTRA CHECK USB /JSON'
+        if($usbCheck -match '"passed":false|"failed":[1-9]'){throw 'Existing USB owner cases failed.'}
+    }
     # The guest can close SSH while draining services before ACPI poweroff.
     # Its actual clean QEMU exit is the terminal acknowledgement below.
     try{$null=Ssh 'POWEROFF'}catch{
         if($_.Exception.Message -notmatch 'Client failed \(255\)'){throw}
     }
     if(!$process.WaitForExit(30000) -or $process.ExitCode -ne 0){throw 'USB guest did not power off normally.'}
-    $result=[ordered]@{schema=1;mode=$Mode;release=$release;kernelVersion=$kernelVersion;kernelSha256=$kernelHash;actualBootKernelSha256=$bootHash;cpus=4;controllersDetected=3;controllersStarted=$activeRows.Count;pciRecords=$controllerRows;ps2Disabled=$true;inputBefore=$beforeInput;inputAfter=$afterInput;media=$copies;parallel=$parallel;hotplug=$hotplug;fault=$fault;normalShutdown=$true;seconds=$watch.Elapsed.TotalSeconds;scope='One bounded local KVM/SMP4 HID/two-media and PCI-diagnosis acceptance; no native-hardware qualification or general performance claim.'}
+    $result=[ordered]@{schema=1;mode=$Mode;release=$release;kernelVersion=$kernelVersion;kernelSha256=$kernelHash;actualBootKernelSha256=$bootHash;cpus=4;controllersDetected=3;controllersStarted=$activeRows.Count;pciRecords=$controllerRows;ps2Disabled=$true;inputBefore=$beforeInput;inputAfter=$afterInput;media=$copies;parallel=$parallel;work=$work;workOnly=[bool]$WorkOnly;irqFallback=$fallback;hotplug=$hotplug;fault=$fault;normalShutdown=$true;seconds=$watch.Elapsed.TotalSeconds;scope='One bounded local KVM/SMP4 HID/two-media and PCI-diagnosis acceptance; no native-hardware qualification or general performance claim.'}
     [IO.File]::WriteAllText((Join-Path $OutputRoot 'result.json'),($result|ConvertTo-Json -Depth 12)+"`n",$utf8)
     $success=$true
     Write-Host "USB $Mode PASS: $($activeRows.Count)/3 active controllers, real HID, two hash-verified media, regular shutdown."
