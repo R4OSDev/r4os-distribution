@@ -47,6 +47,80 @@ function Input-Snapshot {
     $value.accepted=[long]$Matches[1];$value.dropped=[long]$Matches[2]
     return $value
 }
+$transferClients=[Collections.Generic.List[object]]::new()
+function Start-Transfer([string[]]$Commands){
+    $start=[Diagnostics.ProcessStartInfo]::new($sftp);$start.UseShellExecute=$false
+    $start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true;$start.RedirectStandardInput=$true
+    $start.Environment['SSH_ASKPASS']=$askpass;$start.Environment['SSH_ASKPASS_REQUIRE']='force';$start.Environment['DISPLAY']='usb-acceptance'
+    foreach($arg in (@('-P',"$sshPort",'-o','BatchMode=no','-b','-')+$sshOptions+@('r4os@127.0.0.1'))){$start.ArgumentList.Add($arg)}
+    $p=[Diagnostics.Process]::new();$p.StartInfo=$start
+    if(!$p.Start()){throw 'Parallel SFTP did not start.'}
+    $client=@{process=$p;stdout=$p.StandardOutput.ReadToEndAsync();stderr=$p.StandardError.ReadToEndAsync();started=[Diagnostics.Stopwatch]::GetTimestamp()}
+    $transferClients.Add($client)
+    $p.StandardInput.Write(($Commands -join "`n")+"`n");$p.StandardInput.Close()
+    return $client
+}
+function Complete-Transfer($Client,[switch]$MustFail){
+    $p=$Client.process
+    if(!$p.WaitForExit(60000)){$p.Kill($true);$p.WaitForExit();throw 'Parallel SFTP timed out.'}
+    $text=$Client.stdout.GetAwaiter().GetResult()+$Client.stderr.GetAwaiter().GetResult()
+    [IO.File]::AppendAllText($clientLog,$text,$utf8)
+    if(($MustFail -and $p.ExitCode -ne 1) -or (!$MustFail -and $p.ExitCode -ne 0)){throw "Unexpected SFTP exit $($p.ExitCode): $text"}
+    return [ordered]@{exitCode=$p.ExitCode;milliseconds=(([Diagnostics.Stopwatch]::GetTimestamp()-$Client.started)*1000.0/[Diagnostics.Stopwatch]::Frequency)}
+}
+function Await-Hid([int]$MouseCount){
+    $deadline=[DateTime]::UtcNow.AddSeconds(15)
+    do {
+        $text=Ssh 'SYSINFO /USBHID'
+        if($text -match "records: keyboard=1 mouse=$MouseCount" -and $text -match 'SYSINFO usbhid: ok'){return}
+        Start-Sleep -Milliseconds 100
+    }while([DateTime]::UtcNow -lt $deadline)
+    throw 'HID topology did not converge.'
+}
+# QEMU's own GDB remote memory packets inject one real hardware halt. No
+# guest completion/status is forged and no external host debugger is needed.
+function Rsp($Stream,[string]$Command){
+    $sum=0;foreach($byte in [Text.Encoding]::ASCII.GetBytes($Command)){$sum=($sum+$byte)-band 255}
+    $packet=[Text.Encoding]::ASCII.GetBytes(('$'+$Command+'#'+$sum.ToString('x2')))
+    $Stream.Write($packet,0,$packet.Length)
+    do{$byte=$Stream.ReadByte();if($byte -lt 0){throw 'QEMU debugger disconnected.'}}while($byte -ne 36)
+    $reply=[Collections.Generic.List[byte]]::new();$actual=0
+    while(($byte=$Stream.ReadByte()) -ne 35){if($byte -lt 0){throw 'Truncated debugger packet.'};$reply.Add([byte]$byte);$actual=($actual+$byte)-band 255}
+    $hex=[char]$Stream.ReadByte()+[string][char]$Stream.ReadByte()
+    if([Convert]::ToInt32($hex,16) -ne $actual){throw 'Invalid debugger packet checksum.'}
+    $Stream.WriteByte(43)
+    return [Text.Encoding]::ASCII.GetString($reply.ToArray())
+}
+function Halt-StorageController($Session){
+    $pci=@(Qmp $Session 'query-pci')
+    $device=@($pci|ForEach-Object {$_.devices}|Where-Object qdev_id -ceq 'usb2')
+    if($device.Count -ne 1){throw 'Fault target is not the exact third controller.'}
+    $bar=@($device[0].regions|Where-Object { $_.bar -eq 0 -and $_.type -eq 'memory' })
+    if($bar.Count -ne 1 -or [long]$bar[0].address -le 0){throw 'Fault target MMIO is unavailable.'}
+    $port=Free-Port
+    $null=Qmp $Session 'stop'
+    $tcp=$null
+    try {
+        $null=Qmp $Session 'human-monitor-command' @{'command-line'="gdbserver tcp:127.0.0.1:$port"}
+        $tcp=[Net.Sockets.TcpClient]::new();$tcp.Connect('127.0.0.1',$port)
+        $stream=$tcp.GetStream();$stream.ReadTimeout=5000;$stream.WriteTimeout=5000
+        if((Rsp $stream 'Qqemu.PhyMemMode:1') -cne 'OK'){throw 'Physical debugger mode unavailable.'}
+        $base=[uint64]$bar[0].address
+        $cap=Rsp $stream ('m'+$base.ToString('x')+',4')
+        if($cap -cnotmatch '^[0-9a-fA-F]{8}$'){throw 'Invalid xHCI capability read.'}
+        $op=$base+[Convert]::ToUInt32($cap.Substring(0,2),16)
+        $raw=Rsp $stream ('m'+$op.ToString('x')+',4')
+        $command=[BitConverter]::ToUInt32([Convert]::FromHexString($raw),0)
+        if(($command-band 1) -eq 0){throw 'Fault target was not running.'}
+        $halt=[Convert]::ToHexString([BitConverter]::GetBytes([uint32]($command-band [uint32]4294967294))).ToLowerInvariant()
+        if((Rsp $stream ('M'+$op.ToString('x')+',4:'+$halt)) -cne 'OK'){throw 'Hardware halt write failed.'}
+        $raw=Rsp $stream ('m'+($op+4).ToString('x')+',4')
+        $status=[BitConverter]::ToUInt32([Convert]::FromHexString($raw),0)
+        if(($status-band 1) -eq 0){throw 'QEMU did not acknowledge the real controller halt.'}
+        $null=Rsp $stream 'Qqemu.PhyMemMode:0';$null=Rsp $stream 'D'
+        return [ordered]@{controller='usb2';bus=$pci[0].bus;slot=$device[0].slot;function=$device[0].function;mmio=$base.ToString('x');commandBefore=$command;statusAfter=$status;hardwareHalted=$true}
+    }finally{if($null -ne $tcp){$tcp.Dispose()};$null=Qmp $Session 'cont'}
+}
 $process=$null;$session=$null;$stdout=$null;$stderr=$null;$success=$false
 $expectedActive=if($Mode -ceq 'Foundation'){1}else{3}
 try {
@@ -99,7 +173,12 @@ try {
         $bytes=[byte[]]::new(256KB);[Random]::new(86025+$i).NextBytes($bytes);[IO.File]::WriteAllBytes($path,$bytes)
         $hash=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
         $payloads+=@{index=$i;bytes=$bytes.Length;sha256=$hash;source=$path}
-        Checked $creator @('format-ntfs','--output',(Join-Path $OutputRoot "usb$i.img"),'--meta',(Join-Path $workspace 'Repositories/SDK/Tests/Fixture/Ntfs/Meta0605'),'--size','32','--partition','--label',"USBTEST$i",'--serial',('86610'+$i),'--add',"${path}:/PAYLOAD$i.BIN")
+        $mediaArgs=@('format-ntfs','--output',(Join-Path $OutputRoot "usb$i.img"),'--meta',(Join-Path $workspace 'Repositories/SDK/Tests/Fixture/Ntfs/Meta0605'),'--size','32','--partition','--label',"USBTEST$i",'--serial',('86610'+$i),'--add',"${path}:/PAYLOAD$i.BIN")
+        if($Mode -ceq 'Multi'){
+            $unread=Join-Path $OutputRoot "UNREAD$i.BIN";$bytes=[byte[]]::new(4MB);[Random]::new(86620+$i).NextBytes($bytes)
+            [IO.File]::WriteAllBytes($unread,$bytes);$mediaArgs+=@('--add',"${unread}:/UNREAD$i.BIN")
+        }
+        Checked $creator $mediaArgs
     }
     $sshPort=Free-Port;$qmpPort=Free-Port
     $arguments=@('-machine',"q35,i8042=off,accel=$($usbHostProfile.AcceleratorChain)",'-cpu',$usbHostProfile.CpuModel,'-m','8192','-smp','4','-display','none','-monitor','none','-no-reboot','-serial',"file:$serialLog",'-qmp',"tcp:127.0.0.1:$qmpPort,server=on,wait=off",'-device','ich9-ahci,id=ahci','-drive',"if=none,id=system,format=raw,file=$image",'-device','ide-hd,drive=system,bus=ahci.0,bootindex=1','-netdev',"user,id=net,hostfwd=tcp:127.0.0.1:$sshPort-:22",'-device','virtio-net-pci,netdev=net')
@@ -107,7 +186,21 @@ try {
     $mouseHost=if($Mode -ceq 'Foundation'){0}else{1}
     $mediaHost=if($Mode -ceq 'Foundation'){0}else{2}
     $secondHost=if($Mode -ceq 'Foundation'){0}else{1}
-    $arguments+=@('-device','usb-kbd,id=keyboard,bus=usb0.0,port=1','-device',"usb-mouse,id=mouse,bus=usb$mouseHost.0,port=2",'-drive',"if=none,id=media0,format=raw,file=$(Join-Path $OutputRoot 'usb0.img')",'-device',"usb-storage,id=media0-usb,drive=media0,bus=usb$mediaHost.0,port=3",'-drive',"if=none,id=media1,format=raw,file=$(Join-Path $OutputRoot 'usb1.img')",'-device',"usb-storage,id=media1-usb,drive=media1,bus=usb$secondHost.0,port=4")
+    $mousePort=if($Mode -ceq 'Foundation'){2}else{1}
+    $mediaPort=if($Mode -ceq 'Foundation'){3}else{1}
+    $secondPort=if($Mode -ceq 'Foundation'){4}else{2}
+    $arguments+=@('-device','usb-kbd,id=keyboard,bus=usb0.0,port=1','-device',"usb-mouse,id=mouse,bus=usb$mouseHost.0,port=$mousePort")
+    foreach($i in 0..1){
+        if($Mode -ceq 'Multi'){
+            # Named block nodes survive device_del; legacy -drive backends
+            # are auto-deleted by QEMU together with their USB device.
+            $file=@{driver='file';filename=(Join-Path $OutputRoot "usb$i.img");'node-name'="media$i-file"}|ConvertTo-Json -Compress
+            $raw=@{driver='raw';file="media$i-file";'node-name'="media$i"}|ConvertTo-Json -Compress
+            $arguments+=@('-blockdev',$file,'-blockdev',$raw)
+        }else{$arguments+=@('-drive',"if=none,id=media$i,format=raw,file=$(Join-Path $OutputRoot "usb$i.img")")}
+        $hostIndex=if($i -eq 0){$mediaHost}else{$secondHost};$portIndex=if($i -eq 0){$mediaPort}else{$secondPort}
+        $arguments+=@('-device',"usb-storage,id=media$i-usb,drive=media$i,bus=usb$hostIndex.0,port=$portIndex")
+    }
     $start=[Diagnostics.ProcessStartInfo]::new($Qemu);$start.UseShellExecute=$false;$start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true
     foreach($arg in $arguments){$start.ArgumentList.Add($arg)}
     $process=[Diagnostics.Process]::new();$process.StartInfo=$start
@@ -132,6 +225,10 @@ try {
     $controllerRows=@($inventory -split '\r?\n'|Where-Object {$_ -match 'xHCI USB controller'})
     $activeRows=@($controllerRows|Where-Object {$_ -match 'status=host-(preload|rescue)-active'})
     if($controllerRows.Count -ne 3 -or $activeRows.Count -ne $expectedActive){throw 'PCI inventory repeats a foreign controller state or misses a controller.'}
+    if($Mode -ceq 'Multi'){
+        $ids=@($activeRows|ForEach-Object {if($_ -match 'xHCI id=(\d+) pci=0:([678])\.0'){$Matches[1]}else{throw 'Missing exact controller diagnosis.'}})
+        if(@($ids|Select-Object -Unique).Count -ne 3){throw 'Controller IDs or note storage collide.'}
+    }
     $usbLetters=@([regex]::Matches($system,'(?m)^\s*([A-Z]):\s+NTFS\s+general\s+usb\d+\b')|ForEach-Object {$_.Groups[1].Value})
     if($usbLetters.Count -ne 2){throw 'Missing two mounted USB media.'}
     $mediumLetters=@{}
@@ -159,6 +256,59 @@ try {
         $null=Ssh "DEL ${letter}:\COPY$i.BIN"
         $copies+=@{medium=$i;letter=$letter;bytes=$item.bytes;sha256=$item.sha256;read=$true;copy=$true;delete=$true}
     }
+    $parallel=@();$hotplug=@{};$fault=@{}
+    if($Mode -ceq 'Multi'){
+        $started=[Diagnostics.Stopwatch]::GetTimestamp();$clients=@()
+        foreach($item in $payloads){
+            $i=$item.index;$letter=$mediumLetters[$i];$download=Join-Path $OutputRoot "parallel$i.bin"
+            $clients+=Start-Transfer @("put $(Host-Path $item.source) /$letter/PAR$i.BIN","get /$letter/PAR$i.BIN $(Host-Path $download)","rm /$letter/PAR$i.BIN")
+        }
+        Send-Keys $session @('c','d')
+        foreach($i in 0..1){
+            $done=Complete-Transfer $clients[$i];$download=Join-Path $OutputRoot "parallel$i.bin"
+            if((Get-FileHash -LiteralPath $download).Hash.ToLowerInvariant() -cne $payloads[$i].sha256){throw 'Parallel USB bytes differ.'}
+            $parallel+=@{medium=$i;bytes=$payloads[$i].bytes;sha256=$payloads[$i].sha256;transfer=$done}
+        }
+        $parallelMs=([Diagnostics.Stopwatch]::GetTimestamp()-$started)*1000.0/[Diagnostics.Stopwatch]::Frequency
+        $null=Qmp $session 'device_del' @{id='mouse'};Await-Hid 0
+        $keyboard=Input-Snapshot;Send-Keys $session @('e');$continued=Input-Snapshot
+        if($continued.accepted -le $keyboard.accepted){throw 'Foreign mouse detach reset the keyboard.'}
+        $null=Qmp $session 'device_add' @{driver='usb-mouse';id='mouse';bus='usb1.0';port='1'};Await-Hid 1
+        $before=Input-Snapshot
+        $null=Qmp $session 'input-send-event' @{events=@(@{type='rel';data=@{axis='x';value=7}})}
+        $after=Input-Snapshot
+        if($after.packets -le $before.packets){throw 'Reattached mouse is not usable.'}
+        $oldLetter=$mediumLetters[0]
+        $null=Qmp $session 'device_del' @{id='media0-usb'}
+        Start-Sleep -Milliseconds 200
+        $null=Qmp $session 'device_add' @{driver='usb-storage';id='media0-usb';drive='media0';bus='usb2.0';port='1'}
+        $deadline=[DateTime]::UtcNow.AddSeconds(20);$newLetter=$null
+        do {
+            $current=Ssh 'SYSINFO'
+            $new=@([regex]::Matches($current,'(?m)^\s*([A-Z]):\s+NTFS\s+general\s+usb\d+\b')|ForEach-Object {$_.Groups[1].Value}|Where-Object {$_ -notin $usbLetters})
+            if($new.Count -eq 1){$newLetter=$new[0];break}
+            Start-Sleep -Milliseconds 100
+        }while([DateTime]::UtcNow -lt $deadline)
+        if(!$newLetter){throw 'Reattached medium was not registered and mounted as a new exact identity.'}
+        # Old mount/context must fail rather than selecting the replacement
+        # at the same physical controller port and reused local slot.
+        $stale=Start-Transfer @("get /$oldLetter/UNREAD0.BIN $(Host-Path (Join-Path $OutputRoot 'stale.bin'))")
+        $staleResult=Complete-Transfer $stale -MustFail
+        $download=Join-Path $OutputRoot 'reattached.bin';$null=Sftp @("get /$newLetter/PAYLOAD0.BIN $(Host-Path $download)")
+        if((Get-FileHash -LiteralPath $download).Hash.ToLowerInvariant() -cne $payloads[0].sha256){throw 'Reattached medium bytes differ.'}
+        $hotplug=@{mouseDetachedReattached=$true;foreignKeyboardPreserved=$true;mediumDetachedReattached=$true;oldLetter=$oldLetter;newLetter=$newLetter;staleMountRejected=$staleResult;newMediumHash=$payloads[0].sha256;parallelMilliseconds=$parallelMs}
+        $fault=Halt-StorageController $session
+        $failed=Start-Transfer @("get /$newLetter/UNREAD0.BIN $(Host-Path (Join-Path $OutputRoot 'failed.bin'))")
+        $otherLetter=$mediumLetters[1];$other=Join-Path $OutputRoot 'neighbor.bin'
+        $null=Sftp @("put $(Host-Path $payloads[1].source) /$otherLetter/NEIGHBOR.BIN","get /$otherLetter/NEIGHBOR.BIN $(Host-Path $other)","rm /$otherLetter/NEIGHBOR.BIN") -TimeoutMilliseconds 60000
+        if((Get-FileHash -LiteralPath $other).Hash.ToLowerInvariant() -cne $payloads[1].sha256){throw 'Neighbor failed during the isolated controller fault.'}
+        $fault.failedRead=Complete-Transfer $failed -MustFail
+        $before=Input-Snapshot;Send-Keys $session @('f')
+        $null=Qmp $session 'input-send-event' @{events=@(@{type='rel';data=@{axis='x';value=5}})}
+        $after=Input-Snapshot
+        if($after.accepted -le $before.accepted -or $after.packets -le $before.packets){throw 'Controller fault affected foreign HID.'}
+        $fault.neighborMediaHash=$payloads[1].sha256;$fault.foreignHidPreserved=$true
+    }
     $usbCheck=Ssh 'SPECTRA CHECK USB /JSON'
     if($usbCheck -match '"passed":false|"failed":[1-9]'){throw 'Existing USB owner cases failed.'}
     # The guest can close SSH while draining services before ACPI poweroff.
@@ -167,11 +317,12 @@ try {
         if($_.Exception.Message -notmatch 'Client failed \(255\)'){throw}
     }
     if(!$process.WaitForExit(30000) -or $process.ExitCode -ne 0){throw 'USB guest did not power off normally.'}
-    $result=[ordered]@{schema=1;mode=$Mode;release=$release;kernelVersion=$kernelVersion;kernelSha256=$kernelHash;actualBootKernelSha256=$bootHash;cpus=4;controllersDetected=3;controllersStarted=$activeRows.Count;pciRecords=$controllerRows;ps2Disabled=$true;inputBefore=$beforeInput;inputAfter=$afterInput;media=$copies;normalShutdown=$true;seconds=$watch.Elapsed.TotalSeconds;scope='One bounded local KVM/SMP4 HID/two-media and PCI-diagnosis acceptance; no native-hardware qualification or general performance claim.'}
+    $result=[ordered]@{schema=1;mode=$Mode;release=$release;kernelVersion=$kernelVersion;kernelSha256=$kernelHash;actualBootKernelSha256=$bootHash;cpus=4;controllersDetected=3;controllersStarted=$activeRows.Count;pciRecords=$controllerRows;ps2Disabled=$true;inputBefore=$beforeInput;inputAfter=$afterInput;media=$copies;parallel=$parallel;hotplug=$hotplug;fault=$fault;normalShutdown=$true;seconds=$watch.Elapsed.TotalSeconds;scope='One bounded local KVM/SMP4 HID/two-media and PCI-diagnosis acceptance; no native-hardware qualification or general performance claim.'}
     [IO.File]::WriteAllText((Join-Path $OutputRoot 'result.json'),($result|ConvertTo-Json -Depth 12)+"`n",$utf8)
     $success=$true
     Write-Host "USB $Mode PASS: $($activeRows.Count)/3 active controllers, real HID, two hash-verified media, regular shutdown."
 } finally {
+    foreach($client in $transferClients){$p=$client.process;if(!$p.HasExited){$p.Kill($true);$p.WaitForExit()};$p.Dispose()}
     if($null -ne $session){$session.Writer.Dispose();$session.Reader.Dispose();$session.Client.Dispose()}
     if($null -ne $process){
         if(!$process.HasExited){$process.Kill($true);$process.WaitForExit()}
