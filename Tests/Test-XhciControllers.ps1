@@ -1,6 +1,8 @@
 param(
     [ValidateSet('Foundation','Multi')][string]$Mode='Multi',
     [switch]$WorkOnly,
+    [switch]$InputOnly,
+    [switch]$InputIrqFallback,
     [switch]$SkipComparison,
     [switch]$IrqFallback,
     [string]$KernelArtifact='',
@@ -57,10 +59,86 @@ function Work-Snapshot {
     }
     return $out
 }
+function Hid-Snapshot {
+    $text=Ssh 'C:\R4OS\SOFTWARE\DESKTOP\DEVMGR.R4X /CONSOLE'
+    $row=@($text -split '\r?\n'|Where-Object {$_ -match 'USB HID work'}) -join ' '
+    $value=@{}
+    foreach($key in @('tick','hz','svc','worker','empty','keys','mouse','bp')){
+        if($row -notmatch "\b$key=(\d+)"){throw "Missing HID work counter $key."}
+        $value[$key]=[long]$Matches[1]
+    }
+    foreach($key in @('sig','mods','kb','mb')){if($row -match "\b$key=(\d+)"){$value[$key]=[long]$Matches[1]}}
+    return $value
+}
+function Await-InputState([scriptblock]$Predicate) {
+    $until=[DateTime]::UtcNow.AddSeconds(15)
+    do{$value=Hid-Snapshot;if(&$Predicate $value){return $value};Start-Sleep -Milliseconds 50}while([DateTime]::UtcNow -lt $until)
+    throw 'Exact HID state did not converge.'
+}
+function Input-Lifetime($Session,$MediumLetters,$Payloads) {
+    $null=Qmp $Session 'input-send-event' @{events=@(@{type='key';data=@{down=$true;key=@{type='qcode';data='shift'}}})}
+    $held=Await-InputState {param($v) ($v.mods-band 2) -ne 0}
+    $null=Qmp $Session 'device_del' @{id='keyboard'}
+    # The old guest binding must release its state before a replacement or
+    # hardware key-up exists. QEMU has no key handler while USB is absent.
+    $released=Await-InputState {param($v) $v.kb -eq 0 -and $v.mods -eq 0}
+    $mouseBefore=Input-Snapshot
+    $null=Qmp $Session 'input-send-event' @{events=@(@{type='rel';data=@{axis='x';value=5}})}
+    $mouseAfter=Input-Snapshot
+    if($mouseAfter.packets -le $mouseBefore.packets){throw 'Keyboard detach stopped the foreign mouse.'}
+    $neighbor=Join-Path $OutputRoot 'hid-neighbor.bin'
+    $null=Sftp @("get /$($MediumLetters[1])/PAYLOAD1.BIN $(Host-Path $neighbor)")
+    if((Get-FileHash -LiteralPath $neighbor).Hash.ToLowerInvariant() -cne $Payloads[1].sha256){throw 'Keyboard detach stopped foreign media.'}
+    $null=Qmp $Session 'device_add' @{driver='usb-kbd';id='keyboard';bus='usb0.0';port='1'}
+    $null=Qmp $Session 'input-send-event' @{events=@(@{type='key';data=@{down=$false;key=@{type='qcode';data='shift'}}})}
+    $fresh=Await-InputState {param($v) $v.kb -eq 1 -and $v.mods -eq 0}
+    Send-Keys $Session @('e','c','h','o','spc','r','e','l','e','a','s','e','2','9','minus','1','spc','shift+dot','spc','c','shift+semicolon','backslash','r','e','l','e','a','s','e','2','9','dot','t','x','t','ret')
+    $path=Join-Path $OutputRoot 'release29.txt'
+    $null=Sftp @("get /C/RELEASE29.TXT $(Host-Path $path)")
+    if([IO.File]::ReadAllText($path).Trim() -cne 'RELEASE29-1'){throw 'Old modifier leaked into the replacement keyboard.'}
+    $out=[ordered]@{held=$held;released=$released;fresh=$fresh;foreignMouse=$true;foreignMediaSha256=$Payloads[1].sha256;replacementTyped='RELEASE29-1'}
+    if($InputIrqFallback){
+        $out.irq=Set-ControllerFault $Session -DisableInterrupts -ControllerId usb0
+        Send-Keys $Session @('e','c','h','o','spc','i','r','q','2','9','spc','shift+dot','spc','c','shift+semicolon','backslash','i','r','q','2','9','dot','t','x','t','ret')
+        $path=Join-Path $OutputRoot 'irq29.txt';$null=Sftp @("get /C/IRQ29.TXT $(Host-Path $path)")
+        if([IO.File]::ReadAllText($path).Trim() -cne 'IRQ29'){throw 'HID notification fallback did not deliver typed keys.'}
+        $out.irq.typed='IRQ29';$out.irq.hid=Hid-Snapshot
+    }
+    return $out
+}
+function Input-Work($Session,$MediumLetters,$Payloads) {
+    $idleBefore=Hid-Snapshot
+    Start-Sleep -Milliseconds 600
+    $idleAfter=Hid-Snapshot
+    if($idleAfter.tick -le $idleBefore.tick -or $idleAfter.hz -ne $idleBefore.hz){throw 'Invalid HID guest clock interval.'}
+    $inputBefore=Input-Snapshot
+    $payload=$Payloads[0];$letter=$MediumLetters[0]
+    $download=Join-Path $OutputRoot 'hid-msc.bin'
+    $client=Start-Transfer @("put $(Host-Path $payload.source) /$letter/HID29.BIN","get /$letter/HID29.BIN $(Host-Path $download)","rm /$letter/HID29.BIN")
+    $inputClock=[Diagnostics.Stopwatch]::StartNew()
+    # Actual unchanged local Terminal must execute this typed line. !1 checks
+    # modifier release, the corrected X checks editing/order, not just counts.
+    Send-Keys $Session @('e','c','h','o','spc','h','i','d','2','9','minus','shift+1','1','minus')
+    $overlap=!$client.process.HasExited
+    $null=Qmp $Session 'input-send-event' @{events=@(@{type='rel';data=@{axis='x';value=17}},@{type='rel';data=@{axis='y';value=11}},@{type='btn';data=@{button='left';down=$true}})}
+    Start-Sleep -Milliseconds 50
+    $null=Qmp $Session 'input-send-event' @{events=@(@{type='rel';data=@{axis='x';value=7}},@{type='btn';data=@{button='left';down=$false}})}
+    Send-Keys $Session @('a','b','c','x','backspace','d','spc','shift+dot','spc','c','shift+semicolon','backslash','h','i','d','2','9','dot','t','x','t','ret')
+    $done=Complete-Transfer $client
+    if((Get-FileHash -LiteralPath $download).Hash.ToLowerInvariant() -cne $payload.sha256){throw 'MSC bytes differ during HID work.'}
+    $typed=Join-Path $OutputRoot 'typed.txt'
+    $null=Sftp @("get /C/HID29.TXT $(Host-Path $typed)")
+    if([IO.File]::ReadAllText($typed).Trim() -cne 'HID29-!1-ABCD'){throw 'Typed HID witness lost/reordered a key or modifier release.'}
+    $inputAfter=Input-Snapshot
+    if($inputAfter.buttons -ne 0){$inputAfter=Input-Snapshot}
+    if($inputAfter.accepted -le $inputBefore.accepted -or $inputAfter.dropped -ne $inputBefore.dropped -or $inputAfter.packets -le $inputBefore.packets -or $inputAfter.buttons -ne 0){throw 'Input burst/drop/button-release witness failed.'}
+    $hidAfter=Hid-Snapshot
+    return [ordered]@{definition='600ms host idle window measured in guest ticks; typed Terminal ECHO with !1 release, ordered corrected burst, mouse move/button release; concurrent256KB MSC put/get/delete on foreign controller';idleBefore=$idleBefore;idleAfter=$idleAfter;idleSeconds=($idleAfter.tick-$idleBefore.tick)/[double]$idleBefore.hz;idleWorkerCalls=($idleAfter.worker-$idleBefore.worker);idleServiceCalls=($idleAfter.svc-$idleBefore.svc);idleEmptyPolls=($idleAfter.empty-$idleBefore.empty);inputBefore=$inputBefore;inputAfter=$inputAfter;hidAfter=$hidAfter;typed='HID29-!1-ABCD';hostWitnessMilliseconds=$inputClock.Elapsed.TotalMilliseconds;mscOverlapped=$overlap;msc=$done;mscBytes=256KB;mscSha256=$payload.sha256;limits='Host witness includes deliberate key spacing, SSH/SFTP and hash work; it is not isolated report latency. Guest ticks normalize the idle counter interval.'}
+}
 function Input-Snapshot {
     $text=Ssh 'SPECTRA CHECK INPUT'
     if($text -notmatch 'mouse present=(\d+) x=(-?\d+) y=(-?\d+) buttons=(\d+) packets=(\d+)'){throw 'Missing mouse snapshot.'}
-    $value=@{present=[long]$Matches[1];x=[int]$Matches[2];y=[int]$Matches[3];packets=[long]$Matches[5]}
+    $value=@{present=[long]$Matches[1];x=[int]$Matches[2];y=[int]$Matches[3];packets=[long]$Matches[5];buttons=[int]$Matches[4]}
     if($text -notmatch 'keyboard capacity=\d+ pending=\d+ highWater=\d+ accepted=(\d+) dropped=(\d+)'){throw 'Missing keyboard snapshot.'}
     $value.accepted=[long]$Matches[1];$value.dropped=[long]$Matches[2]
     return $value
@@ -109,10 +187,10 @@ function Rsp($Stream,[string]$Command){
     $Stream.WriteByte(43)
     return [Text.Encoding]::ASCII.GetString($reply.ToArray())
 }
-function Halt-StorageController($Session,[switch]$DisableInterrupts){
+function Set-ControllerFault($Session,[switch]$DisableInterrupts,[ValidateSet('usb0','usb1','usb2')][string]$ControllerId='usb2'){
     $pci=@(Qmp $Session 'query-pci')
-    $device=@($pci|ForEach-Object {$_.devices}|Where-Object qdev_id -ceq 'usb2')
-    if($device.Count -ne 1){throw 'Fault target is not the exact third controller.'}
+    $device=@($pci|ForEach-Object {$_.devices}|Where-Object qdev_id -ceq $ControllerId)
+    if($device.Count -ne 1){throw "Fault target is not the exact $ControllerId controller."}
     $bar=@($device[0].regions|Where-Object { $_.bar -eq 0 -and $_.type -eq 'memory' })
     if($bar.Count -ne 1 -or [long]$bar[0].address -le 0){throw 'Fault target MMIO is unavailable.'}
     $port=if($Session.PSObject.Properties['GdbPort']){$Session.GdbPort}else{Free-Port}
@@ -147,12 +225,14 @@ function Halt-StorageController($Session,[switch]$DisableInterrupts){
         if(!$DisableInterrupts -and ($status-band 1) -eq 0){throw 'QEMU did not acknowledge the real controller halt.'}
         if($DisableInterrupts -and ($status-band 1) -ne 0){throw 'IRQ suppression unexpectedly halted the controller.'}
         $null=Rsp $stream 'Qqemu.PhyMemMode:0';$null=Rsp $stream 'D'
-        return [ordered]@{controller='usb2';bus=$pci[0].bus;slot=$device[0].slot;function=$device[0].function;mmio=$base.ToString('x');commandBefore=$command;commandAfter=$changed;statusAfter=$status;hardwareHalted=(!$DisableInterrupts);interruptsDisabled=[bool]$DisableInterrupts}
+        return [ordered]@{controller=$ControllerId;bus=$pci[0].bus;slot=$device[0].slot;function=$device[0].function;mmio=$base.ToString('x');commandBefore=$command;commandAfter=$changed;statusAfter=$status;hardwareHalted=(!$DisableInterrupts);interruptsDisabled=[bool]$DisableInterrupts}
     }finally{if($null -ne $tcp){$tcp.Dispose()};$null=Qmp $Session 'cont'}
 }
 $process=$null;$session=$null;$stdout=$null;$stderr=$null;$success=$false
 $expectedActive=if($Mode -ceq 'Foundation'){1}else{3}
 try {
+    if($InputIrqFallback -and (!$InputOnly -or $WorkOnly)){throw '-InputIrqFallback requires the candidate InputOnly lifetime case.'}
+    if($InputOnly -and $Mode -ne 'Multi'){throw '-InputOnly requires Multi routing.'}
     if($SkipComparison -and ($WorkOnly -or $Mode -ne 'Multi')){throw '-SkipComparison requires a Multi lifecycle run.'}
     foreach($path in @($creator,$zig,$limine,(Join-Path $source 'image-adds.txt'),(Join-Path $source 'recovery-adds.txt'))){if(!(Test-Path -LiteralPath $path -PathType Leaf)){throw "Missing input: $path"}}
     $kernel=if($KernelArtifact){[IO.Path]::GetFullPath($KernelArtifact,$workspace)}else{Join-Path $workspace 'Repositories/Kernel/zig-out/bin/r4os.elf'}
@@ -270,14 +350,22 @@ try {
     }
     if($mediumLetters.Count -ne 2){throw 'USB media identities collided.'}
     $beforeInput=Input-Snapshot
+    $inputWork=@{};$inputLifetime=@{}
+    if($InputOnly){
+        $inputWork=Input-Work $session $mediumLetters $payloads
+        [IO.File]::WriteAllText((Join-Path $OutputRoot 'input-work-receipt.json'),(@{kernelSha256=$kernelHash;actualBootKernelSha256=$bootHash;inputWork=$inputWork}|ConvertTo-Json -Depth 12)+"`n",$utf8)
+        $afterInput=$inputWork.inputAfter
+        if(!$WorkOnly){$inputLifetime=Input-Lifetime $session $mediumLetters $payloads}
+    }else{
     Send-Keys $session @('a','shift+b','left')
     $null=Qmp $session 'input-send-event' @{events=@(@{type='rel';data=@{axis='x';value=13}},@{type='rel';data=@{axis='y';value=9}})}
     Start-Sleep -Milliseconds 100
     $afterInput=Input-Snapshot
     if($afterInput.accepted -le $beforeInput.accepted -or $afterInput.dropped -ne $beforeInput.dropped -or $afterInput.packets -le $beforeInput.packets){throw 'USB hardware input was not delivered without PS/2.'}
+    }
     $copies=@();$parallel=@();$hotplug=@{};$fault=@{};$parallelMs=0
     $work=@{skipped=$true;reason='Targeted lifecycle/fault follow-up; fixed comparison retained separately.'}
-    if(!$SkipComparison){
+    if(!$SkipComparison -and !$InputOnly){
     $workBefore=Work-Snapshot
     $process.Refresh();$cpuBefore=$process.TotalProcessorTime.TotalSeconds
     $workClock=[Diagnostics.Stopwatch]::StartNew()
@@ -317,9 +405,9 @@ try {
     }
     [IO.File]::WriteAllText((Join-Path $OutputRoot 'work-receipt.json'),(@{schema=1;kernelSha256=$kernelHash;actualBootKernelSha256=$bootHash;work=$work;media=$copies;parallel=$parallel}|ConvertTo-Json -Depth 12)+"`n",$utf8)
     $fallback=@{}
-    if($Mode -ceq 'Multi' -and !$WorkOnly){
+    if($Mode -ceq 'Multi' -and !$WorkOnly -and !$InputOnly){
         if($IrqFallback){
-            $fallback=Halt-StorageController $session -DisableInterrupts
+            $fallback=Set-ControllerFault $session -DisableInterrupts
             # Only the fault phase changes host caching. Real direct file I/O
             # makes delayed completions observable with controller INTE off.
             $null=Qmp $session 'blockdev-reopen' @{options=@(@{driver='file';'node-name'='media0-file';filename=(Join-Path $OutputRoot 'usb0.img');cache=@{direct=$true;'no-flush'=$false}})}
@@ -360,7 +448,7 @@ try {
         $download=Join-Path $OutputRoot 'reattached.bin';$null=Sftp @("get /$newLetter/PAYLOAD0.BIN $(Host-Path $download)")
         if((Get-FileHash -LiteralPath $download).Hash.ToLowerInvariant() -cne $payloads[0].sha256){throw 'Reattached medium bytes differ.'}
         $hotplug=@{mouseDetachedReattached=$true;foreignKeyboardPreserved=$true;mediumDetachedReattached=$true;oldLetter=$oldLetter;newLetter=$newLetter;staleMountRejected=$staleResult;newMediumHash=$payloads[0].sha256;parallelMilliseconds=$parallelMs}
-        $fault=Halt-StorageController $session
+        $fault=Set-ControllerFault $session
         $failed=Start-Transfer @("get /$newLetter/UNREAD0.BIN $(Host-Path (Join-Path $OutputRoot 'failed.bin'))")
         $otherLetter=$mediumLetters[1];$other=Join-Path $OutputRoot 'neighbor.bin'
         $null=Sftp @("put $(Host-Path $payloads[1].source) /$otherLetter/NEIGHBOR.BIN","get /$otherLetter/NEIGHBOR.BIN $(Host-Path $other)","rm /$otherLetter/NEIGHBOR.BIN") -TimeoutMilliseconds 60000
@@ -382,7 +470,7 @@ try {
         if($_.Exception.Message -notmatch 'Client failed \(255\)'){throw}
     }
     if(!$process.WaitForExit(30000) -or $process.ExitCode -ne 0){throw 'USB guest did not power off normally.'}
-    $result=[ordered]@{schema=1;mode=$Mode;release=$release;kernelVersion=$kernelVersion;kernelSha256=$kernelHash;actualBootKernelSha256=$bootHash;cpus=4;controllersDetected=3;controllersStarted=$activeRows.Count;pciRecords=$controllerRows;ps2Disabled=$true;inputBefore=$beforeInput;inputAfter=$afterInput;media=$copies;parallel=$parallel;work=$work;workOnly=[bool]$WorkOnly;irqFallback=$fallback;hotplug=$hotplug;fault=$fault;normalShutdown=$true;seconds=$watch.Elapsed.TotalSeconds;scope='One bounded local KVM/SMP4 HID/two-media and PCI-diagnosis acceptance; no native-hardware qualification or general performance claim.'}
+    $result=[ordered]@{schema=1;mode=$Mode;release=$release;kernelVersion=$kernelVersion;kernelSha256=$kernelHash;actualBootKernelSha256=$bootHash;cpus=4;controllersDetected=3;controllersStarted=$activeRows.Count;pciRecords=$controllerRows;ps2Disabled=$true;inputBefore=$beforeInput;inputAfter=$afterInput;media=$copies;parallel=$parallel;inputWork=$inputWork;inputLifetime=$inputLifetime;work=$work;workOnly=[bool]$WorkOnly;irqFallback=$fallback;hotplug=$hotplug;fault=$fault;normalShutdown=$true;seconds=$watch.Elapsed.TotalSeconds;scope='One bounded local KVM/SMP4 HID/two-media and PCI-diagnosis acceptance; no native-hardware qualification or general performance claim.'}
     [IO.File]::WriteAllText((Join-Path $OutputRoot 'result.json'),($result|ConvertTo-Json -Depth 12)+"`n",$utf8)
     $success=$true
     Write-Host "USB $Mode PASS: $($activeRows.Count)/3 active controllers, real HID, two hash-verified media, regular shutdown."
