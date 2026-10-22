@@ -13,7 +13,7 @@ function Invoke-R4SnesGuestBenchmark {
  $source=Join-Path $context.output ('Diagnostics/SubsystemBenchmarks/Work/'+$id)
  $null=New-Item -ItemType Directory -Force $scratch
  $starter=Join-Path $distribution $(if($IsWindows){'Build.bat'}else{'Build.sh'})
- $qemu=$null;$records=@();$failure=$null;$metadata=$null;$hostProfile=$null;$windowOutput=$null;$outputProfile=$null
+ $qemu=$null;$records=@();$failure=$null;$metadata=$null;$hostProfile=$null;$windowOutput=$null;$outputProfile=$null;$frontend=$null;$serial=$null;$diagnosticTail=$null
  try{
   & $starter plan Test|Out-Host
   if($LASTEXITCODE -ne 0){throw 'SNES Test planning failed'}
@@ -30,12 +30,14 @@ function Invoke-R4SnesGuestBenchmark {
   & $catalog @selection|Out-Host
   if($LASTEXITCODE -ne 0){throw 'SNES final catalog failed'}
   $config=Join-Path $scratch 'CONFIG.R4S';$autoexec=Join-Path $scratch 'AUTOEXEC.BAT';$services=Join-Path $scratch 'SERVICES.R4S'
-  $command=if($CheckOnly){'/PERF-CHECK-R4SNES'}else{'/PERF-R4SNES'}
-  $shellArgs="$command /SNES-$($Region.ToUpperInvariant()) /SNES-$($Mode.ToUpperInvariant())"
-  if($WindowSize -eq 'Maximized'){$shellArgs+=' /SNES-MAXIMIZED'}
-  if($OutputAnalysis){$shellArgs+=' /SNES-OUTPUT-PROFILE'}
-  [IO.File]::WriteAllLines($config,@('GRAPHICS=SOFTWARE','AUTO=PCI','AUTO=ACPI','SHELL=/R4OS/SOFTWARE/DESKTOP/R4DESK.R4X',"SHELL_ARGS=$shellArgs",'DRIVER=DISPBLIT','DRIVER=HDA','DRIVER=SERIAL','DRIVER=CPUPOWER','DRIVER=ACPIPLAT','LOG=verbose'),[Text.UTF8Encoding]::new($true))
-  [IO.File]::WriteAllText($autoexec,"@ECHO OFF`r`n",[Text.UTF8Encoding]::new($false))
+  $command="SPECTRA BENCH SNES /WINDOW /$($Region.ToUpperInvariant()) /$($Mode.ToUpperInvariant()) /$($WindowSize.ToUpperInvariant()) /OWN-DESKTOP"
+  if($OutputAnalysis){$command+=' /OUTPUT-ANALYSIS'}
+  if($CheckOnly){$command+=' /CHECK'}
+  $command+=' /JSON /EXPORT:C:\TEMP\SNES-SPECTRA.JSONL'
+  [IO.File]::WriteAllLines($config,@('GRAPHICS=SOFTWARE','AUTO=PCI','AUTO=ACPI','SHELL=/R4OS/SOFTWARE/TERMINAL/TERMINAL.R4X','SHELL_ARGS=','DRIVER=DISPBLIT','DRIVER=HDA','DRIVER=SERIAL','DRIVER=CPUPOWER','DRIVER=ACPIPLAT','LOG=verbose'),[Text.UTF8Encoding]::new($true))
+  # Poweroff belongs to this explicit disposable host harness. Spectra returns
+  # only after its own child, host and resource receipts have really completed.
+  [IO.File]::WriteAllLines($autoexec,@('@ECHO OFF','SERVMAN BOOT',$command,'SET','POWEROFF'),[Text.UTF8Encoding]::new($false))
   $serviceLines=@(Get-Content (Join-Path $distribution 'Injection/R4OS/CONFIG/SERVICES.R4S')|Where-Object {$_ -match '^SERVICE;name=(WINSVC|AUDSVC|CLIPSVC|LOGSVC);'})
   if($serviceLines.Count -ne 4){throw 'SNES needs four explicit productive services'}
   [IO.File]::WriteAllLines($services,$serviceLines,[Text.UTF8Encoding]::new($true))
@@ -55,18 +57,25 @@ function Invoke-R4SnesGuestBenchmark {
   if($LASTEXITCODE -ne 0){throw 'SNES private image failed'}
   $metadata=Get-Content -Raw (Join-Path $source 'image.json')|ConvertFrom-Json -AsHashtable
   $image=Join-Path $source 'disk.img';$offset=[long]$metadata.installation.partitions.SYSTEM.firstLba*512
-  $actual=[R4GuestNtfs]::ReadFile($image,$offset,'/R4OS/SUBSYSTEMS/r4os.snes/R4SNES.R4X')
-  $digest=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($actual)).ToLowerInvariant()
   $canonical=@(Get-Content $components|Where-Object {$_.EndsWith(':/R4OS/SUBSYSTEMS/r4os.snes/R4SNES.R4X')})
   if($canonical.Count -ne 1){throw 'SNES canonical artifact missing'}
   $artifactPath=$canonical[0].Substring(0,$canonical[0].LastIndexOf(':'))
+  $actual=[R4GuestNtfs]::ReadFile($image,$offset,'/R4OS/SUBSYSTEMS/r4os.snes/R4SNES.R4X',[int](Get-Item $artifactPath).Length)
+  $digest=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($actual)).ToLowerInvariant()
   if($digest -cne (Get-FileHash $artifactPath).Hash.ToLowerInvariant()){throw 'SNES guest artifact differs'}
   $metadata.r4snes_sha256=$digest
-  $desktopBytes=[R4GuestNtfs]::ReadFile($image,$offset,'/R4OS/SOFTWARE/DESKTOP/R4DESK.R4X')
-  $desktopHash=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($desktopBytes)).ToLowerInvariant()
   $desktopPath=Join-Path $context.workspace 'Artifacts/Modules/Desktop/R4DESK.R4X'
+  $desktopBytes=[R4GuestNtfs]::ReadFile($image,$offset,'/R4OS/SOFTWARE/DESKTOP/R4DESK.R4X',[int](Get-Item $desktopPath).Length)
+  $desktopHash=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($desktopBytes)).ToLowerInvariant()
   if($desktopHash -cne (Get-FileHash $desktopPath).Hash.ToLowerInvariant()){throw 'SNES Desktop guest artifact differs'}
   $metadata.desktop_sha256=$desktopHash
+  foreach($binding in @(@('Spectra','SPECTRA.R4X','/R4OS/SOFTWARE/TERMINAL/DIAG/SPECTRA.R4X','spectra_sha256'),@('WindowService','WINSVC.R4X','/R4OS/SERVICES/WINSVC.R4X','winsvc_sha256'))){
+   $canonicalPath=Join-Path $context.workspace ('Artifacts/Modules/'+$binding[0]+'/'+$binding[1])
+   $installed=[R4GuestNtfs]::ReadFile($image,$offset,$binding[2],[int](Get-Item $canonicalPath).Length)
+   $installedHash=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($installed)).ToLowerInvariant()
+   if($installedHash -cne (Get-FileHash $canonicalPath).Hash.ToLowerInvariant()){throw ('SNES control artifact differs: '+$binding[0])}
+   $metadata[$binding[3]]=$installedHash
+  }
   $serial=Join-Path $scratch 'serial.log';$hostProfile=Resolve-R4QemuHostProfile $context.qemu
   $accelerator=$hostProfile.AcceleratorChain.Split(':')[0]
   $start=[Diagnostics.ProcessStartInfo]::new($context.qemu);$start.UseShellExecute=$false;$start.WorkingDirectory=$source;$start.RedirectStandardError=$true
@@ -78,35 +87,29 @@ function Invoke-R4SnesGuestBenchmark {
   if($qemu.ExitCode -ne 0 -or $boot -match 'KERNEL FATAL|Kernel panic|\[CRASH\]|\[PANIC\]' -or $boot -notmatch 'System poweroff\.'){
    throw ('SNES guest failed: '+$errors.GetAwaiter().GetResult())
   }
-  $raw=[Text.Encoding]::UTF8.GetString([R4GuestNtfs]::ReadFile($image,$offset,'/TEMP/SNES-PERF.JSONL'))
-  foreach($line in $raw.Split("`n")){if($line.Trim()){$records+=,($line|ConvertFrom-Json -AsHashtable)}}
-  $status=[Text.Encoding]::UTF8.GetString([R4GuestNtfs]::ReadFile($image,$offset,'/TEMP/SNES-STATUS.TXT'))
-  if($status -cne 'OK'){
-   $detail=[Text.Encoding]::UTF8.GetString([R4GuestNtfs]::ReadFile($image,$offset,'/TEMP/SNES-PERF.ERROR'))
-   throw ('SNES application failed: '+$detail)
+  $raw=[Text.Encoding]::UTF8.GetString([R4GuestNtfs]::ReadFile($image,$offset,'/TEMP/SNES-SPECTRA.JSONL'))
+  $decoded=Read-R4SnesSpectraBenchmark -Text $raw -Region $Region -Mode $Mode -WindowSize $WindowSize -CheckOnly ([bool]$CheckOnly) -OutputAnalysis ([bool]$OutputAnalysis)
+  $records=@($decoded.Records);$windowOutput=$decoded.WindowOutput;$outputProfile=$decoded.OutputAnalysis;$frontend=$decoded.Frontend
+  $frontend['original_ndjson_sha256']=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($raw))).ToLowerInvariant()
+  if($decoded.Failure){throw $decoded.Failure}
+ }catch{
+  $failure=$_.Exception.Message
+  if($serial -and (Test-Path -LiteralPath $serial)){
+   $diagnosticText=[IO.File]::ReadAllText($serial)
+   $diagnosticTail=$diagnosticText.Substring([Math]::Max(0,$diagnosticText.Length-8192))
   }
-  $trace=[Text.Encoding]::UTF8.GetString([R4GuestNtfs]::ReadFile($image,$offset,'/TEMP/SNES-PRESENT.TXT'))
-  $generations=@($trace.Split("`n")|Where-Object {$_.Trim()})
-  $windowOutput=[Text.Encoding]::UTF8.GetString([R4GuestNtfs]::ReadFile($image,$offset,'/TEMP/SNES-WINDOW.JSON'))|ConvertFrom-Json -AsHashtable
-  if(!$records.Count -or !$generations.Count -or $windowOutput.records.Count -ne $generations.Count){throw 'SNES guest result incomplete'}
-  for($i=0;$i -lt $generations.Count;$i++){
-   if([ulong]$generations[$i] -ne [ulong]$windowOutput.records[$i].generation){throw 'SNES copy generation traces differ'}
-  }
-  if($OutputAnalysis){
-   $outputProfile=[Text.Encoding]::UTF8.GetString([R4GuestNtfs]::ReadFile($image,$offset,'/TEMP/SNES-OUTPUT.JSON'))|ConvertFrom-Json -AsHashtable
-   if($outputProfile.contract -cne 'desktop-software-output-v1' -or $outputProfile.records.Count -ne 20){throw 'SNES output phase analysis incomplete'}
-  }
- }catch{$failure=$_.Exception.Message}
+ }
  finally{
   if($qemu -and !$qemu.HasExited){$qemu.Kill($true);$qemu.WaitForExit()}
   if($failure -and !$records.Count -and $metadata){
    try{
-    $partial=[Text.Encoding]::UTF8.GetString([R4GuestNtfs]::ReadFile((Join-Path $source 'disk.img'),([long]$metadata.installation.partitions.SYSTEM.firstLba*512),'/TEMP/SNES-PERF.JSONL'))
-    foreach($line in $partial.Split("`n")){if($line.Trim()){$records+=,($line|ConvertFrom-Json -AsHashtable)}}
+    $partial=[Text.Encoding]::UTF8.GetString([R4GuestNtfs]::ReadFile((Join-Path $source 'disk.img'),([long]$metadata.installation.partitions.SYSTEM.firstLba*512),'/TEMP/SNES-SPECTRA.JSONL'))
+    $decoded=Read-R4SnesSpectraBenchmark -Text $partial -Region $Region -Mode $Mode -WindowSize $WindowSize -CheckOnly ([bool]$CheckOnly) -OutputAnalysis ([bool]$OutputAnalysis)
+    $records=@($decoded.Records)
    }catch{}
   }
   if(Test-Path $source){Remove-Item -LiteralPath $source -Recurse -Force}
   Remove-Item -LiteralPath $scratch -Recurse -Force
  }
- return [pscustomobject]@{Records=$records;Failure=$failure;Image=$metadata;HostProfile=$hostProfile;WindowOutput=$windowOutput;OutputAnalysis=$outputProfile}
+ return [pscustomobject]@{Records=$records;Failure=$failure;Image=$metadata;HostProfile=$hostProfile;WindowOutput=$windowOutput;OutputAnalysis=$outputProfile;Frontend=$frontend;DiagnosticTail=$diagnosticTail}
 }

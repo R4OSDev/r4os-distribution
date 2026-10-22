@@ -26,7 +26,11 @@ public sealed class R4GuestNtfs : IDisposable {
         } catch {file.Dispose();throw;}
     }
     public static byte[] ReadFile(string image,long partitionOffset,string path) {
-        using(var reader=new R4GuestNtfs(image,partitionOffset)) return reader.ReadPath(path);
+        return ReadFile(image,partitionOffset,path,4*1024*1024);
+    }
+    public static byte[] ReadFile(string image,long partitionOffset,string path,int maximumBytes) {
+        Need(maximumBytes>=0 && maximumBytes<=64*1024*1024,"explicit extraction limit");
+        using(var reader=new R4GuestNtfs(image,partitionOffset)) return reader.ReadPath(path,maximumBytes);
     }
     static void Need(bool value,string why) {if(!value)throw new InvalidDataException(why);}
     static ushort U16(byte[] b,int p) {Need(p>=0 && p<=b.Length-2,"u16 range");return BitConverter.ToUInt16(b,p);}
@@ -85,7 +89,7 @@ public sealed class R4GuestNtfs : IDisposable {
         Need(written==count,"uncovered data");return result;
     }
     byte[] Record(long index) {return Fix(Bytes(mft,checked(index*recordSize),recordSize));}
-    byte[] ReadPath(string path) {
+    byte[] ReadPath(string path,int maximumBytes) {
         long parent=5;byte[] found=Record(parent);
         var parts=path.Replace('\\','/').Split('/',StringSplitOptions.RemoveEmptyEntries);Need(parts.Length>0 && parts.Length<=32,"path depth");
         foreach(string name in parts){Need(name!="." && name!="..","path component");Need((U16(found,22)&3)==3,"parent directory");
@@ -106,7 +110,7 @@ public sealed class R4GuestNtfs : IDisposable {
             }
             if(match<0)throw new FileNotFoundException(path);parent=match;found=selected;
         }
-        Need((U16(found,22)&2)==0,"file required");var stream=Stream(found);Need(stream.Length<=4*1024*1024,"export size limit");
+        Need((U16(found,22)&2)==0,"file required");var stream=Stream(found);Need(stream.Length<=maximumBytes,"export size limit");
         return Bytes(stream,0,checked((int)stream.Length));
     }
     public void Dispose(){file.Dispose();}
