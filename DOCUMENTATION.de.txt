@@ -318,8 +318,8 @@ Nutzpfad mit SHA256; limine.conf wird nicht als verwalteter Bootpfad aufgenommen
 Seit 0.76.22 sind die gemeinsamen Release-Starter an diesen Erzeuger
 angeschlossen; die Standardpakete enthalten auch die USB-Erstellungsstarter.
 
-Vor dem Release werden die benoetigten Profile mit dem Workspace-Build
-erzeugt. `Standard` umfasst Slim und Full; `All` nimmt zusaetzlich das
+Vor dem Release muessen Kernel, Libraries und die Module der benoetigten
+Profile gebaut sein. `Standard` umfasst Slim und Full; `All` nimmt zusaetzlich das
 Testprofil auf. Unter Windows wird `Release.bat`, unter Linux `./Release.sh`
 mit denselben Argumenten verwendet.
 
@@ -329,10 +329,10 @@ mit denselben Argumenten verwendet.
     <Release-Starter> publish Standard -prerelease
     <Release-Starter> -Action Publish -Profiles Standard -Prepared
 
-`prepare` prueft fuer jedes ausgewaehlte Profil das vorhandene `disk.img`
-und die stageierte Rechtsdokumentation ueber den passenden Build-Starter.
-Danach wird
-je Profil ein ZIP erzeugt. Zusaetzlich entstehen `SHA256SUMS.txt`, ein
+`prepare` erzeugt fuer jedes ausgewaehlte Profil das oeffentliche `disk.img`
+aus den bereits gebauten Artefakten neu und prueft Image sowie stageierte
+Rechtsdokumentation ueber den passenden Build-Starter. Danach wird je Profil
+ein ZIP erzeugt. Zusaetzlich entstehen `SHA256SUMS.txt`, ein
 Quellenmanifest mit den exakten Git-Commits aller beteiligten Repositories
 und lokale Release-Notes. Die Ausgabe liegt unter
 `Artifacts/Distribution/Releases/<Version>/`.
@@ -357,7 +357,7 @@ sauber, auf `main` und mit ihrem lokalen `origin/main` synchron sein.
 Seit 0.76.24 verwendet `Publish -Prepared` exakt die bereits vorbereiteten
 Assets. SHA256SUMS, Releaseversion/Profil, vollstaendiger Quellstand und der
 veroeffentlichte Recovery-Pin werden erneut verglichen. Dieser Weg baut
-weder Images noch ZIPs neu und wird nach dem finalen Lenovo-Test verwendet.
+weder Images noch ZIPs neu und wird nach den erforderlichen Paketpruefungen verwendet.
 Geaenderte ZIPs, Quellcommits oder Recovery-Pins werden abgewiesen. Der
 bestehende SelfTest deckt diese Grenze ohne Upload ab. Ein erneutes Prepare
 erzeugt einen neuen zu pruefenden Stand; seine ZIPs koennen andere Hashes haben.
