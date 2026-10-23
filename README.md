@@ -5,6 +5,12 @@ Test, and explicit Benchmark disk images. It owns image profiles, versioned inje
 host-side image tools, QEMU configuration, and integration checks. It does not
 rebuild the kernel, libraries, or modules.
 
+Package 0.64.18 pins the checked standalone host build to SDK 0.64.92
+(with its exact Contract 0.64.45 dependency) and Libraries 0.64.29.
+Workspace starters still select the explicit local mappings. These technical
+source pins do not select consumer project versions or update the separately
+pinned Recovery release.
+
 ## Commands
 
     Build.bat test

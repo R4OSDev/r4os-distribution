@@ -1,6 +1,6 @@
 .{
     .name = .r4os_distribution,
-    .version = "0.64.17",
+    .version = "0.64.18",
     .fingerprint = 0x2d91a527bbcca34b,
     .minimum_zig_version = "0.16.0",
     .dependencies = .{
@@ -8,12 +8,12 @@
         // SDK, Contract and Libraries checkouts from Settings.R4S as local
         // Zig forks.
         .r4os_sdk = .{
-            .url = "https://github.com/R4OSDev/r4os-sdk/archive/0508853ba75f4d6e8b7bbe8515fa63ed0d314da1.tar.gz",
-            .hash = "r4os_sdk-0.64.58-NnPzAiWqGgFCfzfvIRQG-FnQDmQg0mnoiPUy1yM0uyR0",
+            .url = "https://github.com/R4OSDev/r4os-sdk/archive/51ed03d813d9baeab630746f1d1bbc46c2d2a1e6.tar.gz",
+            .hash = "r4os_sdk-0.64.92-NnPzAkXC0QGawD5RFHN9uXvKufFOdJ0w_O6aUn3jxzUI",
         },
         .r4os_libraries = .{
-            .url = "https://github.com/R4OSDev/r4os-libraries/archive/faa68c1176c075b43eda2b88068baee1841926f3.tar.gz",
-            .hash = "r4os_libraries-0.64.23-dH4fNfGLnwF9To4xzIAWvxo7AkIalfiLXz9UUVCP3aOZ",
+            .url = "https://github.com/R4OSDev/r4os-libraries/archive/a3bc3977c98bc1f5fbbf763800808764fe9b3346.tar.gz",
+            .hash = "r4os_libraries-0.64.29-dH4fNU7U2QG3ehW7Ygog2zDVsHc3Jq4ef76nQOJRE0q2",
         },
     },
     .paths = .{
