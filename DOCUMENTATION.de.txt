@@ -199,12 +199,23 @@ Die private SMW-Cartridge wird von dieser automatischen Abnahme weder gelesen
 noch gestartet.
 
 Der produktive R4Basic-Teil der Test-AUTOEXEC verwendet die lokal injizierte
-kanonische Datei `C:\TEMP\GORILLA.BAS`. Desktop startet sie katalogbasiert im
+kanonische Datei `C:\TEMP\GORILLA.BAS`. Spectra startet sie katalogbasiert im
 Headless-Modus, und R4Basic schreibt nach dem ersten tatsaechlich publizierten
 Gastframe `C:\TEMP\R4BASIC.BASELINE`. Der gemeinsame Trace-Identifier verbindet
 Probe, Aufloesung, Desktopgrenze, Kernel-Admission und -Loader sowie Quelle,
 ersten sichtbaren Compileframe, Compilerende, VM, erste Instruktion und ersten
-Gastframe. Der Markerpruefer verlangt dabei Fortschrittsframes, exakte
+Gastframe. Ab0.86.86 besitzt `SPECTRA CHECK SUBSYSTEM` die bisherigen
+BASIC-/GB-/SNES-Szenarien und ihre genauen Kinder; der Desktop startet bei
+`/HEADLESS-SUBSYSTEM` nur diesen expliziten Auftrag, wartet auf dessen
+Completion/Reap und uebergibt dann dem Terminal die AUTOEXEC-Ausfuehrung.
+`C:\TEMP\SUBSYS86.JSONL` enthaelt die aktuellen Spectra-Ergebnisse und
+Freigabequittungen. Nach echtem QEMU-Join liest der vorhandene begrenzte
+NTFS-Hostleser diesen Export und alle BASIC-/GB-/SNES-Berichte direkt aus
+derselben wegwerfbaren Arbeitsplatte. Lange Terminal-Repaint-/TYPE-Zeilen
+ersetzen keine Originalbytes; fehlerhafte oder kurze Originale bleiben rot,
+auch bei einem gueltigen seriellen Ausschnitt. Danach wird die Arbeitsplatte
+gemaess Aufbewahrungsregel entfernt.
+Der Markerpruefer verlangt dabei Fortschrittsframes, exakte
 Tokenkapazitaet, begrenzte Keyword-, Namens- und Konstantenindexproben,
 uebernommene statt kopierte Quellbytes, begrenzte Ausdruckstiefe und
 Diagnosen, konsistente Compiler-Peak-/Programmwerte sowie die realen

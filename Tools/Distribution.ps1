@@ -218,6 +218,7 @@ function Start-R4DistributionHeadless($Context,[string]$Name,[string]$Variant) {
  finally{foreach($key in $saved.Keys){[Environment]::SetEnvironmentVariable($key,$saved[$key])}}
  $arguments=@('-NoProfile','-File',(Join-Path $Context.root 'Tests/Test-QemuApiMarkers.ps1'),'-LogPath',$log,'-ErrorPath',$errors,'-QemuExitCode',[string]$code,'-SmpCpuCount','4')
  if($Variant -ceq 'clock4'){$arguments+='-ClockSmoke'}
+ if($Variant -cne 'clock4'){$arguments+=@('-SubsystemImagePath',(Join-Path $run 'disk.img'),'-SubsystemImageMetadataPath',(Join-Path $source 'image.json'))}
  if($Variant -ceq 'browser'){$arguments+='-Browser'}
  if($Variant -ceq 'smpfail4'){$arguments+=@('-SmpFailedCount','1')}
  Invoke-R4Distribution 'pwsh' $arguments
