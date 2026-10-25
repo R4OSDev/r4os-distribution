@@ -91,7 +91,7 @@ function Test-TlbProbeContract {
 function Test-LockProbeContract {
     param([string]$Text, [int]$ExpectedCpuCount)
 
-    $pattern = '(?im)^\[LOCKPROBE\] result=OK runtime_acquisitions=(?<runtime>\d+) nested=(?<nested>\d+) collisions=(?<collisions>\d+) cpu_collisions=(?<cpu>\d+) wait_spins=(?<spins>\d+) max_wait=(?<maxwait>\d+) max_hold_cycles=(?<hold>\d+) legacy_global=0 runtime_owner_classes=1 owner_classes=11 owner_acquisitions=(?<owner>\d+) owner_collisions=(?<owner_collisions>\d+) order_violations=0 stress_iterations=(?<iterations>\d+) stress_mask=0x(?<mask>[0-9A-F]+) stress_failures=0\r?$'
+    $pattern = '(?im)^\[LOCKPROBE\] result=OK runtime_acquisitions=(?<runtime>\d+) nested=(?<nested>\d+) collisions=(?<collisions>\d+) cpu_collisions=(?<cpu>\d+) wait_spins=(?<spins>\d+) max_wait=(?<maxwait>\d+) max_hold_cycles=(?<hold>\d+) legacy_global=0 runtime_owner_classes=1 owner_classes=12 owner_acquisitions=(?<owner>\d+) owner_collisions=(?<owner_collisions>\d+) order_violations=0 stress_iterations=(?<iterations>\d+) stress_mask=0x(?<mask>[0-9A-F]+) stress_failures=0\r?$'
     $probe = [regex]::Match($Text, $pattern)
     if (-not $probe.Success) { return $false }
     $mask = [Convert]::ToUInt64($probe.Groups['mask'].Value, 16)
@@ -315,7 +315,7 @@ if ($ClockSmoke) {
             '[SMPPROBE] result=OK cpus=4 expected_mask=0x0000000F observed_mask=0x0000000F failures=0',
             '[HEAPPROBE] result=OK iterations=16 commit_calls=1 commit_pages=49 uncommit_calls=1 release_suppressed=15 poison_bytes=3145728 retained_pages=64 block_claims=1 extent_allocations=1 map_batches=1 unmap_batches=1 pressure=no',
             '[TLBPROBE] result=OK cpus=4 ready_mask=0x0000000F updated_mask=0x0000000F stale_failures=0 timeout_rejected=1 frame_retained=1 requests=22 ipis=66 acks=63 timeouts=1 expected_timeouts=1 generation=22 cleanup=yes',
-            '[LOCKPROBE] result=OK runtime_acquisitions=40 nested=12 collisions=2 cpu_collisions=2 wait_spins=17 max_wait=9 max_hold_cycles=800 legacy_global=0 runtime_owner_classes=1 owner_classes=11 owner_acquisitions=90 owner_collisions=3 order_violations=0 stress_iterations=256 stress_mask=0x0000000F stress_failures=0',
+            '[LOCKPROBE] result=OK runtime_acquisitions=40 nested=12 collisions=2 cpu_collisions=2 wait_spins=17 max_wait=9 max_hold_cycles=800 legacy_global=0 runtime_owner_classes=1 owner_classes=12 owner_acquisitions=90 owner_collisions=3 order_violations=0 stress_iterations=256 stress_mask=0x0000000F stress_failures=0',
             '[SERIALPROBE] result=OK write_calls=400 bulk_calls=120 lock_acquisitions=400 status_reads=360 ring_bytes=4000 max_span=80 dropped=0',
             '[NVMEIRQ] result=OK mode=msix irq=nonzero work=nonzero completions=nonzero poll_fallback=0',
             '[NVMEIRQPROBE] result=OK worker_requests=1 worker_completions=1 async_submissions=1 async_completions=1',
@@ -352,7 +352,7 @@ if ($ClockSmoke) {
                 $validClock.Replace('poison_bytes=3145728', 'poison_bytes=0'),
                 $validClock.Replace('timeout_rejected=1', 'timeout_rejected=0'),
                 $validClock.Replace('legacy_global=0', 'legacy_global=1'),
-                $validClock.Replace('owner_classes=11 ', 'owner_classes=10 '),
+                $validClock.Replace('owner_classes=12 ', 'owner_classes=11 '),
                 $validClock.Replace('dropped=0', 'dropped=1'),
                 $validClock.Replace('async_completions=1', 'async_completions=0'),
                 $validClock.Replace('poll_fallback=0', 'poll_fallback=1'),
@@ -772,7 +772,7 @@ if ($SelfTest) {
             "`r`n[SMPPROBE] result=OK cpus=$expectedOnline expected_mask=0x$syntheticMask observed_mask=0x$syntheticMask failures=0" +
             "`r`n[HEAPPROBE] result=OK iterations=16 commit_calls=1 commit_pages=49 uncommit_calls=1 release_suppressed=15 poison_bytes=3145728 retained_pages=64 block_claims=1 extent_allocations=1 map_batches=1 unmap_batches=1 pressure=no" +
             "`r`n[TLBPROBE] result=OK cpus=$expectedOnline ready_mask=0x$syntheticMask updated_mask=0x$syntheticMask stale_failures=0 timeout_rejected=1 frame_retained=1 requests=22 ipis=66 acks=63 timeouts=1 expected_timeouts=1 generation=22 cleanup=yes" +
-            "`r`n[LOCKPROBE] result=OK runtime_acquisitions=40 nested=12 collisions=2 cpu_collisions=2 wait_spins=17 max_wait=9 max_hold_cycles=800 legacy_global=0 runtime_owner_classes=1 owner_classes=11 owner_acquisitions=90 owner_collisions=3 order_violations=0 stress_iterations=$($expectedOnline * 64) stress_mask=0x$syntheticMask stress_failures=0" +
+            "`r`n[LOCKPROBE] result=OK runtime_acquisitions=40 nested=12 collisions=2 cpu_collisions=2 wait_spins=17 max_wait=9 max_hold_cycles=800 legacy_global=0 runtime_owner_classes=1 owner_classes=12 owner_acquisitions=90 owner_collisions=3 order_violations=0 stress_iterations=$($expectedOnline * 64) stress_mask=0x$syntheticMask stress_failures=0" +
             "`r`n[SERIALPROBE] result=OK write_calls=400 bulk_calls=120 lock_acquisitions=400 status_reads=360 ring_bytes=4000 max_span=80 dropped=0" +
             "`r`n[R4LPREEMPT] result=OK cpu=1 timer_switches=1 ipi_switches=1 timer_exit=0 ipi_exit=0 generation=1" +
             "`r`n[CLOCKPROBE] result=OK source=TSC cpus=$expectedOnline registered_mask=0x0000000F regressions=0 irq_delta=42 generation=2 max_skew_ns=300 calibration_ppm=120 fallback=none"
