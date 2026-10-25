@@ -7,10 +7,7 @@ function Start-R4SpectraStandard($Context,[switch]$SelfReference) {
  . (Join-Path $spectra 'Tools/StandardBenchmark.ps1')
  $reference=$null
  if(!$SelfReference){
-  $api=$env:R4OS_DEVCENTER_API_URL
-  $hostSettings=Join-Path $Context.workspace 'Tools/BenchmarkHost.R4S'
-  if(!$api -and (Test-Path -LiteralPath $hostSettings)){$api=(Get-InstallationFields $hostSettings)['DEVCENTER_API_URL']}
-  $reference=Resolve-SpectraReference -Descriptor (Join-Path $spectra 'Baselines/standard-3.reference.json') -CacheRoot (Join-Path $Context.output 'Diagnostics/SpectraStandard') -ApiUrl $api
+  $reference=Resolve-SpectraReference -Descriptor (Join-Path $spectra 'Baselines/standard-3.reference.json') -CacheRoot (Join-Path $Context.output 'Diagnostics/SpectraStandard')
  }
  $id=[guid]::NewGuid().ToString();$evidence=Join-Path $Context.output ('Diagnostics/SpectraStandard/'+$id)
  $scratch=Join-Path $Context.workspace ('Temp/SpectraStandard/'+$id)
