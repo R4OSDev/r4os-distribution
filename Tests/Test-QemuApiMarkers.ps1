@@ -46,7 +46,7 @@ $ErrorActionPreference = 'Stop'
 function Test-HeapProbeContract {
     param([string]$Text)
 
-    $pattern = '(?im)^\[HEAPPROBE\] result=OK iterations=(?<iterations>\d+) commit_calls=(?<commits>\d+) commit_pages=(?<pages>\d+) uncommit_calls=(?<uncommits>\d+) release_suppressed=(?<suppressed>\d+) poison_bytes=(?<poison>\d+) retained_pages=(?<retained>\d+) block_claims=(?<claims>\d+) extent_allocations=(?<extents>\d+) map_batches=(?<maps>\d+) unmap_batches=(?<unmaps>\d+) pressure=(?<pressure>yes|no)\r?$'
+    $pattern = '(?im)^\[HEAPPROBE\] result=OK iterations=(?<iterations>\d+) commit_calls=(?<commits>\d+) commit_pages=(?<pages>\d+) uncommit_calls=(?<uncommits>\d+) release_suppressed=(?<suppressed>\d+) poison_bytes=(?<poison>\d+) poison_mode=(?<poison_mode>off|full) retained_pages=(?<retained>\d+) block_claims=(?<claims>\d+) extent_allocations=(?<extents>\d+) map_batches=(?<maps>\d+) unmap_batches=(?<unmaps>\d+) pressure=(?<pressure>yes|no)\r?$'
     $probe = [regex]::Match($Text, $pattern)
     if (-not $probe.Success) { return $false }
     $iterations = [uint64]$probe.Groups['iterations'].Value
@@ -60,7 +60,10 @@ function Test-HeapProbeContract {
     $extents = [uint64]$probe.Groups['extents'].Value
     $maps = [uint64]$probe.Groups['maps'].Value
     $unmaps = [uint64]$probe.Groups['unmaps'].Value
-    if ($iterations -ne 16 -or $poison -lt (16 * 192 * 1024)) { return $false }
+    if ($iterations -ne 16) { return $false }
+    if ($probe.Groups['poison_mode'].Value -eq 'full') {
+        if ($poison -lt (16 * 192 * 1024)) { return $false }
+    } elseif ($poison -ne 0) { return $false }
     if (($pages -eq 0 -and ($claims -ne 0 -or $extents -ne 0 -or $maps -ne 0)) -or
         ($pages -gt 0 -and ($claims -gt $pages -or $extents -eq 0 -or $maps -eq 0))) { return $false }
     if (($uncommits -eq 0 -and $unmaps -ne 0) -or ($uncommits -gt 0 -and $unmaps -eq 0)) { return $false }
@@ -313,7 +316,7 @@ if ($ClockSmoke) {
             '  SMP foundation [OK]',
             '[SMP] stage=active discovered=4 started=3 online=4 failed=0 fallback=no',
             '[SMPPROBE] result=OK cpus=4 expected_mask=0x0000000F observed_mask=0x0000000F failures=0',
-            '[HEAPPROBE] result=OK iterations=16 commit_calls=1 commit_pages=49 uncommit_calls=1 release_suppressed=15 poison_bytes=3145728 retained_pages=64 block_claims=1 extent_allocations=1 map_batches=1 unmap_batches=1 pressure=no',
+            '[HEAPPROBE] result=OK iterations=16 commit_calls=1 commit_pages=49 uncommit_calls=1 release_suppressed=15 poison_bytes=3145728 poison_mode=full retained_pages=64 block_claims=1 extent_allocations=1 map_batches=1 unmap_batches=1 pressure=no',
             '[TLBPROBE] result=OK cpus=4 ready_mask=0x0000000F updated_mask=0x0000000F stale_failures=0 timeout_rejected=1 frame_retained=1 requests=22 ipis=66 acks=63 timeouts=1 expected_timeouts=1 generation=22 cleanup=yes',
             '[LOCKPROBE] result=OK runtime_acquisitions=40 nested=12 collisions=2 cpu_collisions=2 wait_spins=17 max_wait=9 max_hold_cycles=800 legacy_global=0 runtime_owner_classes=1 owner_classes=12 owner_acquisitions=90 owner_collisions=3 order_violations=0 stress_iterations=256 stress_mask=0x0000000F stress_failures=0',
             '[SERIALPROBE] result=OK write_calls=400 bulk_calls=120 lock_acquisitions=400 status_reads=360 ring_bytes=4000 max_span=80 dropped=0',
@@ -329,6 +332,8 @@ if ($ClockSmoke) {
             '[QUICKPROBE] result=DONE'
         ) -join "`r`n"
         if ((Test-ClockSmokeContract $validClock -Quiet) -ne 0) { throw 'valid clock-smoke marker set did not pass' }
+        $unpoisonedClock = $validClock.Replace('poison_bytes=3145728 poison_mode=full', 'poison_bytes=0 poison_mode=off')
+        if ((Test-ClockSmokeContract $unpoisonedClock -Quiet) -ne 0) { throw 'normal heap release mode did not pass' }
         $deadlineMarker = '[TSCDEADLINE] cpu=0 active=1 epoch=1 generation=2 arms=5 irqs=4 stale=0 fallbacks=0 reason=0'
         $validDeadline = $validClock.Replace('Timer [HPET]', 'Timer [LAPIC]') + "`r`n" + $deadlineMarker
         if ((Test-ClockSmokeContract $validDeadline -Quiet) -ne 0) { throw 'qualified LAPIC deadline did not pass' }
@@ -350,6 +355,10 @@ if ($ClockSmoke) {
                 $validClock.Replace('online=4', 'online=3'),
                 $validClock.Replace('observed_mask=0x0000000F', 'observed_mask=0x00000007'),
                 $validClock.Replace('poison_bytes=3145728', 'poison_bytes=0'),
+                $validClock.Replace('poison_mode=full', 'poison_mode=off'),
+                $validClock.Replace(' poison_mode=full', ''),
+                $validClock.Replace('poison_mode=full', 'poison_mode=unknown'),
+                $validClock.Replace('poison_bytes=3145728 poison_mode=full', 'poison_bytes=0 poison_mode=FULL'),
                 $validClock.Replace('timeout_rejected=1', 'timeout_rejected=0'),
                 $validClock.Replace('legacy_global=0', 'legacy_global=1'),
                 $validClock.Replace('owner_classes=12 ', 'owner_classes=11 '),
@@ -770,7 +779,7 @@ if ($SelfTest) {
             ' failed=' + $SmpFailedCount + ' fallback=' + $(if ($expectedOnline -eq 1) { '1cpu' } else { 'no' })) +
             "`r`n[SMP] productive cpu=1 task=r4x-app class=r4x" +
             "`r`n[SMPPROBE] result=OK cpus=$expectedOnline expected_mask=0x$syntheticMask observed_mask=0x$syntheticMask failures=0" +
-            "`r`n[HEAPPROBE] result=OK iterations=16 commit_calls=1 commit_pages=49 uncommit_calls=1 release_suppressed=15 poison_bytes=3145728 retained_pages=64 block_claims=1 extent_allocations=1 map_batches=1 unmap_batches=1 pressure=no" +
+            "`r`n[HEAPPROBE] result=OK iterations=16 commit_calls=1 commit_pages=49 uncommit_calls=1 release_suppressed=15 poison_bytes=3145728 poison_mode=full retained_pages=64 block_claims=1 extent_allocations=1 map_batches=1 unmap_batches=1 pressure=no" +
             "`r`n[TLBPROBE] result=OK cpus=$expectedOnline ready_mask=0x$syntheticMask updated_mask=0x$syntheticMask stale_failures=0 timeout_rejected=1 frame_retained=1 requests=22 ipis=66 acks=63 timeouts=1 expected_timeouts=1 generation=22 cleanup=yes" +
             "`r`n[LOCKPROBE] result=OK runtime_acquisitions=40 nested=12 collisions=2 cpu_collisions=2 wait_spins=17 max_wait=9 max_hold_cycles=800 legacy_global=0 runtime_owner_classes=1 owner_classes=12 owner_acquisitions=90 owner_collisions=3 order_violations=0 stress_iterations=$($expectedOnline * 64) stress_mask=0x$syntheticMask stress_failures=0" +
             "`r`n[SERIALPROBE] result=OK write_calls=400 bulk_calls=120 lock_acquisitions=400 status_reads=360 ring_bytes=4000 max_span=80 dropped=0" +
