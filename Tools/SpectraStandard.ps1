@@ -17,8 +17,10 @@ function Start-R4SpectraStandard($Context,[switch]$SelfReference) {
  $sourceRoot=Join-Path $evidence 'Source'
  [IO.Directory]::CreateDirectory($scratch)|Out-Null;[IO.Directory]::CreateDirectory($evidence)|Out-Null
  try {
- $sourcePlan=Join-Path $Context.output 'Profiles/Test/image-adds.txt'
- if(!(Test-Path -LiteralPath $sourcePlan)){throw 'Build the current Test image before running the standard phase.'}
+ # MODULES.JSON is shared generated output. A later Full/Slim plan may have
+ # replaced it even while the saved Test input list still exists. Replan the
+ # current Test artifacts before snapshotting any benchmark image inputs.
+ $sourcePlan=New-R4DistributionPlan $Context 'Test'
  $configSource=Join-Path $Context.root 'TestInjection/CONFIG.R4S'
  $configText=[IO.File]::ReadAllText($configSource)
  $configText=[regex]::Replace($configText,'(?m)^SHELL=.*$','SHELL=/R4OS/SOFTWARE/TERMINAL/TERMINAL.R4X')
