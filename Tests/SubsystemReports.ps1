@@ -133,6 +133,13 @@ function Test-R4GbReportContract {
 function Test-R4SnesReportContract {
     param([string]$Text, [switch]$Quiet)
     $failures = 0
+    # Complete CPU/DMA operations are indivisible. The canonical R4SNES owner
+    # bound (machine.zig, cpu.zig, timing.zig; present since0.78.2) is32 bus
+    # clocks *12 slowest master clocks +40 refresh -1 overshoot. The previous
+    # fixed64 bound already contradicted the existing word/refresh owner case.
+    # Keep the32768 grant and every drift/data/PCM/lifetime requirement.
+    $maximumSnesSliceExecution = [uint64]32768 + (32 * 12 + 40 - 1)
+
 
     $r4snesPattern = '(?im)^R4SNES E2E runtime: OK id=(?<id>[0-9A-F]{16}) extension=(?<extension>\.sfc|\.smc) end=(?<end>witness|close) battery=(?<battery>[01]) rtc=(?<rtc>[01]) guest_ns=(?<guest_ns>\d+) guest_cycles=(?<guest_cycles>\d+) master_hz=(?<master_hz>\d+) drift_cycles=(?<drift_cycles>\d+) pending_cycles=(?<pending_cycles>\d+) ppu_frames=(?<ppu_frames>\d+) slices=(?<slices>\d+) max_slice_grant=(?<max_slice_grant>\d+) max_slice_execution=(?<max_slice_execution>\d+) max_step_gap_ns=(?<max_step_gap_ns>\d+) input=(?<input>\d+) controller=0x(?<controller>[0-9a-fA-F]{4}) completion=(?<completion>[01]) frames=(?<frames>\d+) dropped_presents=(?<dropped_presents>\d+) audio_writes=(?<audio_writes>\d+) audio_busy=(?<audio_busy>\d+) audio_failures=(?<audio_failures>\d+) audio_late=(?<audio_late>\d+) audio_discarded=(?<audio_discarded>\d+) audio_paused=(?<audio_paused>\d+) audio_muted=(?<audio_muted>\d+) audio_suppressed=(?<audio_suppressed>\d+) dsp_native=(?<dsp_native>\d+) dsp_resampled=(?<dsp_resampled>\d+) dsp_rendered=(?<dsp_rendered>\d+) dsp_non_silent=(?<dsp_non_silent>\d+) dsp_dropped=(?<dsp_dropped>\d+) dsp_queued=(?<dsp_queued>\d+) save_async_started=(?<save_async_started>\d+) save_async_completed=(?<save_async_completed>\d+) save_async_coalesced=(?<save_async_coalesced>\d+) save_async_errors=(?<save_async_errors>\d+) save_async_max_queued=(?<save_async_max_queued>\d+) pauses=(?<pauses>\d+) resumes=(?<resumes>\d+) resets=(?<resets>\d+) save_files=(?<save_files>[01]) close=(?<close>-?\d+) resources=closed\r?$'
     $r4snesReports = [regex]::Matches($Text, $r4snesPattern)
@@ -156,7 +163,7 @@ function Test-R4SnesReportContract {
                 [uint64]$report['ppu_frames'].Value -ge 3400 -and
                 [uint64]$report['slices'].Value -gt 0 -and
                 [uint64]$report['max_slice_grant'].Value -le 32768 -and
-                [uint64]$report['max_slice_execution'].Value -le 32832 -and
+                [uint64]$report['max_slice_execution'].Value -le $maximumSnesSliceExecution -and
                 [uint64]$report['max_step_gap_ns'].Value -le 250000000 -and
                 [uint64]$report['input'].Value -ge 2 -and
                 [Convert]::ToUInt32($report['controller'].Value, 16) -ne 0 -and
