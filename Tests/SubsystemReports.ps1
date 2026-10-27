@@ -429,8 +429,9 @@ function Test-R4BasicReportContract {
             [uint64]$presenter.Groups['xrgb_fallback_frames'].Value -eq 0 -and
             [uint64]$presenter.Groups['sampled_pixels'].Value -gt 0 -and
             [uint64]$presenter.Groups['compacted_frames'].Value -le [uint64]$presenter.Groups['full_frames'].Value
-        $audioOk = $audio.Success -and
-            $audio.Groups['state'].Value -eq 'ready' -and
+        $audioEnd = [regex]::Match($Text, '(?im)^R4BASIC audio-end: producer-idle=baseline-witness closed=1 resources=1 close_error=0 queued_bytes=0 pending=0 sink_open=0\r?$')
+        $audioOk = $audio.Success -and $audioEnd.Success -and
+            $audio.Groups['state'].Value -eq 'closed' -and
             [uint64]$audio.Groups['service_ops_cycle_max'].Value -le 1 -and
             [uint64]$audio.Groups['service_ops'].Value -eq
                 ([uint64]$audio.Groups['opens'].Value + [uint64]$audio.Groups['writes'].Value + [uint64]$audio.Groups['closes'].Value) -and
@@ -447,7 +448,8 @@ function Test-R4BasicReportContract {
         $audioGuestOk = $audioGuest.Success -and
             [uint64]$audioGuest.Groups['resolved_frames'].Value -eq
                 ([uint64]$audioGuest.Groups['accepted_frames'].Value + [uint64]$audioGuest.Groups['suppressed_frames'].Value + [uint64]$audioGuest.Groups['discarded_frames'].Value) -and
-            [uint64]$audioGuest.Groups['resolved_frames'].Value -le [uint64]$audioGuest.Groups['scheduled_frames'].Value -and
+            [uint64]$audioGuest.Groups['resolved_frames'].Value -eq [uint64]$audioGuest.Groups['scheduled_frames'].Value -and
+            [uint64]$audioGuest.Groups['unresolved_frames'].Value -eq 0 -and
             [uint64]$audioGuest.Groups['unresolved_frames'].Value -eq
                 ([uint64]$audioGuest.Groups['scheduled_frames'].Value - [uint64]$audioGuest.Groups['resolved_frames'].Value) -and
             [uint64]$audioGuest.Groups['foreground_wakes'].Value -le [uint64]$audioGuest.Groups['foreground_waits'].Value -and
