@@ -30,7 +30,8 @@ function Read-R4SubsystemReportSet {
 }
 
 function Test-SpectraDesktopOwnerContract {
-    param([string]$Text, [switch]$OriginalFile)
+    param([string]$Text, [switch]$OriginalFile,
+        [ValidateSet('all','snes')][string]$ExpectedScope='all')
     try {
         $jsonLines = [Collections.Generic.List[string]]::new()
         foreach ($line in $Text.Split("`n")) {
@@ -50,7 +51,7 @@ function Test-SpectraDesktopOwnerContract {
                 ![int]::TryParse([string](Get-SpectraScalar $data.exit_code), [ref]$code) -or $code -ne 0) { return $false }
         }
         foreach ($record in $subsystemResults) {
-            if ($record.data.scope -cne 'all' -or
+            if ($record.data.scope -cne $ExpectedScope -or
                 (Get-SpectraScalar $record.data.desktop_wire_version) -cne '2' -or
                 (Get-SpectraScalar $record.data.long_run_pair_seconds) -cne '60') { return $false }
         }
