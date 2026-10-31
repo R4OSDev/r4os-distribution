@@ -761,7 +761,8 @@ if ($SelfTest) {
         'R4BASIC file-host: reads=0 read_bytes=0 writes=0 write_bytes=0 failures=0' + "`r`n" +
         'R4BASIC file-io: batch_bytes=65536 read_submissions=0 write_submissions=0 status_polls=0 pending_polls=0 completions=0 path_normalizations=0 path_cache_hits=0 max_request_bytes=0 max_active_requests=0 input_refills=0 output_flushes=0 waits=0 input_compaction_bytes=0 output_compaction_bytes=0 input_buffer_peak_bytes=0 output_buffer_peak_bytes=0' + "`r`n" +
         'R4BASIC presenter: published_frames=3 skipped_frames=1 full_frames=1 damage_frames=1 replacement_frames=1 compacted_frames=0 damage_regions=4 indexed8_frames=3 indexed8_blocks=9 indexed8_resource_bytes=12000 xrgb_fallback_frames=0 raster_blocks=9 sampled_pixels=224500' + "`r`n" +
-        'R4BASIC audio: state=ready muted=0 playback=unavailable lazy_opens=1 service_ops=4 service_ops_cycle_max=1 opens=1 writes=2 closes=1 active_cycles=4 silent_cycles=2 paused_cycles=0 muted_cycles=0 active_quanta=2 silent_quanta=1 generated_bytes=7680 accepted_bytes=3840 suppressed_bytes=1920 discarded_bytes=1920 paused_bytes=0 muted_bytes=0 busy=0 resyncs=0' + "`r`n" +
+        'R4BASIC audio: state=closed muted=0 playback=unavailable lazy_opens=1 service_ops=4 service_ops_cycle_max=1 opens=1 writes=2 closes=1 active_cycles=4 silent_cycles=2 paused_cycles=0 muted_cycles=0 active_quanta=2 silent_quanta=1 generated_bytes=7680 accepted_bytes=3840 suppressed_bytes=1920 discarded_bytes=1920 paused_bytes=0 muted_bytes=0 busy=0 resyncs=0' + "`r`n" +
+        'R4BASIC audio-end: producer-idle=baseline-witness closed=1 resources=1 close_error=0 queued_bytes=0 pending=0 sink_open=0' + "`r`n" +
         'R4BASIC audio-guest: scheduled_frames=1920 accepted_frames=960 suppressed_frames=480 discarded_frames=480 resolved_frames=1920 unresolved_frames=0 foreground_waits=2 foreground_wakes=2 background=1 direct_events=4 reserve_grows=1 phase_lookups=3' + "`r`n" +
         '[R4XSTACK] highwater owner=42 detail=on thread=0 module=C:\R4OS\SUBSYSTEMS\r4os.basic\R4BASIC.R4X profile=desktop reserve=4194304 initial=131072 committed=196608 highwater=154464 create_cycles=2500000' + "`r`n" +
         '[R4XSTACK] release owner=42 detail=on profile=desktop reserve=4194304 initial=131072 committed=196608 highwater=154464 creates=4 releases=3 create_cycles=2500000 create_cycles_max=2700000 release_cycles=1700000 release_cycles_max=1800000 kernel_highwater_max=39800 kernel_create_cycles_max=3500000 kernel_release_cycles_max=2100000 kernel_cache_cached=8 kernel_cache_hits=20 kernel_cache_misses=12 critical_available=4 critical_in_use=0' + "`r`n" +
@@ -792,6 +793,26 @@ if ($SelfTest) {
         $valid += "`r`n[SMPPROBE] result=SKIPPED cpus=1 reason=single-cpu"
     }
     if ((Test-ApiMarkerContract $valid -Quiet) -ne 0) { throw 'valid marker set did not pass' }
+    # Synthetic terminal rows mirror the actual producer/strict audio owner.
+    # Ready/pending and every incomplete end witness must remain failures.
+    $basicAudioEnd = 'R4BASIC audio-end: producer-idle=baseline-witness closed=1 resources=1 close_error=0 queued_bytes=0 pending=0 sink_open=0'
+    $invalidBasicAudio = @(
+        @('ready', $valid.Replace('R4BASIC audio: state=closed ', 'R4BASIC audio: state=ready ')),
+        @('pending', $valid.Replace('R4BASIC audio: state=closed ', 'R4BASIC audio: state=pending ')),
+        @('missing-end', $valid.Replace($basicAudioEnd, '')),
+        @('wrong-producer', $valid.Replace($basicAudioEnd, $basicAudioEnd.Replace('producer-idle=baseline-witness', 'producer-idle=unconfirmed'))),
+        @('not-closed', $valid.Replace($basicAudioEnd, $basicAudioEnd.Replace('closed=1', 'closed=0'))),
+        @('resources-open', $valid.Replace($basicAudioEnd, $basicAudioEnd.Replace('resources=1', 'resources=0'))),
+        @('close-error', $valid.Replace($basicAudioEnd, $basicAudioEnd.Replace('close_error=0', 'close_error=1'))),
+        @('queued', $valid.Replace($basicAudioEnd, $basicAudioEnd.Replace('queued_bytes=0', 'queued_bytes=1'))),
+        @('pending-operation', $valid.Replace($basicAudioEnd, $basicAudioEnd.Replace('pending=0', 'pending=1'))),
+        @('sink-open', $valid.Replace($basicAudioEnd, $basicAudioEnd.Replace('sink_open=0', 'sink_open=1')))
+    )
+    foreach ($invalid in $invalidBasicAudio) {
+        if ((Test-ApiMarkerContract $invalid[1] -Quiet) -eq 0) {
+            throw ('incomplete R4BASIC audio completion accepted: ' + $invalid[0])
+        }
+    }
     # Original image files are authoritative even when a serial repaint is
     # damaged or contains another copy. A valid serial copy must never mask
     # a malformed original export or a short original long-run report.
