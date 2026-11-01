@@ -14,3 +14,7 @@ SERVICE;name=WINSVC;path=C:\R4OS\SERVICES\WINSVC.R4X;args=/RUN;start=auto;enable
 SERVICE;name=EXSVC;path=C:\R4OS\SERVICES\EXSVC.R4X;args=/RUN;start=manual;enabled=yes;description=Example service
 SERVICE;name=SVCAPPD;path=C:\R4OS\SOFTWARE\TERMINAL\DIAG\SVCAPPD.R4X;args=/HOLD /ENDPOINT;start=auto;enabled=yes;description=SVCAPPD-Auto
 SERVICE;name=BADSTART;path=C:\R4OS\SOFTWARE\TERMINAL\DIAG\MISSING.R4X;start=manual;enabled=yes;description=Missing-start-test
+
+# Manual fixtures required by the complete Spectra PROGRAMLIFECYCLE profile.
+SERVICE;name=SVCEXIT0;path=C:\R4OS\SOFTWARE\TERMINAL\DIAG\SVCAPPD.R4X;args=/EXIT 0;start=manual;enabled=yes;description=Lifecycle exit 0 fixture
+SERVICE;name=SVCEXIT37;path=C:\R4OS\SOFTWARE\TERMINAL\DIAG\SVCAPPD.R4X;args=/EXIT 37;start=manual;enabled=yes;description=Lifecycle exit 37 fixture
