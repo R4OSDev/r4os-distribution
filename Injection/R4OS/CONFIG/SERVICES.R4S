@@ -14,4 +14,5 @@ SERVICE;name=RDPSVC;path=C:\R4OS\SERVICES\RDPSVC.R4X;args=/RUN;start=auto;enable
 SERVICE;name=UDPSVC;path=C:\R4OS\SERVICES\UDPSVC.R4X;args=/RUN;start=auto;enabled=yes;description=UDP socket broker service
 SERVICE;name=WINSVC;path=C:\R4OS\SERVICES\WINSVC.R4X;args=/RUN;start=auto;enabled=yes;description=Window and task state service
 SERVICE;name=UPDSVC;path=C:\R4OS\SERVICES\UPDSVC.R4X;args=/RUN;start=auto;enabled=yes;description=R4OS update service
+SERVICE;name=R4SRV;path=C:\R4OS\SERVICES\R4SRV.R4X;args=/RUN;start=auto;enabled=yes;description=R4OS server access service
 SERVICE;name=EXSVC;path=C:\R4OS\SERVICES\EXSVC.R4X;args=/RUN;start=manual;enabled=yes;description=Example service
