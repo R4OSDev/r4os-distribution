@@ -32,6 +32,14 @@ if ($env:R4OS_QEMU_CPUS) {
     }
     $cpuCount = $parsedCpuCount
 }
+$uuidArguments = @()
+if ($env:R4OS_QEMU_SYSTEM_UUID) {
+    $uuid = [guid]::Empty
+    if (-not [guid]::TryParseExact($env:R4OS_QEMU_SYSTEM_UUID, 'D', [ref]$uuid) -or $uuid -eq [guid]::Empty) {
+        throw 'R4OS_QEMU_SYSTEM_UUID must be a nonzero canonical UUID.'
+    }
+    $uuidArguments = @('-uuid', $uuid.ToString('D'))
+}
 
 function Assert-File([string]$Path, [string]$Label) {
     if (-not $Path -or -not (Test-Path -LiteralPath $Path -PathType Leaf)) {
@@ -122,20 +130,29 @@ $fatArguments = if ($fatTestDisk) {
       '-device', 'ide-hd,drive=r4fat,bus=ahci0.1')
 } else { @() }
 
+$networkMode = $env:R4OS_QEMU_NETWORK
+if ($networkMode -and $networkMode -cnotin @('none', 'virtio', 'rtl8139')) {
+    throw 'R4OS_QEMU_NETWORK must be none, virtio or rtl8139.'
+}
+$networkArguments = if ($networkMode -ceq 'virtio') {
+    @('-netdev', 'user,id=r4testnet', '-device', 'virtio-net-pci,disable-legacy=on,netdev=r4testnet')
+} elseif ($networkMode -ceq 'rtl8139') {
+    @('-netdev', 'user,id=r4testnet', '-device', 'rtl8139,netdev=r4testnet')
+} else { @('-nic', 'none') }
+
 $argumentLine = (@(
     '-readconfig', (Quote-Argument $config),
     '-cpu', $cpuModel,
     '-m', '1G',
     '-smp', ([string]$cpuCount),
     '-machine', ('accel=' + $accelerator),
-    '-nic', 'none',
     '-audiodev', (Quote-Argument $audioDevice),
     '-global', 'hda-duplex.audiodev=headless-audio',
     '-serial', (Quote-Argument ('file:' + $logPath)),
     '-display', 'none',
     '-no-reboot',
     '-name', (Quote-Argument ('R4OS test ' + $cpuCount + 'cpu'))
-) + $nvmeArguments + $fatArguments + $entropyArguments) -join ' '
+) + $networkArguments + $nvmeArguments + $fatArguments + $entropyArguments + $uuidArguments) -join ' '
 
 Write-Host ('=== QEMU headless smoke; host=' + $hostProfile.Name + '; cpus=' + $cpuCount + ' timeout ' + $timeoutSeconds + 's ===')
 Normalize-StartProcessEnvironment
