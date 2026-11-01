@@ -18,6 +18,10 @@ const bool_true = [_]u8{1};
 const bool_false = [_]u8{0};
 const default_terminal_path = "C:\\R4OS\\SOFTWARE\\TERMINAL;C:\\R4OS\\SOFTWARE\\TERMINAL\\DIAG";
 const sshd_registry_key = "SYSTEM\\Services\\SSHD";
+const server_default_ip = "138.201.253.143";
+const app_center_server_key = "SYSTEM\\Network\\R4OSServer\\AppCenter";
+const updates_server_key = "SYSTEM\\Network\\R4OSServer\\Updates";
+const benchmarks_server_key = "SYSTEM\\Network\\R4OSServer\\Benchmarks";
 
 const ValueType = enum(u16) {
     string = 1,
@@ -129,6 +133,13 @@ fn buildSystemHive(allocator: std.mem.Allocator) ![]u8 {
 
     try addString(scratch, &values, "SYSTEM\\Environment", "PATH", default_terminal_path);
     try addBool(scratch, &values, "SYSTEM\\Kernel\\Debug", "Com1DebugAfterBoot", true);
+
+    try addString(scratch, &values, app_center_server_key, "ServerIP", server_default_ip);
+    try addU32(scratch, &values, app_center_server_key, "Port", 4022);
+    try addString(scratch, &values, updates_server_key, "ServerIP", server_default_ip);
+    try addU32(scratch, &values, updates_server_key, "Port", 4023);
+    try addString(scratch, &values, benchmarks_server_key, "ServerIP", server_default_ip);
+    try addU32(scratch, &values, benchmarks_server_key, "Port", 4024);
 
     try addBool(scratch, &values, "SYSTEM\\Shell\\Taskbar\\QuickLaunch", "Enabled", true);
     try addU32(scratch, &values, "SYSTEM\\Shell\\Taskbar\\QuickLaunch", "Count", quick_launch_items.len);
