@@ -20,6 +20,7 @@ function Build-R4DistributionTools($Context,[switch]$Tests,[switch]$FontTests,[s
  $install=Get-InstallationPath $Context.workspace (Get-InstallationFields (Join-Path $Context.root 'Settings.R4S')).DEVKIT_ROOT
  $sdkContext=Get-R4SdkBuildContext $Context.sdk $Context.contract $Context.libraries $install ([IO.Path]::GetDirectoryName($Context.zig)) -Profile 'r4os-host-tools-v1'
  $Context.zig=$sdkContext.zig
+ Assert-R4SdkProjectPins $Context.sdk $Context.root
 
  $arguments=@('build','--prefix',$Context.prefix,'--cache-dir',(Join-Path $Context.output '.Cache/build'),'--global-cache-dir',(Join-Path $Context.output '.Cache/global'),('-Doptimize='+$sdkContext.data.Build.codegen.host.optimize),"--fork=$($Context.sdk)","--fork=$($Context.contract)","--fork=$($Context.libraries)")
  if($Tests){$arguments+='test'}
