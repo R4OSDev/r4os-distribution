@@ -11,7 +11,6 @@
 # R4DESK.R4X loads this file at startup. If it is missing or contains no known
 # entries, Desktop falls back to its built-in defaults.
 
-ITEM;title=R4OS Update;path=/R4OS/SOFTWARE/DESKTOP/UPDATE.R4X;class=gui;policy=gui
 SUBMENU;title=Programs;id=programs
 SUBITEM;menu=programs;title=Terminal;path=/R4OS/SOFTWARE/TERMINAL/TERMINAL.R4X;class=console;policy=console
 SUBITEM;menu=programs;title=Notepad;path=/R4OS/SOFTWARE/DESKTOP/NOTEPAD.R4X;class=gui;policy=gui
