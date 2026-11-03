@@ -138,7 +138,12 @@ function Test-R4DistributionImage($Context,[string]$Name) {
  $null=Test-R4OSInstallationImage -Image (Join-Path $out 'disk.img')
  Invoke-R4Distribution (Join-Path $Context.prefix "bin/ntfsverify$($Context.suffix)") @((Join-Path $out 'disk.img'))
 }
+function Assert-R4DistributionQemu($Context) {
+ . (Join-Path $Context.sdk 'Tools/BuildContext.ps1')
+ Assert-R4SdkBootTools -SdkRoot $Context.sdk -Qemu $Context.qemu
+}
 function Start-R4DistributionInteractive($Context,[string]$Name,[string]$Adapter,[string]$Mode) {
+ Assert-R4DistributionQemu $Context
  $null=Get-R4DistributionProfile $Context $Name
  if(!$Adapter){$Adapter='VirtioNet'}
  if($Mode -ceq 'SshDebug' -and $Name -cne 'Full'){throw 'Normal SSH debugging requires the Full profile.'}
@@ -183,6 +188,7 @@ function New-R4QuickSource($Context) {
  return $source
 }
 function Start-R4DistributionHeadless($Context,[string]$Name,[string]$Variant) {
+ Assert-R4DistributionQemu $Context
  $profile=Get-R4DistributionProfile $Context $Name
  if($Name -cne 'Test' -or $profile.TEST_OVERLAY -cne '1' -or $Variant -cnotin @('','browser','smp4','clock4','smpfail4','standard4','reference4')){throw 'Headless acceptance requires Test and four vCPUs.'}
  if($Variant -cin @('','smp4','standard4','reference4')){
@@ -235,6 +241,7 @@ function Start-R4DistributionHeadless($Context,[string]$Name,[string]$Variant) {
  }
 }
 function Start-R4DistributionBenchmark($Context,[string]$Name,[string]$Suite,[string]$Version,[string]$Cache,[int]$Count,[string]$Environment) {
+ Assert-R4DistributionQemu $Context
  $profile=Get-R4DistributionProfile $Context $Name
  if($Name -cne 'Benchmark' -or $profile.BENCHMARK_OVERLAY -cne '1'){throw 'Benchmark requires its explicit profile.'}
  $values=@{R4OS_BENCHMARK_QEMU_EXE=$Context.qemu;R4OS_BENCHMARK_QEMU_CONFIG=Join-Path $Context.root 'QEMU/benchmark.conf';R4OS_BENCHMARK_IMAGE_CREATOR=Join-Path $Context.prefix "bin/imagecreater$($Context.suffix)";

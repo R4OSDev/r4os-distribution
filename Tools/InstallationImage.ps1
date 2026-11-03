@@ -72,6 +72,10 @@ function New-R4OSInstallationImage {
     $RecoveryPackage=$selectedRecovery.path
     $suffix=if($IsWindows){'.exe'}else{''}
     $zig=Join-Path (Get-InstallationPath $devkit $settings.ZIG_ROOT) "zig$suffix"
+    . (Join-Path $sdk 'Tools/BuildContext.ps1')
+    $sdkContext=Get-R4SdkBuildContext $sdk $contract $libraries $devkit ([IO.Path]::GetDirectoryName($zig)) -Profile 'r4os-host-tools-v1'
+    $zig=$sdkContext.zig
+    Assert-R4SdkProjectPins $sdk $Root
     $prefix=Join-Path $distribution 'HostTools'
     $generatePlan=!$InputList
     if($generatePlan){$InputList=Join-Path $distribution "Profiles/$Profile/image-adds.txt"}
@@ -82,7 +86,7 @@ function New-R4OSInstallationImage {
     [IO.Directory]::CreateDirectory($OutputRoot)|Out-Null
     if(!$ToolsReady){
         Push-Location $Root
-        try{Invoke-InstallationTool $zig @('build','--prefix',$prefix,'-Doptimize=ReleaseSafe',"--fork=$sdk","--fork=$contract","--fork=$libraries")}
+        try{Invoke-InstallationTool $zig @('build','--prefix',$prefix,('-Doptimize='+$sdkContext.data.Build.codegen.host.optimize),"--fork=$sdk","--fork=$contract","--fork=$libraries")}
         finally{Pop-Location}
     }
     if($generatePlan){
