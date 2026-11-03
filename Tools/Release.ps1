@@ -290,7 +290,7 @@ function Get-RepositorySpecs {
 
     $specs = @()
     $specs += New-RepositorySpec 'Project' $Context.WorkspaceRoot 'R4OSDev/r4os-project'
-    $specs += New-RepositorySpec 'DevKit' $Context.DevKitRoot 'R4OSDev/r4os-devkit'
+    # DevKit is an installation location, not a published source component.
     $specs += New-RepositorySpec 'Contract' $Context.ContractRoot 'R4OSDev/r4os-contract'
     $specs += New-RepositorySpec 'SDK' $Context.SdkRoot 'R4OSDev/r4os-sdk'
     $specs += New-RepositorySpec 'Libraries' $Context.LibrariesRoot 'R4OSDev/r4os-libraries'
