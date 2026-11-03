@@ -11,6 +11,7 @@
 # R4DESK.R4X loads this file at startup. If it is missing or contains no known
 # entries, Desktop falls back to its built-in defaults.
 
+ITEM;title=Spectra;path=/R4OS/SOFTWARE/TERMINAL/DIAG/SPECTRA.R4X;args=/GUI;class=console;policy=gui
 SUBMENU;title=Programs;id=programs
 SUBITEM;menu=programs;title=Terminal;path=/R4OS/SOFTWARE/TERMINAL/TERMINAL.R4X;class=console;policy=console
 SUBITEM;menu=programs;title=Notepad;path=/R4OS/SOFTWARE/DESKTOP/NOTEPAD.R4X;class=gui;policy=gui
