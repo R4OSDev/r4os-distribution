@@ -613,6 +613,15 @@ function New-ReleasePreparation {
             repositories = $repositories
             tools = $tools
         }
+        . (Join-Path $Context.SdkRoot 'Tools/ProfileResolver.ps1')
+        $sdkSelection=Resolve-R4SdkComponents -SdkRoot $Context.SdkRoot -Profile 'r4os-kernel-rust-v1' -Roots @{contract=$Context.ContractRoot;libraries=$Context.LibrariesRoot}
+        $sdkData=Read-R4SdkProfiles $Context.SdkRoot
+        $sourceManifest|Add-Member -NotePropertyName sdk_profile -NotePropertyValue ([ordered]@{
+            schema=1;sdk_version=$sdkData.sdk_version;authority='SDK/Profiles/Build.json, Tools.json, Components.json';
+            profile_sources=$sdkData.hashes;kernel=$sdkSelection.profile;components=$sdkSelection.components;
+            profiles=$sdkData.Build.profiles;system_libraries=$sdkSelection.system_libraries;
+            sdk_release=('https://github.com/R4OSDev/r4os-sdk/releases/tag/v'+$sdkData.sdk_version)
+        })
         Write-JsonFile -Path $sourceManifestPath -Value $sourceManifest
 
         $zipPaths = @()
