@@ -3,6 +3,9 @@ function Start-R4SpectraStandard($Context,[switch]$SelfReference) {
  . (Join-Path $PSScriptRoot 'Qemu-HostProfile.ps1')
  . (Join-Path $PSScriptRoot 'Qemu-Media.ps1')
  . (Join-Path $PSScriptRoot 'Test-Retention.ps1')
+ . (Join-Path $Context.sdk 'Tools/ProfileData.ps1')
+ $sdkPolicy=Read-R4SdkProfiles $Context.sdk
+ $modulePolicy=$sdkPolicy.Build.codegen.module
  $spectra=Join-Path $Context.repositories 'Diagnostics/Spectra'
  . (Join-Path $spectra 'Tools/StandardBenchmark.ps1')
  $reference=$null
@@ -101,7 +104,7 @@ function Start-R4SpectraStandard($Context,[switch]$SelfReference) {
   $buildOptions=if($item[0] -ceq 'kernel'){
    if(!$kernelBuild){throw 'The exact kernel compiler/profile record was not captured.'}
    [ordered]@{languages=$kernelBuild.languages;compilers=$kernelBuild.compilers;profiles=$kernelBuild.profiles;options=$kernelBuild.options;configuration_sha256=$kernelBuild.configuration_sha256;metrics=$null;metrics_source='guest-header'}
-  }else{@{optimize='ReleaseSmall';red_zone=$false}}
+  }else{[ordered]@{optimize=$modulePolicy.optimization[$modulePolicy.optimization.default];red_zone=$modulePolicy.red_zone}}
   $artifacts.Add([ordered]@{component=$item[0];commit=$commit;dirty=$dirty;sha256=(Get-FileHash -LiteralPath $file).Hash.ToLowerInvariant();build_options=$buildOptions})
  }
  $artifacts.Add([ordered]@{component='fresh-image';sha256=(Get-Content -Raw -LiteralPath (Join-Path $run 'source.json')|ConvertFrom-Json).sourceSha256;image_method='r4os-gpt-1';boot_config_sha256=(Get-FileHash $configPath).Hash.ToLowerInvariant();autoexec_sha256=(Get-FileHash $autoexec).Hash.ToLowerInvariant()})
