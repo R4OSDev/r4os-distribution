@@ -16,7 +16,12 @@ function Get-R4DistributionContext([string]$Root) {
   legal=Join-Path $Root 'Injection/R4OS/LICENSES';logs=Join-Path $out 'Logs'}
 }
 function Build-R4DistributionTools($Context,[switch]$Tests,[switch]$FontTests,[string]$LegacyFontFixtures='') {
- $arguments=@('build','--prefix',$Context.prefix,'--cache-dir',(Join-Path $Context.output '.Cache/build'),'--global-cache-dir',(Join-Path $Context.output '.Cache/global'),'-Doptimize=ReleaseSafe',"--fork=$($Context.sdk)","--fork=$($Context.contract)","--fork=$($Context.libraries)")
+ . (Join-Path $Context.sdk 'Tools/BuildContext.ps1')
+ $install=Get-InstallationPath $Context.workspace (Get-InstallationFields (Join-Path $Context.root 'Settings.R4S')).DEVKIT_ROOT
+ $sdkContext=Get-R4SdkBuildContext $Context.sdk $Context.contract $Context.libraries $install ([IO.Path]::GetDirectoryName($Context.zig)) -Profile 'r4os-host-tools-v1'
+ $Context.zig=$sdkContext.zig
+
+ $arguments=@('build','--prefix',$Context.prefix,'--cache-dir',(Join-Path $Context.output '.Cache/build'),'--global-cache-dir',(Join-Path $Context.output '.Cache/global'),('-Doptimize='+$sdkContext.data.Build.codegen.host.optimize),"--fork=$($Context.sdk)","--fork=$($Context.contract)","--fork=$($Context.libraries)")
  if($Tests){$arguments+='test'}
  if($FontTests){
   if($Tests){throw 'Select either all distribution tests or focused font tests.'}
