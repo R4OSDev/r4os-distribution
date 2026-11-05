@@ -1,3 +1,5 @@
+﻿# PUBLIC richtet installationsbezogenen Lesezugang automatisch ueber geprueftes TLS ein.
+# LAN und angepasste Ziele behalten ihre lokal eingerichteten Zugangsdaten.
 R4S_FORMAT=1
 SCHEMA=R4OS_SERVER_CLIENT
 VERSION=1
