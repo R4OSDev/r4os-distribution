@@ -21,6 +21,7 @@ SUBITEM;menu=programs;title=R4Synth;path=/R4OS/SOFTWARE/TERMINAL/SYNTH.R4X;args=
 SUBITEM;menu=programs;title=Device Manager;path=/R4OS/SOFTWARE/DESKTOP/DEVMGR.R4X;class=gui;policy=gui
 SUBITEM;menu=programs;title=R4Code;path=/SOFTWARE/R4CODE/R4CODE.R4X;class=gui;policy=gui
 CHILDMENU;menu=programs;title=Internet;id=internet
+SUBITEM;menu=programs;title=Portex;path=/R4OS/SOFTWARE/DESKTOP/PORTEX.R4X;class=gui;policy=gui
 SUBITEM;menu=internet;title=Klickifax;path=/R4OS/SOFTWARE/INTERNET/KLICKIFAX.R4X;class=gui;policy=gui
 ACTION;title=Terminal Mode;action=terminal_mode
 ACTION;title=Run...;action=run
