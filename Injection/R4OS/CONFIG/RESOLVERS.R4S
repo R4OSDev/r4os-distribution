@@ -1,0 +1,7 @@
+﻿# Geordnete Resolver fuer die neue familienfaehige DNS-API.
+# Ohne SERVER-Eintraege gilt der bisherige konfigurierte IPv4-DNS-Server.
+# Maximal 8 eindeutige Server, gesamte Datei maximal 4096 Bytes.
+# Beispiele (Dokumentationsadressen; nur passende lokale Ziele eintragen):
+# SERVER=192.0.2.53
+# SERVER=[2001:db8::53]:5353
+# SERVER=[fe80::53%1]
