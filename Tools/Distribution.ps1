@@ -110,6 +110,7 @@ function New-R4DistributionPlan($Context,[string]$Name,[string]$Variant='',[stri
  [IO.File]::WriteAllLines($sourcePlan,$sourceEntries,[Text.UTF8Encoding]::new($false))
  $arguments+=@('--plan',$sourcePlan)
  foreach($tree in @(@('sdk','Shared/C/include','Include/C'),@('sdk','Shared/C/src','Startup/C'),@('sdk','r4os/linker','Linker'),@('sdk','Templates','Templates'),@('sdk','BuildProfiles','BuildProfiles'),@('sdk','Toolchains','Toolchains'),
+   @('contract','Generated/SDK/C/include','Include/C'),@('contract','Generated/Generation2/C/include','Include/C'),
    @('contract','ABI','Contract/ABI'),@('contract','API','Contract/API'),@('contract','Generated','Contract/Generated'),@('contract','Module','Contract/Module'))){
   $arguments+=@('--tree',((Join-Path $Context[$tree[0]] $tree[1])+'|/R4OS/SDK/'+$tree[2]))
  }
