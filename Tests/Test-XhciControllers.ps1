@@ -228,6 +228,16 @@ try {
     try{
         $bootHash=[InstallationImageCheck]::Hash($check.Volumes['BOOT'].ReadFile('boot/r4os.elf'))
         if($bootHash -cne $kernelHash){throw 'Actual guest BOOT kernel differs from the built artifact.'}
+        $bootPreload=$check.Volumes['BOOT'].ReadFile('boot/preload.r4i')
+        $bootPreloadHash=[InstallationImageCheck]::Hash($bootPreload)
+        $preloadPath=Join-Path $workspace 'Artifacts/Distribution/Generated/PRELOAD.R4I'
+        if($bootPreloadHash -cne (Get-FileHash -LiteralPath $preloadPath).Hash.ToLowerInvariant()){throw 'Actual BOOT PRELOAD differs from the current image plan.'}
+        $activationOwner=Join-Path $workspace 'Artifacts/Modules/XHCI/XHCI.R4D'
+        $ownerBytes=[IO.File]::ReadAllBytes($activationOwner)
+        $ownerOccurrences=[regex]::Matches([Convert]::ToHexString($bootPreload),[Convert]::ToHexString($ownerBytes)).Count
+        if($ownerOccurrences -ne 1){throw 'Actual BOOT PRELOAD must contain the whole current XHCI activation owner exactly once.'}
+        $ownerHash=[InstallationImageCheck]::Hash($ownerBytes)
+        $ownerVersion=Read-Version (Join-Path $workspace 'Repositories/Drivers/XHCI/module.R4MF') 'VERSION'
     }finally{$check.Dispose()}
     $payloads=@()
     foreach($i in 0..1){
@@ -421,7 +431,7 @@ try {
         if($_.Exception.Message -notmatch 'Client failed \(255\)'){throw}
     }
     if(!$process.WaitForExit(30000) -or $process.ExitCode -ne 0){throw 'USB guest did not power off normally.'}
-    $result=[ordered]@{schema=1;mode=$Mode;release=$release;kernelVersion=$kernelVersion;kernelSha256=$kernelHash;actualBootKernelSha256=$bootHash;cpus=4;controllersDetected=3;controllersStarted=$activeRows.Count;pciRecords=$controllerRows;ps2Disabled=$true;inputBefore=$beforeInput;inputAfter=$afterInput;media=$copies;parallel=$parallel;inputWork=$inputWork;inputLifetime=$inputLifetime;work=$work;workOnly=[bool]$WorkOnly;irqFallback=$fallback;hotplug=$hotplug;fault=$fault;normalShutdown=$true;seconds=$watch.Elapsed.TotalSeconds;scope='One bounded local KVM/SMP4 HID/two-media and PCI-diagnosis acceptance; no native-hardware qualification or general performance claim.'}
+    $result=[ordered]@{schema=1;mode=$Mode;release=$release;kernelVersion=$kernelVersion;kernelSha256=$kernelHash;actualBootKernelSha256=$bootHash;actualBootPreloadSha256=$bootPreloadHash;activationOwner=@{version=$ownerVersion;sha256=$ownerHash;bytes=$ownerBytes.Length;wholeBootOccurrences=$ownerOccurrences};cpus=4;controllersDetected=3;controllersStarted=$activeRows.Count;pciRecords=$controllerRows;ps2Disabled=$true;inputBefore=$beforeInput;inputAfter=$afterInput;media=$copies;parallel=$parallel;inputWork=$inputWork;inputLifetime=$inputLifetime;work=$work;workOnly=[bool]$WorkOnly;irqFallback=$fallback;hotplug=$hotplug;fault=$fault;normalShutdown=$true;seconds=$watch.Elapsed.TotalSeconds;scope='One bounded local KVM/SMP4 HID/two-media and PCI-diagnosis acceptance; no native-hardware qualification or general performance claim.'}
     [IO.File]::WriteAllText((Join-Path $OutputRoot 'result.json'),($result|ConvertTo-Json -Depth 12)+"`n",$utf8)
     $success=$true
     Write-Host "USB $Mode PASS: $($activeRows.Count)/3 active controllers, real HID, two hash-verified media, regular shutdown."
