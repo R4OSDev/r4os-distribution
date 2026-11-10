@@ -12,8 +12,8 @@
             .hash = "r4os_sdk-0.64.152-NnPzAlVG7QFcgjmjZgTt1ZqkrCeYwUlyG8bzrmPwt53e",
         },
         .r4os_libraries = .{
-            .url = "https://github.com/R4OSDev/r4os-libraries/archive/340f5400319afda7282c5945209863b977848c47.tar.gz",
-            .hash = "r4os_libraries-0.64.54-dH4fNSXHeQMLL9glOGBbH5Qf__BWC73WRpGQJ2g1fCfp",
+            .url = "https://github.com/R4OSDev/r4os-libraries/archive/2ffdfc11984d18afdf41c8347ac93e62b196b3fb.tar.gz",
+            .hash = "r4os_libraries-0.64.55-dH4fNXuPewOP-RCIlChRDcLcrvo4gsVKY44uAD4iCPK2",
         },
     },
     .paths = .{
