@@ -1,4 +1,39 @@
 # One bounded phase of the existing SMP4 runner. Spectra owns results/scoring.
+function Get-R4SpectraExportInput([string]$Disk,[long]$SystemOffset,[string]$Serial,[string]$ContextPath,[string]$Evidence) {
+ $text=[IO.File]::ReadAllText($Serial)
+ $receipt=[regex]::Matches($text,'(?m)^SPECTRA STANDARD run: C:\\R4OS\\DATA\\BENCHMARKS\\([0-9a-f-]{36})\\RUN\.JSON\r?\nSPECTRA STANDARD SHA256: ([0-9a-f]{64})\r?$')
+ if($receipt.Count -eq 0){return $Serial}
+ if($receipt.Count -ne 1){throw 'Ambiguous Spectra guest export receipt.'}
+ $guestId=([guid]::ParseExact($receipt[0].Groups[1].Value,'D')).ToString()
+ $advertisedHash=$receipt[0].Groups[2].Value
+ if(!('R4GuestNtfs' -as [type])){Add-Type -Path (Join-Path $PSScriptRoot 'ReadGuestFile.cs')}
+ $directory='/R4OS/DATA/BENCHMARKS/'+$guestId
+ $guestBytes=[R4GuestNtfs]::ReadFile($Disk,$SystemOffset,$directory+'/RUN.JSON',512KB)
+ $guestHash=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($guestBytes)).ToLowerInvariant()
+ if($guestHash -cne $advertisedHash){throw 'Spectra guest RUN.JSON differs from its published digest.'}
+ $guest=[Text.Encoding]::UTF8.GetString($guestBytes)|ConvertFrom-Json -AsHashtable
+ $context=Get-Content -Raw -LiteralPath $ContextPath|ConvertFrom-Json -AsHashtable
+ if($guest.run_id -cne $guestId -or $guest.status -cne 'completed' -or
+    $guest.release_version -cne $context.release_version -or $guest.kernel_version -cne $context.kernel_version -or
+    $guest.environment.vcpus -cne $context.environment.vcpus){throw 'Spectra guest export differs from the measured context.'}
+ $records=[R4GuestNtfs]::ReadFile($Disk,$SystemOffset,$directory+'/RECORDS.NDJSON',256KB)
+ $recordsPath=Join-Path $Evidence 'guest-records.ndjson'
+ [IO.File]::WriteAllBytes($recordsPath,$records)
+ $run=ConvertTo-SpectraRun $recordsPath $context
+ if($run.status -cne 'completed' -or $run.spectra_version -cne $guest.spectra_version -or
+    $run.instrumentation_mode -cne $guest.instrumentation_mode -or
+    (Get-SpectraCanonical $run.samples) -cne (Get-SpectraCanonical $guest.samples) -or
+    (Get-SpectraCanonical $run.metrics) -cne (Get-SpectraCanonical $guest.metrics)){
+  throw 'Spectra persisted records differ from the verified guest RUN.JSON.'
+ }
+ [IO.File]::WriteAllBytes((Join-Path $Evidence 'guest-run.json'),$guestBytes)
+ $recordHash=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($records)).ToLowerInvariant()
+ $proof=[ordered]@{guest_run_id=$guestId;guest_run_sha256=$guestHash;guest_records_sha256=$recordHash;host_run_id=$context.run_id}
+ [IO.File]::WriteAllText((Join-Path $Evidence 'guest-readback.json'),(($proof|ConvertTo-Json)+[char]10),[Text.UTF8Encoding]::new($false))
+ Write-Host ('Spectra original guest records verified from NTFS: '+$guestId)
+ return $recordsPath
+}
+
 function Start-R4SpectraStandard($Context,[switch]$SelfReference) {
  . (Join-Path $PSScriptRoot 'Qemu-HostProfile.ps1')
  . (Join-Path $PSScriptRoot 'Qemu-Media.ps1')
@@ -121,7 +156,14 @@ function Start-R4SpectraStandard($Context,[switch]$SelfReference) {
   $metadata.finished_at_utc=[DateTime]::UtcNow.ToString('o');foreach($key in $saved.Keys){[Environment]::SetEnvironmentVariable($key,$saved[$key])}
   [IO.File]::WriteAllText($contextPath,($metadata|ConvertTo-Json -Depth 32),[Text.UTF8Encoding]::new($false))
  }
- $arguments=@('-NoProfile','-File',(Join-Path $spectra 'Tools/Export-StandardBenchmark.ps1'),'-GuestRecords',$serial,'-Context',$contextPath,'-Output',$outputPath)
+ $guestRecords=$serial
+ if($code -eq 0){
+  try{
+   $systemOffset=[long]$built.installation.partitions.SYSTEM.firstLba*512
+   $guestRecords=Get-R4SpectraExportInput (Join-Path $run 'disk.img') $systemOffset $serial $contextPath $evidence
+  }catch{Write-Warning ('Spectra NTFS readback could not be used: '+$_.Exception.Message)}
+ }
+ $arguments=@('-NoProfile','-File',(Join-Path $spectra 'Tools/Export-StandardBenchmark.ps1'),'-GuestRecords',$guestRecords,'-Context',$contextPath,'-Output',$outputPath)
  if($SelfReference){$arguments+='-SelfReference'}elseif(Test-Path -LiteralPath $reference){$arguments+=@('-Reference',$reference)}
  & pwsh @arguments|Out-Host;$exportCode=$LASTEXITCODE
  if($code -ne 0 -or $exportCode -ne 0){throw "Spectra standard phase failed; QEMU=$code export=$exportCode; evidence=$evidence"}
