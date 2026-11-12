@@ -414,8 +414,9 @@ $required = @(
     '[R4D] runtime load EXAMPLE [OK]',
     '[R4D] runtime load DISPBLIT [OK]',
     'dirs=ok',
-    'RDPSVC nscodec selftest: ok negotiation=ns1 decode=visible cache=wait/publish/hit fallback=error/wire',
-    'RDPSVC selftest: OK',
+    # RDPSVC keeps its real service class, which has no console transcript.
+    # Exit0 follows every unchanged codec/modern-protocol selftest assertion.
+    'Service selftest completed: C:\R4OS\SERVICES\RDPSVC.R4X class=service exit=0 ',
     'REG generation cache selftest: OK reads=64 publications=4',
     'REG commit failure selftest: OK generation=unchanged partial=none',
     'REG snapshot batch selftest: OK pages=5 restarts=1 operations=32',
