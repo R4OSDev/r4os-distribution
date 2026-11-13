@@ -4,6 +4,7 @@ if(-not ('R4OS.Distribution.QemuMediaCopy' -as [type])){
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using Microsoft.Win32.SafeHandles;
 namespace R4OS.Distribution {
  public static class QemuMediaCopy {
@@ -12,17 +13,24 @@ namespace R4OS.Distribution {
    IntPtr input, uint inputBytes, IntPtr output, uint outputBytes,
    out uint returned, IntPtr overlapped);
   public static void Copy(FileStream source, FileStream destination) {
+   CopyCore(source, destination, null);
+  }
+  public static string CopyAndHash(FileStream source, FileStream destination) {
+   using (var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256)) {
+    CopyCore(source, destination, hash);
+    return Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
+   }
+  }
+  private static void CopyCore(FileStream source, FileStream destination, IncrementalHash hash) {
    // Linux creates holes through seek; Windows first needs FSCTL_SET_SPARSE.
    // Filesystems without sparse support keep the previous ordinary copy.
-   if (OperatingSystem.IsWindows() && !DeviceIoControl(destination.SafeFileHandle,
-       0x000900C4, IntPtr.Zero, 0, IntPtr.Zero, 0, out _, IntPtr.Zero)) {
-    source.CopyTo(destination);
-    return;
-   }
+   bool sparse = !OperatingSystem.IsWindows() || DeviceIoControl(destination.SafeFileHandle,
+       0x000900C4, IntPtr.Zero, 0, IntPtr.Zero, 0, out _, IntPtr.Zero);
    var buffer = new byte[1024 * 1024];
    int count;
    while ((count = source.Read(buffer, 0, buffer.Length)) != 0) {
-    if (buffer.AsSpan(0, count).IndexOfAnyExcept((byte)0) < 0)
+    hash?.AppendData(buffer, 0, count);
+    if (sparse && buffer.AsSpan(0, count).IndexOfAnyExcept((byte)0) < 0)
      destination.Seek(count, SeekOrigin.Current);
     else destination.Write(buffer, 0, count);
    }

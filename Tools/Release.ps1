@@ -998,6 +998,45 @@ function Invoke-ReleaseSelfTest {
             throw 'Tool provenance self-test failed.'
         }
 
+        . (Join-Path $PSScriptRoot 'ReleasePackage.ps1')
+        foreach ($kind in @('holes', 'zero', 'empty')) {
+            $copySource = Join-Path $tempRoot "$kind-source.img"
+            $copyTarget = Join-Path $tempRoot "$kind-copy.img"
+            $stream = [IO.File]::Create($copySource)
+            try {
+                if ($kind -cne 'empty') { $stream.SetLength(4MB + 137) }
+                if ($kind -ceq 'holes') {
+                    foreach ($position in @(0, (1MB - 1), (2MB + 17))) {
+                        $stream.Position = $position
+                        $stream.WriteByte(73)
+                    }
+                }
+            } finally { $stream.Dispose() }
+            $expectedHash = Get-Sha256 $copySource
+            Copy-R4ReleaseImage $copySource $copyTarget $expectedHash
+            if ((Get-Sha256 $copyTarget) -cne $expectedHash -or
+                (Get-Item $copyTarget).Length -ne (Get-Item $copySource).Length -or
+                (Get-Sha256 $copySource) -cne $expectedHash) {
+                throw 'Release copy data, trailing length or source preservation failed.'
+            }
+            if ($IsLinux -and $kind -cne 'empty') {
+                $blocks = & stat --format=%b -- $copyTarget
+                if ($LASTEXITCODE -ne 0 -or ([long]$blocks * 512) -ge 3MB) {
+                    throw 'Release copy allocated its empty ranges.'
+                }
+            }
+            $existingRejected = $false
+            try { Copy-R4ReleaseImage $copySource $copyTarget $expectedHash }
+            catch { $existingRejected = $true }
+            if (!$existingRejected -or (Get-Sha256 $copyTarget) -cne $expectedHash) {
+                throw 'Release copy overwrote an existing destination.'
+            }
+            $hashRejected = $false
+            try { Copy-R4ReleaseImage $copySource (Join-Path $tempRoot "$kind-wrong.img") ('0' * 64) }
+            catch { $hashRejected = $true }
+            if (!$hashRejected) { throw 'Release copy accepted a wrong source seal.' }
+        }
+
         $zipPath = Join-Path $tempRoot 'Package.zip'
         New-ZipArchive -SourceDirectory $packageRoot -DestinationPath $zipPath
         if (-not (Test-Path -LiteralPath $zipPath -PathType Leaf)) {

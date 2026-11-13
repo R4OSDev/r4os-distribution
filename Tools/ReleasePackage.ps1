@@ -24,12 +24,12 @@ public static class R4ReleaseStreams {
 
 function Copy-R4ReleaseImage {
     param([string]$Source,[string]$Destination,[string]$ExpectedSha256)
-    Initialize-R4ReleaseStreams
+    . (Join-Path $PSScriptRoot 'Qemu-Media.ps1')
     $inputStream=[IO.File]::Open($Source,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
     try {
         $outputStream=[IO.File]::Open($Destination,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
         try {
-            $digest=[R4ReleaseStreams]::CopyAndHash($inputStream,$outputStream)
+            $digest=[R4OS.Distribution.QemuMediaCopy]::CopyAndHash($inputStream,$outputStream)
             if($digest -cne $ExpectedSha256){throw 'The canonical release image changed after creation.'}
             $outputStream.Flush($true)
         } finally {$outputStream.Dispose()}
