@@ -2,8 +2,9 @@
   "schema": 1,
   "product": "r4os-recovery",
   "architecture": "x86_64",
-  "status": "published",
+  "status": "retired",
   "version": "0.1.68",
   "releaseId": 435492172,
-  "sha256": "24832b1f5ba112cab0790901cdc9e5e69c39ced4f3da6f514604b9384d28dac5"
+  "sha256": "24832b1f5ba112cab0790901cdc9e5e69c39ced4f3da6f514604b9384d28dac5",
+  "retirementReason": "Recovery 0.1.68 contains generation1 platform consumers. A qualified published replacement is required; technical builds must select an explicit current Recovery candidate."
 }

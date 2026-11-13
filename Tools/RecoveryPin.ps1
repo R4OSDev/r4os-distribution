@@ -9,6 +9,9 @@ function Resolve-R4RecoveryPackage {
   return [ordered]@{path=$path;technical=$true;sha256=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant();pin=$null}
  }
  $pin=Get-Content -Raw -LiteralPath (Join-Path $DistributionRoot 'RecoveryPin.json')|ConvertFrom-Json -AsHashtable
+ if($pin.schema -eq 1 -and $pin.product -ceq 'r4os-recovery' -and $pin.architecture -ceq 'x86_64' -and $pin.status -ceq 'retired'){
+  throw "Published Recovery $($pin.version) is retired because it contains old platform consumers. Configure a qualified published replacement; technical checks require an explicit current -RecoveryCandidate or R4OS_RECOVERY_CANDIDATE."
+ }
  if($pin.schema -ne 1 -or $pin.product -cne 'r4os-recovery' -or $pin.architecture -cne 'x86_64' -or $pin.status -cne 'published'){
   throw 'No published Recovery pin is configured. Technical checks require an explicit -RecoveryCandidate or R4OS_RECOVERY_CANDIDATE.'
  }

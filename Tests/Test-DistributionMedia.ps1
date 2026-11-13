@@ -19,6 +19,8 @@ try {
  $pinRoot=Join-Path $work 'pin';[IO.Directory]::CreateDirectory($pinRoot)|Out-Null
  Json (Join-Path $pinRoot 'RecoveryPin.json') @{schema=1;product='r4os-recovery';architecture='x86_64';status='unconfigured'}
  Reject {Resolve-R4RecoveryPackage $pinRoot $pinRoot} 'unconfigured production pin'
+ Json (Join-Path $pinRoot 'RecoveryPin.json') @{schema=1;product='r4os-recovery';architecture='x86_64';status='retired';version='0.1.68'}
+ Reject {Resolve-R4RecoveryPackage $pinRoot $pinRoot} 'retired old-platform production pin'
  if(!$RecoveryCandidate){throw 'Pass the exact technical Recovery ZIP used for these four images.'}
  $candidate=Resolve-R4RecoveryPackage $root $pinRoot $RecoveryCandidate
  if(!$candidate.technical){throw 'Candidate lost its technical provenance.'}
