@@ -15,7 +15,9 @@ function Get-R4SpectraExportInput([string]$Disk,[long]$SystemOffset,[string]$Ser
  $context=Get-Content -Raw -LiteralPath $ContextPath|ConvertFrom-Json -AsHashtable
  if($guest.run_id -cne $guestId -or $guest.status -cne 'completed' -or
     $guest.release_version -cne $context.release_version -or $guest.kernel_version -cne $context.kernel_version -or
-    $guest.environment.vcpus -cne $context.environment.vcpus){throw 'Spectra guest export differs from the measured context.'}
+    $guest.environment.vcpus -cne $context.environment.vcpus -or
+    $guest.comparison_key -cne $context.comparison_key -or
+    $guest.environment.workloads.lifecycle_fixture_sha256 -cne $context.environment.workloads.lifecycle_fixture_sha256){throw 'Spectra guest export differs from the measured context.'}
  $records=[R4GuestNtfs]::ReadFile($Disk,$SystemOffset,$directory+'/RECORDS.NDJSON',256KB)
  $recordsPath=Join-Path $Evidence 'guest-records.ndjson'
  [IO.File]::WriteAllBytes($recordsPath,$records)
