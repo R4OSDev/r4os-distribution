@@ -8,8 +8,8 @@
         // SDK, Contract and Libraries checkouts from Settings.R4S as local
         // Zig forks.
         .r4os_sdk = .{
-            .url = "https://github.com/R4OSDev/r4os-sdk/archive/cfa45d65970370d4d908dbe48a3879ad5755d419.tar.gz",
-            .hash = "r4os_sdk-0.64.222-NnPzArkxGQKbVou4Iu0GxNb414RZZv0LNEpBrLjvLggc",
+            .url = "https://github.com/R4OSDev/r4os-sdk/archive/ed826d7e7e140255133788ea65527fbadeedc105.tar.gz",
+            .hash = "r4os_sdk-0.64.223-NnPzAmBYGQIPrezw5Q9S__C6VB17PIdkxP7sO0E4i93X",
         },
         .r4os_libraries = .{
             .url = "https://github.com/R4OSDev/r4os-libraries/archive/b612869f9115033d4f6825095a50647279f3be46.tar.gz",
