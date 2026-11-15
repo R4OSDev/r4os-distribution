@@ -15,11 +15,11 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $historySchema = 'r4os.benchmark.metric'
-$historySchemaVersion = 1
+$historySchemaVersion = 2
 $runSchema = 'r4os.benchmark.run'
 $runSchemaVersion = 2
 $perfdiagSchema = 'r4os.perfdiag.ndjson'
-$perfdiagSchemaVersion = 7
+$perfdiagSchemaVersion = 8
 $standardEnvironmentId = 'r4os-q35-haswell-1vcpu-1g-tcg-v1'
 $currentEnvironmentId = 'r4os-q35-haswell-smp4-1g-tcg-gpt1-v1'
 $legacyEnvironmentId = 'legacy-qemu-1vcpu-unversioned-v1'
@@ -124,7 +124,7 @@ function Get-NearestRank([object[]]$Sorted, [int]$Percent) {
     return $Sorted[$rank - 1]
 }
 
-function Get-Distribution([object[]]$Values) {
+function Get-Distribution([object[]]$Values, [switch]$LegacyTail) {
     if ($Values.Count -lt 3 -or $Values.Count -gt 20) {
         throw ('A metric needs 3..20 raw samples, got ' + $Values.Count + '.')
     }
@@ -138,11 +138,17 @@ function Get-Distribution([object[]]$Values) {
         $sum += $number
     }
     $sorted = @($normalized.ToArray() | Sort-Object)
+    $p95 = Get-NearestRank $sorted 95
+    $p99 = Get-NearestRank $sorted 99
+    if (-not $LegacyTail) {
+        if ($sorted.Count -lt 20 -or $p95 -eq $sorted[$sorted.Count - 1]) { $p95 = $null }
+        if ($sorted.Count -lt 100 -or $p99 -eq $sorted[$sorted.Count - 1]) { $p99 = $null }
+    }
     return [pscustomobject]@{
         min = $sorted[0]
         p50 = Get-NearestRank $sorted 50
-        p95 = Get-NearestRank $sorted 95
-        p99 = Get-NearestRank $sorted 99
+        p95 = $p95
+        p99 = $p99
         max = $sorted[$sorted.Count - 1]
         mean = [Math]::Floor($sum / $sorted.Count)
     }
@@ -152,6 +158,14 @@ function Assert-SameNumber($Actual, $Expected, [string]$Label) {
     Assert-NonNegativeNumber $Actual $Label
     if ([decimal]$Actual -ne [decimal]$Expected) {
         throw ($Label + ' does not match raw samples: expected ' + $Expected + ', got ' + $Actual + '.')
+    }
+}
+
+function Assert-SameQuantile($Actual, $Expected, [string]$Label) {
+    if ($null -eq $Expected) {
+        if ($null -ne $Actual) { throw ($Label + ' must be null for an unresolved or maximum-equal tail rank.') }
+    } else {
+        Assert-SameNumber $Actual $Expected $Label
     }
 }
 
@@ -206,7 +220,7 @@ function Assert-MetricRecord($Record) {
         if ($allowedRecordFields -notcontains $field) { throw ('Metric record has unknown field ' + $field + '.') }
     }
 
-    if ($Record.schema -ne $historySchema -or [int]$Record.schema_version -ne $historySchemaVersion) {
+    if ($Record.schema -ne $historySchema -or [int]$Record.schema_version -notin @(1, $historySchemaVersion)) {
         throw 'Metric record has an unsupported schema.'
     }
     Assert-NonEmptyString $Record.run_id 'run_id' '^[a-z0-9][a-z0-9._-]+$'
@@ -228,9 +242,13 @@ function Assert-MetricRecord($Record) {
         throw ('Metric catalog mismatch for ' + $Record.metric + '.')
     }
     $samples = @($Record.samples)
-    $distribution = Get-Distribution $samples
-    foreach ($field in @('min', 'p50', 'p95', 'p99', 'max', 'mean')) {
+    # Existing schema1 rows retain their exact numeric nearest-rank contract.
+    $distribution = Get-Distribution $samples -LegacyTail:([int]$Record.schema_version -eq 1)
+    foreach ($field in @('min', 'p50', 'max', 'mean')) {
         Assert-SameNumber $Record.$field $distribution.$field $field
+    }
+    foreach ($field in @('p95', 'p99')) {
+        Assert-SameQuantile (Get-RequiredProperty $Record $field 'metric') $distribution.$field $field
     }
 }
 
@@ -389,9 +407,14 @@ function Assert-SourceDistribution($Distribution, [object[]]$Samples, [string]$E
         throw ('Unexpected source unit: expected ' + $ExpectedUnit + ', got ' + $Distribution.unit + '.')
     }
     if ([int]$Distribution.count -ne $Samples.Count) { throw 'Source distribution count does not match samples.' }
-    $expected = Get-Distribution $Samples
-    foreach ($field in @('min', 'p50', 'p95', 'p99', 'max', 'mean')) {
+    # Historical schema7 source reports are verified before normalization to
+    # new schema2 history rows; their source records are never relabelled.
+    $expected = Get-Distribution $Samples -LegacyTail:([int]$Distribution.schema_version -eq 7)
+    foreach ($field in @('min', 'p50', 'max', 'mean')) {
         Assert-SameNumber $Distribution.$field $expected.$field ('source.' + $field)
+    }
+    foreach ($field in @('p95', 'p99')) {
+        Assert-SameQuantile (Get-RequiredProperty $Distribution $field 'source distribution') $expected.$field ('source.' + $field)
     }
 }
 
@@ -551,8 +574,10 @@ function Get-MetricRecordsFromRunResult($Result) {
 
     $records = @($Result.records)
     if ($records.Count -eq 0) { throw 'Benchmark result contains no machine records.' }
+    $sourceVersions = @($records | ForEach-Object { Get-RequiredProperty $_ 'schema_version' 'source record' } | Sort-Object -Unique)
+    if ($sourceVersions.Count -ne 1) { throw 'Benchmark result mixes PERFDIAG schema versions.' }
     foreach ($record in $records) {
-        if ($record.schema -ne $perfdiagSchema -or [int]$record.schema_version -ne $perfdiagSchemaVersion) {
+        if ($record.schema -ne $perfdiagSchema -or [int]$record.schema_version -notin @(7, $perfdiagSchemaVersion)) {
             throw 'Benchmark result contains an unsupported PERFDIAG record.'
         }
     }
@@ -814,7 +839,9 @@ function New-SelfTestRunCase($Fixture, [string]$SuiteName, [string]$WorkloadName
     $case.request.workload = $WorkloadName
     $run = @($case.records | Where-Object { $_.type -eq 'run' })[0]
     $run.benchmark = $WorkloadName
+    $run.schema_version = $perfdiagSchemaVersion
     $check = @($case.records | Where-Object { $_.type -eq 'check' })[0]
+    $check.schema_version = $perfdiagSchemaVersion
     $case.records = @($run, $check) + @($PayloadRecords)
     return $case
 }
@@ -840,6 +867,39 @@ function Invoke-SelfTest {
         $currentFixture.environment.vcpu=4
         $currentMetrics=@(Get-MetricRecordsFromRunResult $currentFixture)
         if($currentMetrics.Count -ne 1 -or $currentMetrics[0].environment_id -cne $currentEnvironmentId -or $metrics[0].environment_id -cne $standardEnvironmentId){throw 'Historical and GPT/SMP4 environments were mixed.'}
+
+        if ($null -ne $metrics[0].p95 -or $null -ne $metrics[0].p99 -or $metrics[0].schema_version -ne 2) { throw 'Legacy source was not normalized to nullable history tails.' }
+        $legacyRow = ($metrics[0] | ConvertTo-Json -Depth 8 | ConvertFrom-Json)
+        $legacyRow.schema_version = 1
+        $legacyTails = Get-Distribution @($legacyRow.samples) -LegacyTail
+        $legacyRow.p95 = $legacyTails.p95; $legacyRow.p99 = $legacyTails.p99
+        Assert-MetricRecord $legacyRow
+        $newFixture = ($fixture | ConvertTo-Json -Depth 16 | ConvertFrom-Json)
+        foreach ($record in $newFixture.records) { $record.schema_version = $perfdiagSchemaVersion }
+        $newTail = @($newFixture.records | Where-Object { $_.type -eq 'clock_distribution' })[0]
+        $newTail.p95 = $null; $newTail.p99 = $null
+        $newMetrics = @(Get-MetricRecordsFromRunResult $newFixture)
+        if ($null -ne $newMetrics[0].p95 -or $null -ne $newMetrics[0].p99) { throw 'Small schema8 tails must remain null.' }
+        $badTail = ($newFixture | ConvertTo-Json -Depth 16 | ConvertFrom-Json)
+        ($badTail.records | Where-Object { $_.type -eq 'clock_distribution' }).p95 = $legacyTails.p95
+        Assert-Throws { Get-MetricRecordsFromRunResult $badTail } 'small numeric tail'
+        $missingTail = ($newFixture | ConvertTo-Json -Depth 16 | ConvertFrom-Json)
+        ($missingTail.records | Where-Object { $_.type -eq 'clock_distribution' }).PSObject.Properties.Remove('p99')
+        Assert-Throws { Get-MetricRecordsFromRunResult $missingTail } 'missing nullable tail field'
+        $mixedSchemas = ($newFixture | ConvertTo-Json -Depth 16 | ConvertFrom-Json)
+        $mixedSchemas.records[0].schema_version = 7
+        Assert-Throws { Get-MetricRecordsFromRunResult $mixedSchemas } 'mixed source schemas'
+        $twenty = Get-Distribution @(1..20)
+        if ($twenty.p95 -ne 19 -or $null -ne $twenty.p99 -or $twenty.max -ne 20) { throw 'Twenty distinct values have one resolved tail rank.' }
+        $nineteen = Get-Distribution @(1..19)
+        if ($null -ne $nineteen.p95 -or $null -ne $nineteen.p99) { throw 'Nineteen values do not resolve tail ranks.' }
+        $tied = Get-Distribution @((1..20) | ForEach-Object { 20 })
+        if ($null -ne $tied.p95 -or $null -ne $tied.p99 -or $tied.max -ne 20) { throw 'Maximum-equal tails must remain null.' }
+        $mixedHistory = Join-Path $tempRoot 'MixedHistory.jsonl'
+        $legacyRow.run_id += '-old'
+        Add-HistoryRecords $mixedHistory @($legacyRow, $newMetrics[0])
+        $mixedRows = @(Read-History $mixedHistory)
+        if ($mixedRows.Count -ne 2 -or $mixedRows[0].schema_version -ne 1 -or $mixedRows[0].p95 -ne $legacyTails.p95 -or $mixedRows[1].schema_version -ne 2 -or $null -ne $mixedRows[1].p95) { throw 'Mixed history changed historical tail semantics.' }
 
         $values = @(10, 20, 30, 40, 50)
         $suiteCases = [Collections.Generic.List[object]]::new()

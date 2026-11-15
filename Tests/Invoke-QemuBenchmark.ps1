@@ -214,11 +214,12 @@ function Read-BenchmarkRecords([string[]]$Lines, $Request, $QemuExitCode) {
         } catch {
             throw ('Invalid JSON in SPECTRA PERFORMANCE machine-result block: ' + $Lines[$index])
         }
-        if ($record.schema -ne 'r4os.perfdiag.ndjson' -or [int]$record.schema_version -ne 7) {
+        if ($record.schema -ne 'r4os.perfdiag.ndjson' -or [int]$record.schema_version -notin @(7, 8)) {
             throw 'Unexpected SPECTRA PERFORMANCE result schema.'
         }
         $records.Add($record)
     }
+    if (@($records | ForEach-Object { $_.schema_version } | Sort-Object -Unique).Count -ne 1) { throw 'Mixed SPECTRA PERFORMANCE result schemas.' }
     $runRecords = @($records | Where-Object { $_.type -eq 'run' })
     if ($runRecords.Count -ne 1) { throw 'SPECTRA PERFORMANCE machine-result block must contain exactly one run record.' }
     $run = $runRecords[0]
@@ -272,6 +273,15 @@ function Invoke-SelfTest {
     )
     $records = Read-BenchmarkRecords $goodLog $request 0
     if ($records.Count -ne 2) { throw 'Complete machine block was not preserved.' }
+    $currentLog = @($goodLog | ForEach-Object { $_.Replace('"schema_version":7', '"schema_version":8') })
+    $currentRecords = Read-BenchmarkRecords $currentLog $request 0
+    if ($currentRecords.Count -ne 2 -or $currentRecords[0].schema_version -ne 8) { throw 'Current machine block was not preserved.' }
+    $mixedLog = @($currentLog)
+    $mixedLog[4] = $mixedLog[4].Replace('"schema_version":8', '"schema_version":7')
+    Assert-Throws { Read-BenchmarkRecords $mixedLog $request 0 } 'mixed machine schemas'
+    $unsupportedLog = @($currentLog | ForEach-Object { $_.Replace('"schema_version":8', '"schema_version":99') })
+    Assert-Throws { Read-BenchmarkRecords $unsupportedLog $request 0 } 'unsupported machine schema'
+
 
     Assert-Throws { Get-ValidatedRequest '' '0.1.0' 'warm' 5 $benchmarkEnvironmentId } 'missing request'
     Assert-Throws { Get-ValidatedRequest 'perfdiag-clock' '0.1.0' 'warm' 5 'unknown-environment' } 'environment mismatch'
