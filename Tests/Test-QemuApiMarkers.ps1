@@ -156,7 +156,7 @@ function Test-ClockSmokeContract {
         'SMP foundation [OK]',
         '[QUICKCHECK] BEGIN',
         'SPECTRA NETWORK limits: ok',
-        'Limits: tests=1 cases=10',
+        'Limits: tests=1 cases=11',
         '[QUICKCHECK] END',
         '[QUICKPROBE] result=DONE'
     )
@@ -215,7 +215,7 @@ function Test-ClockSmokeContract {
     if ($networkOk) {
         $body = $network.Groups['body'].Value
         $networkOk = $body.Contains('SPECTRA NETWORK limits: ok') -and
-            $body.Contains('Limits: tests=1 cases=10') -and
+            $body.Contains('Limits: tests=1 cases=11') -and
             [regex]::IsMatch($body, '(?im)^ERRORLEVEL=0\r?$') -and
             -not [regex]::IsMatch($body, '(?im)^ERRORLEVEL=(?:-[0-9]+|[1-9][0-9]*)\r?$') -and
             -not [regex]::IsMatch($body, '(?im)^\s*exit_code\s*=\s*-?[1-9][0-9]*\b')
@@ -326,7 +326,7 @@ if ($ClockSmoke) {
             '[CLOCKPROBE] result=OK source=TSC cpus=4 registered_mask=0x0000000F regressions=0 irq_delta=42 generation=2 max_skew_ns=300 calibration_ppm=120 fallback=none',
             '[QUICKCHECK] BEGIN',
             'SPECTRA NETWORK limits: ok',
-            'Limits: tests=1 cases=10',
+            'Limits: tests=1 cases=11',
             'ERRORLEVEL=0',
             '[QUICKCHECK] END',
             '[QUICKPROBE] result=DONE'
@@ -367,9 +367,9 @@ if ($ClockSmoke) {
                 $validClock.Replace('poll_fallback=0', 'poll_fallback=1'),
                 $validClock.Replace('ipi_switches=1', 'ipi_switches=0'),
                 $validClock.Replace('irq_delta=42', 'irq_delta=0'),
-                $validClock.Replace('cases=10', 'cases=9'),
+                $validClock.Replace('cases=11', 'cases=10'),
                 $validClock.Replace('ERRORLEVEL=0', 'ERRORLEVEL=1'),
-                ($validClock.Replace('Limits: tests=1 cases=10', '') + "`r`nLimits: tests=1 cases=10"),
+                ($validClock.Replace('Limits: tests=1 cases=11', '') + "`r`nLimits: tests=1 cases=11"),
                 ($validClock + "`r`n[CLOCKPROBE] result=FAILED"))) {
             if ((Test-ClockSmokeContract $invalidClock -Quiet) -eq 0) { throw 'invalid clock-smoke marker set was accepted' }
         }
