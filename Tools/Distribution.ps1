@@ -42,22 +42,35 @@ function Get-R4DistributionProfile($Context,[string]$Name) {
  return $profile
 }
 function Get-R4DistributionLegalNames {return @('R4OS-LICENSE.txt','R4OS-NOTICE.txt','THIRD-PARTY-NOTICES.txt','RUST-1.99-LIBRARY-LICENSES.html','Limine-BSD-2-Clause.txt','FreeType-FTL.txt','Brotli-MIT.txt','zlib.txt','stb_image-MIT.txt','LITTLECMS-LICENSE.txt','RTL8168-GPL-2.0-only.txt','libdisplay-info-MIT.txt','NVIDIA-570.144-LICENSE.txt','NVIDIA-570.144-HEADERS-LICENSE.txt','NVIDIA-570.144-GSP-BOOT-LICENSE.txt','NVIDIA-570.144-PRAMIN-LICENSE.txt','NVIDIA-570.144-BAR1-LICENSE.txt','NVIDIA-BOOT-DISPLAY-LICENSE.txt','NVIDIA-DISPLAY-CONTEXT-LICENSE.txt','NVIDIA-DISPLAY-COLOR-LICENSE.txt','NVIDIA-DISPLAY-ASSETS-LICENSE.txt','NVIDIA-CONNECTORS-LICENSE.txt','NVIDIA-GSP-LOG-LICENSE.txt','NVIDIA-GSP-RUNTIME-LICENSE.txt','NVGOB.TXT','R4NAK-NOTICES.txt','R4VK-NOTICES.txt','R4GL-NOTICES.txt','NATIVE-MATH-NOTICES.txt','NATIVE-SCAN-NOTICES.txt','R4VIDEO-NOTICES.txt','FFmpeg-LGPL-2.1.txt','R4ENC-NOTICES.txt','OpenH264-BSD-2-Clause.txt','AMD-FIRMWARE-LICENSE.txt','AMD-FIRMWARE-WHENCE.txt','AMDGPU-SOURCE-NOTICES.txt','R4AMD-NOTICES.txt','R4ACO-NOTICES.txt','uACPI-MIT.txt','UNICODE-DATA-NOTICES.txt','FONT8X8-PUBLIC-DOMAIN.txt')}
-function Test-R4DistributionLegal($Context,[string]$Plan='',[string]$Staged='') {
+function Get-R4DistributionLegalHashes($Context) {
+ $hashes=@{}
+ foreach($pair in @(@('LICENSE','R4OS-LICENSE.txt'),@('NOTICE','R4OS-NOTICE.txt'))){
+  $expected=(Get-FileHash -LiteralPath (Join-Path $Context.root $pair[0]) -Algorithm SHA256).Hash
+  $source=(Get-FileHash -LiteralPath (Join-Path $Context.legal $pair[1]) -Algorithm SHA256).Hash
+  if($expected -cne $source){throw 'Repository/image legal text differs.'}
+  $hashes[$pair[1]]=$expected
+ }
+ return $hashes
+}
+function Test-R4DistributionLegal($Context,[string]$Plan='',[string]$Staged='',[hashtable]$SourceHashes) {
+ if(!$PSBoundParameters.ContainsKey('SourceHashes')){$SourceHashes=Get-R4DistributionLegalHashes $Context}
  $text=if($Plan){Get-Content -Raw -LiteralPath $Plan}else{''}
  foreach($name in Get-R4DistributionLegalNames){
   if(!(Test-Path -LiteralPath (Join-Path $Context.legal $name) -PathType Leaf)){throw "Missing legal source: $name"}
   if($Plan -and !$text.Contains('/R4OS/LICENSES/'+$name)){throw "Image plan omits legal file: $name"}
-  if($Staged -and !(Test-Path -LiteralPath (Join-Path $Staged $name) -PathType Leaf)){throw "Missing staged legal file: $name"}
- }
- foreach($pair in @(@('LICENSE','R4OS-LICENSE.txt'),@('NOTICE','R4OS-NOTICE.txt'))){
-  if((Get-FileHash -LiteralPath (Join-Path $Context.root $pair[0])).Hash -cne (Get-FileHash -LiteralPath (Join-Path $Context.legal $pair[1])).Hash){throw 'Repository/image legal text differs.'}
+  if($Staged){
+   $path=Join-Path $Staged $name
+   if(!(Test-Path -LiteralPath $path -PathType Leaf)){throw "Missing staged legal file: $name"}
+   if($SourceHashes.ContainsKey($name) -and (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -cne $SourceHashes[$name]){throw "Staged legal text differs: $name"}
+  }
  }
 }
 function Copy-R4DistributionLegal($Context,[string]$Output) {
- Test-R4DistributionLegal $Context
+ $hashes=Get-R4DistributionLegalHashes $Context
+ Test-R4DistributionLegal $Context -SourceHashes $hashes
  $destination=Join-Path $Output 'Legal';[IO.Directory]::CreateDirectory($destination)|Out-Null
  Copy-Item -Path (Join-Path $Context.legal '*') -Destination $destination -Force
- Test-R4DistributionLegal $Context -Staged $destination
+ Test-R4DistributionLegal $Context -Staged $destination -SourceHashes $hashes
 }
 function Set-R4DistributionBootDriverConfig([string]$Plan) {
  # Resolve the effective config after all overlays. Optional GPU packages
