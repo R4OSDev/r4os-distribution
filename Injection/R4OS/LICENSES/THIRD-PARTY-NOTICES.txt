@@ -509,3 +509,5 @@ Original author notices/README accompany every image in
 /R4OS/LICENSES/FONT8X8-PUBLIC-DOMAIN.txt. Original headers, hashes, per-glyph
 assignments and row-bit transformation are retained under Assets/SystemFonts.
 Source: https://github.com/dhepper/font8x8
+
+Control Center includes Inter Regular and SemiBold by the Inter Project Authors and IBM Plex Mono Regular by IBM Corp. Both families use SIL OFL 1.1. See Inter-OFL.txt and IBM-Plex-OFL.txt.
